@@ -19,7 +19,6 @@ Implemented:
 
 Still pending outside M1:
 
-- Row edit/reorder/reset UI.
 - SAF/share export UI wiring.
 - Audio file cleanup.
 - Compose screenshot/manual device evidence.
@@ -29,6 +28,7 @@ M2 update:
 - Classic Mode can now save fake-generated rows through the `LibraryRepository` port into the Room-backed runtime repository.
 - The ViewModel uses the repository summary flow to show saved text count in Classic Mode.
 - Full open/archive/restore/delete lifecycle UI is implemented at repository/ViewModel/UI level in M7; screenshot/manual evidence is still pending.
+- Row edit/reorder/reset/delete/add workflow is implemented at ViewModel/UI level in M8; screenshot/manual evidence is still pending.
 
 ## Repository Interfaces
 
@@ -102,6 +102,16 @@ M7 Library tab behavior:
 - archive keeps the selected text open so the user can restore it immediately;
 - delete clears the selected text and removes it from summaries through Room cascade behavior.
 
+M8 row lifecycle behavior:
+
+- editing opens an inline row draft form for Hebrew original, niqqud, SBL transliteration, Russian phonetic transliteration, and Russian translation;
+- saving an edit sends only changed fields to `patchRow`;
+- reset restores repository-tracked edited fields without requiring the user to manually select each field in this first UI pass;
+- explicit `Up` and `Down` controls reorder rows through exact row ID validation;
+- `Delete row` removes the row and compacts order;
+- `Add row` appends at the end, while `Add after` inserts after a specific row;
+- new rows require at least one non-blank field.
+
 ## Testing Plan
 
 - Save/load round trip with Hebrew, niqqud, transliteration, Russian, tags.
@@ -119,6 +129,7 @@ M7 Library tab behavior:
 Implemented test file:
 
 - `app/src/test/java/com/sindromradiospb/ttsprototypev2/data/repository/RoomLibraryRepositoryTest.kt`
+- `app/src/test/java/com/sindromradiospb/ttsprototypev2/feature/library/LibraryViewModelTest.kt`
 
 ## Failure Behavior
 

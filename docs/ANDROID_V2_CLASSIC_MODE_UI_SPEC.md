@@ -95,6 +95,17 @@ M7 behavior:
 - A separate Library tab is available for browse/open/archive/restore/delete and row preview.
 - Classic Mode still shows the saved summary count, but detailed lifecycle actions live in the Library tab.
 
+M8 behavior:
+
+- Library row cards now expose inline editing instead of a compressed web table.
+- The row editor includes Hebrew original, Hebrew with niqqud, SBL transliteration, Russian phonetic transliteration, and Russian translation.
+- Save applies a single row mutation and keeps the selected text visible.
+- Reset restores fields that repository metadata marks as edited.
+- Reorder uses explicit `Up` and `Down` buttons with disabled edge states; drag-and-drop remains deferred.
+- `Add row`, `Add after`, and `Delete row` are available in the Library tab.
+- Row cards show `Edited` and `Added` badges from `EditMeta`.
+- Manual portrait/landscape and keyboard evidence is still pending in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.
@@ -109,7 +120,8 @@ M7 behavior:
 - [ ] Landscape screenshot or written result recorded.
 - [ ] Long Hebrew text verified.
 - [ ] Keyboard behavior verified.
-- [ ] Row edit sheet verified.
+- [x] Row edit workflow has unit-level evidence through `LibraryViewModelTest`.
+- [ ] Row edit workflow has manual device/emulator evidence.
 - [ ] TTS stale/missing states verified.
 - [ ] Error states verified.
 - [ ] IDE Mode remains visibly experimental.

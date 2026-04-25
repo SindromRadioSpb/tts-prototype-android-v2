@@ -3,9 +3,12 @@ package com.sindromradiospb.ttsprototypev2.feature.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sindromradiospb.ttsprototypev2.core.model.LibraryRow
 import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
+import com.sindromradiospb.ttsprototypev2.data.repository.EditableRowFields
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.RoomLibraryRepository
+import com.sindromradiospb.ttsprototypev2.data.repository.RowField
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,9 +24,54 @@ data class LibraryUiState(
     val includeArchived: Boolean = false,
     val summaries: List<LibraryTextSummary> = emptyList(),
     val selectedText: LibraryText? = null,
+    val editingRowId: String? = null,
+    val isAddingRow: Boolean = false,
+    val addingAfterRowId: String? = null,
+    val rowDraft: LibraryRowDraft = LibraryRowDraft(),
     val isLoading: Boolean = false,
     val message: String? = null,
 )
+
+data class LibraryRowDraft(
+    val hebrewPlain: String = "",
+    val hebrewNiqqud: String = "",
+    val translit: String = "",
+    val translitRu: String = "",
+    val russian: String = "",
+) {
+    fun nonBlankFields(): EditableRowFields =
+        EditableRowFields(
+            buildMap {
+                if (hebrewPlain.isNotBlank()) put(RowField.HebrewPlain, hebrewPlain)
+                if (hebrewNiqqud.isNotBlank()) put(RowField.HebrewNiqqud, hebrewNiqqud)
+                if (translit.isNotBlank()) put(RowField.Translit, translit)
+                if (translitRu.isNotBlank()) put(RowField.TranslitRu, translitRu)
+                if (russian.isNotBlank()) put(RowField.Russian, russian)
+            },
+        )
+
+    fun changedFields(row: LibraryRow): EditableRowFields =
+        EditableRowFields(
+            buildMap {
+                if (hebrewPlain != row.hebrewPlain) put(RowField.HebrewPlain, hebrewPlain)
+                if (hebrewNiqqud != row.hebrewNiqqud) put(RowField.HebrewNiqqud, hebrewNiqqud)
+                if (translit != row.translit) put(RowField.Translit, translit)
+                if (translitRu != row.translitRu) put(RowField.TranslitRu, translitRu)
+                if (russian != row.russian) put(RowField.Russian, russian)
+            },
+        )
+
+    companion object {
+        fun from(row: LibraryRow): LibraryRowDraft =
+            LibraryRowDraft(
+                hebrewPlain = row.hebrewPlain,
+                hebrewNiqqud = row.hebrewNiqqud,
+                translit = row.translit,
+                translitRu = row.translitRu,
+                russian = row.russian,
+            )
+    }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(
@@ -133,8 +181,154 @@ class LibraryViewModel(
         }
     }
 
+    fun startEditingRow(rowId: String) {
+        val row = uiState.value.selectedText?.rows?.firstOrNull { it.id == rowId } ?: return
+        _uiState.update {
+            it.copy(
+                editingRowId = rowId,
+                isAddingRow = false,
+                addingAfterRowId = null,
+                rowDraft = LibraryRowDraft.from(row),
+                message = null,
+            )
+        }
+    }
+
+    fun startAddingRow(afterRowId: String?) {
+        _uiState.update {
+            it.copy(
+                editingRowId = null,
+                isAddingRow = true,
+                addingAfterRowId = afterRowId,
+                rowDraft = LibraryRowDraft(),
+                message = null,
+            )
+        }
+    }
+
+    fun updateRowDraft(draft: LibraryRowDraft) {
+        _uiState.update { it.copy(rowDraft = draft, message = null) }
+    }
+
+    fun cancelRowEdit() {
+        _uiState.update {
+            it.copy(
+                editingRowId = null,
+                isAddingRow = false,
+                addingAfterRowId = null,
+                rowDraft = LibraryRowDraft(),
+                message = null,
+            )
+        }
+    }
+
+    fun saveEditingRow() {
+        val state = uiState.value
+        val selected = state.selectedText ?: return
+        val rowId = state.editingRowId ?: return
+        val row = selected.rows.firstOrNull { it.id == rowId } ?: return
+        val fields = state.rowDraft.changedFields(row)
+        if (fields.values.isEmpty()) {
+            _uiState.update { it.copy(message = "No row changes to save.") }
+            return
+        }
+        mutateSelected("Saved row ${row.orderIndex + 1}.") {
+            repository.patchRow(selected.id, rowId, fields)
+            repository.getText(selected.id)
+        }
+    }
+
+    fun saveNewRow() {
+        val state = uiState.value
+        val selected = state.selectedText ?: return
+        val fields = state.rowDraft.nonBlankFields()
+        if (fields.values.isEmpty()) {
+            _uiState.update { it.copy(message = "Enter at least one row field before adding a row.") }
+            return
+        }
+        mutateSelected("Added row.") {
+            repository.addRow(selected.id, state.addingAfterRowId, fields)
+            repository.getText(selected.id)
+        }
+    }
+
+    fun resetEditingRow() {
+        val state = uiState.value
+        val rowId = state.editingRowId ?: return
+        resetRow(rowId)
+    }
+
+    fun resetRow(rowId: String) {
+        val state = uiState.value
+        val selected = state.selectedText ?: return
+        val row = selected.rows.firstOrNull { it.id == rowId } ?: return
+        val editedFields = row.editMeta?.edited.orEmpty()
+            .filterValues { it }
+            .keys
+            .mapNotNull { rowFieldFromStorageKey(it) }
+            .toSet()
+        if (editedFields.isEmpty()) {
+            _uiState.update { it.copy(message = "No edited fields to reset.") }
+            return
+        }
+        mutateSelected("Reset row ${row.orderIndex + 1}.") {
+            repository.resetRowFields(selected.id, rowId, editedFields)
+            repository.getText(selected.id)
+        }
+    }
+
+    fun moveRow(rowId: String, offset: Int) {
+        val selected = uiState.value.selectedText ?: return
+        val rows = selected.rows.sortedBy { it.orderIndex }
+        val currentIndex = rows.indexOfFirst { it.id == rowId }
+        val nextIndex = currentIndex + offset
+        if (currentIndex !in rows.indices || nextIndex !in rows.indices) return
+        val nextIds = rows.map { it.id }.toMutableList()
+        val moved = nextIds.removeAt(currentIndex)
+        nextIds.add(nextIndex, moved)
+        mutateSelected("Moved row ${currentIndex + 1} to position ${nextIndex + 1}.") {
+            repository.reorderRows(selected.id, nextIds)
+            repository.getText(selected.id)
+        }
+    }
+
+    fun deleteRow(rowId: String) {
+        val selected = uiState.value.selectedText ?: return
+        val row = selected.rows.firstOrNull { it.id == rowId } ?: return
+        mutateSelected("Deleted row ${row.orderIndex + 1}.") {
+            repository.deleteRow(selected.id, rowId)
+            repository.getText(selected.id)
+        }
+    }
+
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    private fun mutateSelected(successMessage: String, block: suspend () -> LibraryText) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, message = null) }
+            runCatching { block() }.fold(
+                onSuccess = { text ->
+                    _uiState.update {
+                        it.copy(
+                            selectedText = text,
+                            editingRowId = null,
+                            isAddingRow = false,
+                            addingAfterRowId = null,
+                            rowDraft = LibraryRowDraft(),
+                            isLoading = false,
+                            message = successMessage,
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, message = "Could not update row: ${error.message.orEmpty()}")
+                    }
+                },
+            )
+        }
     }
 
     class Factory(
@@ -149,3 +343,13 @@ class LibraryViewModel(
         }
     }
 }
+
+private fun rowFieldFromStorageKey(key: String): RowField? =
+    when (key) {
+        "hebrew_plain" -> RowField.HebrewPlain
+        "hebrew_niqqud" -> RowField.HebrewNiqqud
+        "translit" -> RowField.Translit
+        "translit_ru" -> RowField.TranslitRu
+        "russian" -> RowField.Russian
+        else -> null
+    }

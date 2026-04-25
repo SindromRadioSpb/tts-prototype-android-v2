@@ -44,6 +44,7 @@ import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicGeneratedRowUi
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeUiState
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeViewModel
+import com.sindromradiospb.ttsprototypev2.feature.library.LibraryRowDraft
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryUiState
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryViewModel
 
@@ -95,6 +96,16 @@ fun AppRoot(
                 onArchiveSelected = { libraryViewModel.archiveSelected(archived = true) },
                 onRestoreSelected = { libraryViewModel.archiveSelected(archived = false) },
                 onDeleteSelected = libraryViewModel::deleteSelected,
+                onStartEditingRow = libraryViewModel::startEditingRow,
+                onStartAddingRow = libraryViewModel::startAddingRow,
+                onRowDraftChanged = libraryViewModel::updateRowDraft,
+                onSaveEditingRow = libraryViewModel::saveEditingRow,
+                onSaveNewRow = libraryViewModel::saveNewRow,
+                onResetEditingRow = libraryViewModel::resetEditingRow,
+                onResetRow = libraryViewModel::resetRow,
+                onCancelRowEdit = libraryViewModel::cancelRowEdit,
+                onMoveRow = libraryViewModel::moveRow,
+                onDeleteRow = libraryViewModel::deleteRow,
                 onDismissMessage = libraryViewModel::clearMessage,
                 modifier = Modifier.padding(innerPadding),
             )
@@ -313,6 +324,16 @@ fun LibraryScreen(
     onArchiveSelected: () -> Unit,
     onRestoreSelected: () -> Unit,
     onDeleteSelected: () -> Unit,
+    onStartEditingRow: (String) -> Unit,
+    onStartAddingRow: (String?) -> Unit,
+    onRowDraftChanged: (LibraryRowDraft) -> Unit,
+    onSaveEditingRow: () -> Unit,
+    onSaveNewRow: () -> Unit,
+    onResetEditingRow: () -> Unit,
+    onResetRow: (String) -> Unit,
+    onCancelRowEdit: () -> Unit,
+    onMoveRow: (String, Int) -> Unit,
+    onDeleteRow: (String) -> Unit,
     onDismissMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -365,11 +386,22 @@ fun LibraryScreen(
 
         state.selectedText?.let { selected ->
             SelectedLibraryTextCard(
+                state = state,
                 text = selected,
                 isLoading = state.isLoading,
                 onArchive = onArchiveSelected,
                 onRestore = onRestoreSelected,
                 onDelete = onDeleteSelected,
+                onStartEditingRow = onStartEditingRow,
+                onStartAddingRow = onStartAddingRow,
+                onRowDraftChanged = onRowDraftChanged,
+                onSaveEditingRow = onSaveEditingRow,
+                onSaveNewRow = onSaveNewRow,
+                onResetEditingRow = onResetEditingRow,
+                onResetRow = onResetRow,
+                onCancelRowEdit = onCancelRowEdit,
+                onMoveRow = onMoveRow,
+                onDeleteRow = onDeleteRow,
             )
         }
     }
@@ -401,11 +433,22 @@ private fun LibrarySummaryCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SelectedLibraryTextCard(
+    state: LibraryUiState,
     text: LibraryText,
     isLoading: Boolean,
     onArchive: () -> Unit,
     onRestore: () -> Unit,
     onDelete: () -> Unit,
+    onStartEditingRow: (String) -> Unit,
+    onStartAddingRow: (String?) -> Unit,
+    onRowDraftChanged: (LibraryRowDraft) -> Unit,
+    onSaveEditingRow: () -> Unit,
+    onSaveNewRow: () -> Unit,
+    onResetEditingRow: () -> Unit,
+    onResetRow: (String) -> Unit,
+    onCancelRowEdit: () -> Unit,
+    onMoveRow: (String, Int) -> Unit,
+    onDeleteRow: (String) -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -423,28 +466,179 @@ private fun SelectedLibraryTextCard(
                     OutlinedButton(onClick = onArchive, enabled = !isLoading) { Text("Archive") }
                 }
                 OutlinedButton(onClick = onDelete, enabled = !isLoading) { Text("Delete") }
+                OutlinedButton(
+                    onClick = { onStartAddingRow(text.rows.lastOrNull()?.id) },
+                    enabled = !isLoading,
+                ) {
+                    Text("Add row")
+                }
                 OutlinedButton(onClick = { }, enabled = false) { Text("Export ZIP") }
             }
-            text.rows.forEach { row ->
-                LibraryRowCard(row)
+            text.rows.forEachIndexed { index, row ->
+                LibraryRowCard(
+                    row = row,
+                    isEditing = state.editingRowId == row.id,
+                    draft = state.rowDraft,
+                    isLoading = isLoading,
+                    canMoveUp = index > 0,
+                    canMoveDown = index < text.rows.lastIndex,
+                    onStartEditing = { onStartEditingRow(row.id) },
+                    onStartAddingAfter = { onStartAddingRow(row.id) },
+                    onDraftChanged = onRowDraftChanged,
+                    onSave = onSaveEditingRow,
+                    onReset = onResetEditingRow,
+                    onResetWithoutEditor = { onResetRow(row.id) },
+                    onCancel = onCancelRowEdit,
+                    onMoveUp = { onMoveRow(row.id, -1) },
+                    onMoveDown = { onMoveRow(row.id, 1) },
+                    onDelete = { onDeleteRow(row.id) },
+                )
+                if (state.addingAfterRowId == row.id) {
+                    RowDraftEditor(
+                        title = "New row after ${index + 1}",
+                        draft = state.rowDraft,
+                        isLoading = isLoading,
+                        onDraftChanged = onRowDraftChanged,
+                        onSave = onSaveNewRow,
+                        onReset = null,
+                        onCancel = onCancelRowEdit,
+                    )
+                }
+            }
+            if (state.isAddingRow && text.rows.none { it.id == state.addingAfterRowId }) {
+                RowDraftEditor(
+                    title = "New first row",
+                    draft = state.rowDraft,
+                    isLoading = isLoading,
+                    onDraftChanged = onRowDraftChanged,
+                    onSave = onSaveNewRow,
+                    onReset = null,
+                    onCancel = onCancelRowEdit,
+                )
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LibraryRowCard(row: LibraryRow) {
+private fun LibraryRowCard(
+    row: LibraryRow,
+    isEditing: Boolean,
+    draft: LibraryRowDraft,
+    isLoading: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onStartEditing: () -> Unit,
+    onStartAddingAfter: () -> Unit,
+    onDraftChanged: (LibraryRowDraft) -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+    onResetWithoutEditor: () -> Unit,
+    onCancel: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Card {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Row ${row.orderIndex + 1}", style = MaterialTheme.typography.labelLarge)
-            Text(row.hebrewPlain, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
-            if (row.hebrewNiqqud.isNotBlank()) {
-                Text(row.hebrewNiqqud, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+            if (isEditing) {
+                RowDraftEditor(
+                    title = "Edit row ${row.orderIndex + 1}",
+                    draft = draft,
+                    isLoading = isLoading,
+                    onDraftChanged = onDraftChanged,
+                    onSave = onSave,
+                    onReset = onReset,
+                    onCancel = onCancel,
+                )
+            } else {
+                Text(row.hebrewPlain, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                if (row.hebrewNiqqud.isNotBlank()) {
+                    Text(row.hebrewNiqqud, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                }
+                if (row.translit.isNotBlank()) Text("SBL: ${row.translit}")
+                if (row.translitRu.isNotBlank()) Text("Russian phonetic: ${row.translitRu}")
+                if (row.russian.isNotBlank()) Text("Russian: ${row.russian}")
+                row.audioAssetKey?.let { AssistChip(onClick = { }, label = { Text("Audio linked") }) }
+                if (row.editMeta?.edited?.values?.any { it } == true) {
+                    AssistChip(onClick = { }, label = { Text("Edited") })
+                }
+                if (row.editMeta?.added == true) {
+                    AssistChip(onClick = { }, label = { Text("Added") })
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = onStartEditing, enabled = !isLoading) { Text("Edit") }
+                    OutlinedButton(onClick = onResetWithoutEditor, enabled = !isLoading) { Text("Reset") }
+                    OutlinedButton(onClick = onMoveUp, enabled = !isLoading && canMoveUp) { Text("Up") }
+                    OutlinedButton(onClick = onMoveDown, enabled = !isLoading && canMoveDown) { Text("Down") }
+                    OutlinedButton(onClick = onStartAddingAfter, enabled = !isLoading) { Text("Add after") }
+                    OutlinedButton(onClick = onDelete, enabled = !isLoading) { Text("Delete row") }
+                }
             }
-            if (row.translit.isNotBlank()) Text("SBL: ${row.translit}")
-            if (row.translitRu.isNotBlank()) Text("Russian phonetic: ${row.translitRu}")
-            if (row.russian.isNotBlank()) Text("Russian: ${row.russian}")
-            row.audioAssetKey?.let { AssistChip(onClick = { }, label = { Text("Audio linked") }) }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RowDraftEditor(
+    title: String,
+    draft: LibraryRowDraft,
+    isLoading: Boolean,
+    onDraftChanged: (LibraryRowDraft) -> Unit,
+    onSave: () -> Unit,
+    onReset: (() -> Unit)?,
+    onCancel: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            OutlinedTextField(
+                value = draft.hebrewPlain,
+                onValueChange = { onDraftChanged(draft.copy(hebrewPlain = it)) },
+                label = { Text("Hebrew original") },
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.End),
+                enabled = !isLoading,
+            )
+            OutlinedTextField(
+                value = draft.hebrewNiqqud,
+                onValueChange = { onDraftChanged(draft.copy(hebrewNiqqud = it)) },
+                label = { Text("Hebrew with niqqud") },
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.End),
+                enabled = !isLoading,
+            )
+            OutlinedTextField(
+                value = draft.translit,
+                onValueChange = { onDraftChanged(draft.copy(translit = it)) },
+                label = { Text("SBL transliteration") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+            )
+            OutlinedTextField(
+                value = draft.translitRu,
+                onValueChange = { onDraftChanged(draft.copy(translitRu = it)) },
+                label = { Text("Russian phonetic") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+            )
+            OutlinedTextField(
+                value = draft.russian,
+                onValueChange = { onDraftChanged(draft.copy(russian = it)) },
+                label = { Text("Russian translation") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = onSave, enabled = !isLoading) { Text("Save row") }
+                if (onReset != null) {
+                    OutlinedButton(onClick = onReset, enabled = !isLoading) { Text("Reset row") }
+                }
+                OutlinedButton(onClick = onCancel, enabled = !isLoading) { Text("Cancel") }
+            }
         }
     }
 }

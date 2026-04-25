@@ -22,6 +22,7 @@ Date: 2026-04-25
 | RISK-016 | Security | Google Online TTS service account JSON cannot be safely embedded in an Android APK. | High | High | Credential extraction from APK or Git leak. | Keep provider missing-configuration until M9 secure settings/credential strategy is implemented. | Resolve in M9 before enabling Google Online TTS. | Open | 2026-04-25 |
 | RISK-017 | Audio | `MediaPlayer` playback is not yet manually verified on device/emulator. | Medium | Medium | Audio controls may fail despite unit-level storage checks. | Keep UI playback controls disabled until M7/M12 evidence; add manual smoke before release. | Validate during M7/M12/M13. | Open | 2026-04-25 |
 | RISK-018 | UI | Library lifecycle UI is covered by ViewModel tests but not by Compose screenshot/manual device evidence. | Medium | Medium | Layout or touch issues may survive unit validation. | Keep actions simple, avoid destructive automation beyond explicit button press, add emulator evidence in M12/M13. | Capture UI evidence after navigation polish. | Open | 2026-04-25 |
+| RISK-019 | UI/Data | Row editing controls are covered by ViewModel tests but not by Compose/manual keyboard evidence. | Medium | Medium | Inline editor may be cramped on small screens or awkward with IME. | Use explicit buttons, keep fields vertical and scrollable, require manual keyboard/portrait/landscape evidence before release. | Capture during M12/M13 UI hardening. | Open | 2026-04-25 |
 
 ## Related Docs
 

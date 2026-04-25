@@ -72,7 +72,7 @@ git status --short --branch
 - local library summary propagation into UI state;
 - duplicate save conflict message without creating a second saved text.
 
-M2 does not yet include Compose UI tests or emulator evidence. Those become mandatory when row editing, playback, SAF export, IME/insets, or accessibility behavior changes.
+M2 does not include Compose UI tests or emulator evidence. Row editing now has M8 ViewModel coverage, but Compose screenshot/manual evidence remains mandatory before release hardening.
 
 ## Current M3 Coverage
 
@@ -138,6 +138,20 @@ M6 tests do not cover SAF/share-sheet UI because that UI is not implemented yet.
 `RoomLibraryRepositoryTest` covers hard delete removing the text from summaries and load paths.
 
 M7 does not yet include Compose screenshot tests or device manual evidence.
+
+## Current M8 Coverage
+
+`LibraryViewModelTest` covers:
+
+- opening a saved text and editing a row draft;
+- saving only changed row fields through the repository mutation path;
+- resetting edited row fields from `edit_meta`;
+- explicit row move up through persisted order;
+- deleting a row and compacting the selected text view;
+- adding a row after an existing row;
+- rejecting a new row with all fields blank.
+
+M8 does not include Compose screenshot tests, drag-and-drop tests, or device manual evidence. Explicit button reorder is the supported UI for this milestone.
 
 ## CI Expectations
 
