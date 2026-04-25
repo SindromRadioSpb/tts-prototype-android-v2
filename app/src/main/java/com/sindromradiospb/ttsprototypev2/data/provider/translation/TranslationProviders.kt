@@ -530,26 +530,34 @@ class GeminiLegacyTranslationProvider(
         }
 
     private fun rowsFromLooseGeminiText(text: String): List<GeneratedRow> =
+        looseRowsSearchRegion(text)
+            .let { rowsRegion ->
         Regex("""\{[^{}]*"(?:he|hebrew)"\s*:[^{}]*\}""", RegexOption.DOT_MATCHES_ALL)
-            .findAll(text)
-            .mapIndexedNotNull { index, match ->
-                val objectText = match.value
-                val he = looseStringField(objectText, "he").ifBlank { looseStringField(objectText, "hebrew") }
-                if (he.isBlank()) return@mapIndexedNotNull null
-                GeneratedRow(
-                    segmentIndex = looseIntField(objectText, "segment_index")
-                        ?: looseIntField(objectText, "index")
-                        ?: index,
-                    hebrewPlain = he,
-                    hebrewNiqqud = looseStringField(objectText, "he_niqqud"),
-                    translit = looseStringField(objectText, "translit"),
-                    translitRu = looseStringField(objectText, "translit_ru"),
-                    russian = looseStringField(objectText, "ru")
-                        .ifBlank { looseStringField(objectText, "russian") }
-                        .ifBlank { looseStringField(objectText, "translation") },
-                )
+                .findAll(rowsRegion)
+                .mapIndexedNotNull { index, match ->
+                    val objectText = match.value
+                    val he = looseStringField(objectText, "he").ifBlank { looseStringField(objectText, "hebrew") }
+                    if (he.isBlank()) return@mapIndexedNotNull null
+                    GeneratedRow(
+                        segmentIndex = looseIntField(objectText, "segment_index")
+                            ?: looseIntField(objectText, "index")
+                            ?: index,
+                        hebrewPlain = he,
+                        hebrewNiqqud = looseStringField(objectText, "he_niqqud"),
+                        translit = looseStringField(objectText, "translit"),
+                        translitRu = looseStringField(objectText, "translit_ru"),
+                        russian = looseStringField(objectText, "ru")
+                            .ifBlank { looseStringField(objectText, "russian") }
+                            .ifBlank { looseStringField(objectText, "translation") },
+                    )
+                }
+                .toList()
             }
-            .toList()
+
+    private fun looseRowsSearchRegion(text: String): String {
+        val rowsMatch = Regex("\"rows\"\\s*:\\s*\\[").find(text) ?: return text
+        return text.substring(rowsMatch.range.last + 1)
+    }
 
     private fun looseStringField(objectText: String, field: String): String {
         val knownFields = "segment_index|index|he|hebrew|he_niqqud|translit|translit_ru|ru|russian|translation"

@@ -106,6 +106,10 @@ P025 provider error status:
 
 - Gemini loose row recovery regex patterns must escape literal closing braces so Android runtime does not surface `PatternSyntaxException` as a provider failure.
 
+P026 provider error status:
+
+- Gemini loose row recovery must scope object extraction to the `rows` array when `segments` is present. Segment-only objects must not become visible table rows with only the Hebrew column populated.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)

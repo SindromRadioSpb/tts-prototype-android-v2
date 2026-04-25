@@ -367,6 +367,43 @@ class TranslationProvidersTest {
     }
 
     @Test
+    fun geminiLegacyLooseRecoveryIgnoresSegmentsObjects() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = geminiCandidateText(
+                        """
+                        {
+                          "segments": [
+                            {"index":1,"he":"רק סגמנט אחד"},
+                            {"index":2,"he":"רק סגמנט שתיים"}
+                          ],
+                          "rows": [
+                            {"segment_index":1,"he":"שורת טבלה אחת","he_niqqud":"שורת","translit":"shurat","ru":"Первая строка"}
+                            {"segment_index":2,"he":"שורת טבלה שתיים","he_niqqud":"שורת","translit":"shurat","ru":"Вторая строка"}
+                          ]
+                        }
+                        """.trimIndent(),
+                    ),
+                ),
+            ),
+        )
+
+        val response = provider.translate(
+            TranslationRequest(sourceText = "רק סגמנט אחד\nרק סגמנט שתיים", providerId = TranslationProviderId.GeminiLegacy),
+        ).getOrThrow()
+
+        assertEquals(2, response.rows.size)
+        assertEquals("שורת טבלה אחת", response.rows.first().hebrewPlain)
+        assertEquals("Первая строка", response.rows.first().russian)
+        assertEquals("Вторая строка", response.rows.last().russian)
+    }
+
+    @Test
     fun geminiLegacyMalformedCandidateJsonReturnsInvalidResponse() = runTest {
         val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
         settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
