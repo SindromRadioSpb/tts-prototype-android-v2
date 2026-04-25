@@ -17,7 +17,7 @@ Completed:
 
 Current documentation package status:
 
-- Premium documentation control plane is being added in the docs-only patch `docs(android): add premium migration documentation control plane`.
+- Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
 - Next implementation milestone after this package is M1: Local Room library storage.
 
 ## Dependency Graph
