@@ -16,7 +16,7 @@ M8 editing/reorder/reset behavior is implemented in commit `e17cd9e`.
 M9 API key/settings/security is implemented in commit `7e3a082`.
 M9 follow-up keyed provider smoke adapters are implemented in commit `0f3990c`: stored single-line credentials now feed GCP Translate, Gemini, and Google Online TTS HTTP adapters, while raw service account JSON remains blocked.
 Classic Mode / Library v3 mobile parity based on v4 screenshots is now specified in `docs/ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md`.
-P014 implements the first native v4 parity pass: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards without clipping, text-level metadata editor, and Room schema version 2 metadata fields.
+P014 implements the first native v4 parity pass in commit `844239b`: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards without clipping, text-level metadata editor, and Room schema version 2 metadata fields.
 
 Completed:
 
@@ -344,6 +344,8 @@ Implementation required after P013:
 - Add JSON credential attach/validate/delete UI and update provider settings implementation accordingly.
 
 ## P014 Classic Mobile v4 UI Implementation Status
+
+Implemented in commit `844239b`.
 
 Implemented in this patch:
 
