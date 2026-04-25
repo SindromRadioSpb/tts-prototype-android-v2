@@ -222,7 +222,10 @@ class TranslationProvidersTest {
         assertEquals("shalom", response.rows.single().translit)
         assertEquals("Здравствуйте", response.rows.single().russian)
         assertEquals("gemini-flash-latest", response.provenance.model)
-        assertTrue(httpClient.lastBody.contains("responseMimeType"))
+        assertTrue(httpClient.lastBody.contains("Split the input Hebrew text into logical sentences"))
+        assertTrue(httpClient.lastBody.contains("Translate each segment into Russian"))
+        assertTrue(!httpClient.lastBody.contains("responseMimeType"))
+        assertTrue(!httpClient.lastBody.contains("Add Hebrew niqqud"))
     }
 
     @Test
@@ -271,6 +274,35 @@ class TranslationProvidersTest {
         ).getOrThrow()
 
         assertEquals(7, response.rows.single().segmentIndex)
+        assertEquals("Привет", response.rows.single().russian)
+    }
+
+    @Test
+    fun geminiLegacyUsesSegmentsAsCanonicalHebrewSource() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = geminiCandidateText(
+                        """
+                        {
+                          "segments": [{"index":1,"he":"שלום מהסגמנט"}],
+                          "rows": [{"segment_index":1,"he":"","he_niqqud":"שָׁלוֹם","translit":"shalom","ru":"Привет"}]
+                        }
+                        """.trimIndent(),
+                    ),
+                ),
+            ),
+        )
+
+        val response = provider.translate(
+            TranslationRequest(sourceText = "שלום מהסגמנט", providerId = TranslationProviderId.GeminiLegacy),
+        ).getOrThrow()
+
+        assertEquals("שלום מהסגמנט", response.rows.single().hebrewPlain)
         assertEquals("Привет", response.rows.single().russian)
     }
 
@@ -326,6 +358,30 @@ class TranslationProvidersTest {
 
         assertEquals(ProviderErrorCategory.InvalidResponse, error.category)
         assertTrue(error.userMessage.contains("Gemini table rows returned an invalid response envelope"))
+    }
+
+    @Test
+    fun geminiLegacyInvalidHttpEnvelopeReturnsInvalidResponseNotUnknown() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = "not a gemini json envelope",
+                ),
+            ),
+        )
+
+        val error = assertSuspendProviderException {
+            provider.translate(
+                TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GeminiLegacy),
+            ).getOrThrow()
+        }
+
+        assertEquals(ProviderErrorCategory.InvalidResponse, error.category)
+        assertTrue(error.userMessage.contains("Gemini HTTP response returned an invalid response envelope"))
     }
 
     @Test

@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.add
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -411,7 +412,6 @@ class GeminiLegacyTranslationProvider(
                     buildJsonObject {
                         put("temperature", 0.1)
                         put("maxOutputTokens", 4096)
-                        put("responseMimeType", "application/json")
                     },
                 )
             },
@@ -432,10 +432,8 @@ class GeminiLegacyTranslationProvider(
 
         Task:
         1) Split the input Hebrew text into logical sentences / segments in the original order.
-        2) Add Hebrew niqqud for each segment.
-        3) Transliterate each niqqud segment using SBL Academic transliteration.
-        4) Translate each segment into Russian.
-        5) Produce JSON with:
+        2) Translate each segment into Russian.
+        3) Produce JSON with:
            - "segments": list of original segments.
            - "rows": table rows for the UI, one row per segment.
 
@@ -471,7 +469,7 @@ class GeminiLegacyTranslationProvider(
         val text = extractGeminiText(body)
         val jsonText = stripJsonFence(text)
         val parsedRows = runCatching {
-            rowsFromJsonElements(rowsFromGeminiJson(json.parseToJsonElement(jsonText)))
+            rowsFromGeminiPayload(json.parseToJsonElement(jsonText))
         }.getOrElse { error ->
             rowsFromLooseGeminiText(jsonText).ifEmpty {
                 throw invalidEnvelope(
@@ -485,13 +483,41 @@ class GeminiLegacyTranslationProvider(
         return parsedRows
     }
 
-    private fun rowsFromJsonElements(rows: JsonArray): List<GeneratedRow> =
+    private fun rowsFromGeminiPayload(root: JsonElement): List<GeneratedRow> {
+        if (root is JsonArray) return rowsFromJsonElements(root, emptyMap())
+        val payload = root.jsonObject
+        val rows = payload["rows"]?.jsonArray ?: throw invalidEnvelope(id.wireId, "Gemini table rows")
+        val segmentsByIndex = payload["segments"]
+            ?.jsonArray
+            ?.mapIndexedNotNull { index, element ->
+                val segment = runCatching { element.jsonObject }.getOrNull() ?: return@mapIndexedNotNull null
+                val segmentIndex = segment["index"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+                    ?.takeIf { it > 0 }
+                    ?: (index + 1)
+                val he = segment["he"]?.jsonPrimitive?.contentOrNull.orEmpty().trim()
+                if (he.isBlank()) null else segmentIndex to he
+            }
+            ?.toMap()
+            .orEmpty()
+        return rowsFromJsonElements(rows, segmentsByIndex)
+    }
+
+    private fun rowsFromJsonElements(
+        rows: JsonArray,
+        segmentsByIndex: Map<Int, String>,
+    ): List<GeneratedRow> =
         rows.mapIndexedNotNull { index, element ->
             val row = runCatching { element.jsonObject }.getOrElse { return@mapIndexedNotNull null }
-            val he = row["he"]?.jsonPrimitive?.contentOrNull.orEmpty().trim()
+            val segmentIndex = row["segment_index"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+                ?.takeIf { it > 0 }
+                ?: row["index"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+                    ?.takeIf { it > 0 }
+                ?: (index + 1)
+            val he = segmentsByIndex[segmentIndex]
+                ?: row["he"]?.jsonPrimitive?.contentOrNull.orEmpty().trim()
             if (he.isBlank()) return@mapIndexedNotNull null
             GeneratedRow(
-                segmentIndex = row["segment_index"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: index,
+                segmentIndex = segmentIndex,
                 hebrewPlain = he,
                 hebrewNiqqud = row["he_niqqud"]?.jsonPrimitive?.contentOrNull.orEmpty().trim(),
                 translit = row["translit"]?.jsonPrimitive?.contentOrNull.orEmpty().trim(),
@@ -499,14 +525,8 @@ class GeminiLegacyTranslationProvider(
                 russian = row["ru"]?.jsonPrimitive?.contentOrNull
                     ?: row["russian"]?.jsonPrimitive?.contentOrNull
                     ?: row["translation"]?.jsonPrimitive?.contentOrNull
-                    ?: "",
+                ?: "",
             )
-        }
-
-    private fun rowsFromGeminiJson(root: JsonElement): JsonArray =
-        when (root) {
-            is JsonArray -> root
-            else -> root.jsonObject["rows"]?.jsonArray ?: throw invalidEnvelope(id.wireId, "Gemini table rows")
         }
 
     private fun rowsFromLooseGeminiText(text: String): List<GeneratedRow> =
@@ -552,22 +572,30 @@ class GeminiLegacyTranslationProvider(
             ?.toIntOrNull()
 
     private fun extractGeminiText(body: String): String {
-        val text = json.parseToJsonElement(body)
-            .jsonObject["candidates"]
-            ?.jsonArray
-            ?.firstOrNull()
-            ?.jsonObject
-            ?.get("content")
-            ?.jsonObject
-            ?.get("parts")
-            ?.jsonArray
-            ?.firstOrNull()
-            ?.jsonObject
-            ?.get("text")
-            ?.jsonPrimitive
-            ?.contentOrNull
-            .orEmpty()
-            .trim()
+        val text = runCatching {
+            json.parseToJsonElement(body)
+                .jsonObject["candidates"]
+                ?.jsonArray
+                ?.firstOrNull()
+                ?.jsonObject
+                ?.get("content")
+                ?.jsonObject
+                ?.get("parts")
+                ?.jsonArray
+                ?.firstOrNull()
+                ?.jsonObject
+                ?.get("text")
+                ?.jsonPrimitive
+                ?.contentOrNull
+                .orEmpty()
+                .trim()
+        }.getOrElse { error ->
+            throw invalidEnvelope(
+                providerId = id.wireId,
+                label = "Gemini HTTP response",
+                details = error.message,
+            )
+        }
         if (text.isBlank()) throw invalidEnvelope(id.wireId, "Gemini table response")
         return text
     }
@@ -671,6 +699,18 @@ private fun <T> Result<T>.mapFailureToProviderException(providerId: String): Res
                 category = ProviderErrorCategory.NetworkUnavailable,
                 providerId = providerId,
                 userMessage = "Network is unavailable for translation.",
+                cause = error,
+            )
+            is SerializationException -> ProviderException(
+                category = ProviderErrorCategory.InvalidResponse,
+                providerId = providerId,
+                userMessage = "Translation provider returned invalid JSON: ${error.message.orEmpty().take(220)}",
+                cause = error,
+            )
+            is IllegalArgumentException -> ProviderException(
+                category = ProviderErrorCategory.InvalidResponse,
+                providerId = providerId,
+                userMessage = "Translation provider returned invalid data: ${error.message.orEmpty().take(220)}",
                 cause = error,
             )
             else -> ProviderException(

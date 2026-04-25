@@ -717,8 +717,13 @@ P020 implementation status:
 
 P021 implementation status:
 
-- Gemini table generation uses `gemini-flash-latest`, explicit JSON response mode, and HTTP 400 body-aware error mapping.
+- Gemini table generation uses `gemini-flash-latest` and HTTP 400 body-aware error mapping.
 - Settings credential validation copy now says format validation to avoid implying a completed Gemini network health check.
+
+P024 implementation status:
+
+- Gemini table generation follows the source prototype `/api/translate-table` prompt/parser contract: plain `generateContent` prompt, no REST JSON response mode, and source-style `segments` + `rows` normalization.
+- Malformed Gemini HTTP/candidate envelopes surface as `InvalidResponse`, not generic `Unknown`.
 
 ## UI DoD Evidence Checklist
 

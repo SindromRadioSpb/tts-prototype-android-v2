@@ -97,6 +97,11 @@ P023 provider error status:
 - Gemini parsing now attempts a best-effort row recovery from partially malformed candidate JSON before failing. This covers common model mistakes such as a missing comma between row objects while preserving visible `InvalidResponse` for unrecoverable output.
 - Visible Classic/Settings error message cards must use selectable text so users can copy diagnostics with touch or mouse.
 
+P024 provider error status:
+
+- Gemini malformed outer HTTP envelopes, missing candidate text, malformed candidate JSON, and invalid `segments`/`rows` payloads must surface as `InvalidResponse`, not `Unknown`.
+- Gemini table generation follows the source prototype prompt/parser contract. A valid response must contain row data recoverable from `rows` and may use `segments` as canonical Hebrew source text.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)

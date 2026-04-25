@@ -188,9 +188,15 @@ P020 behavior:
 P021 behavior:
 
 - Gemini table generation uses `gemini-flash-latest`, matching the source prototype's `@google/generative-ai` model choice.
-- Gemini REST requests set `generationConfig.responseMimeType=application/json` so the provider is explicitly asked for JSON output.
+- Superseded by P024: Gemini REST requests intentionally do not set `generationConfig.responseMimeType`; Android v2 follows the source prototype's plain `generateContent(prompt)` behavior and parses the model text.
 - Gemini HTTP 400 is now classified from Google's error body: real API-key messages remain `InvalidApiKey`, while malformed request/model/payload messages are `InvalidResponse` and include the sanitized Google message.
 - Settings validation wording now says credential format validation, because it does not perform a network health check.
+
+P024 behavior:
+
+- Gemini prompt text is aligned with the source prototype `/api/translate-table` prompt: split Hebrew into logical segments, translate each segment into Russian, and return one JSON object containing `segments` and `rows`.
+- Gemini row normalization now mirrors source `buildRowsFromGeminiPayload`: `segments[index].he` is treated as the canonical Hebrew source for each row, while `rows` supplies `he_niqqud`, `translit`, and `ru`.
+- Malformed outer Gemini HTTP envelopes and malformed candidate JSON are mapped to `InvalidResponse` instead of generic `Unknown`.
 
 ## Accessibility and Insets
 
