@@ -13,7 +13,7 @@ M5 audio storage and playback layer is implemented in commit `c82a734`.
 M6 export ZIP with audio is implemented in commit `4ac57c9`.
 M7 library UI and saved text lifecycle is implemented in commit `4396158`.
 M8 editing/reorder/reset behavior is implemented in commit `e17cd9e`.
-M9 API key/settings/security is being implemented in patch P011.
+M9 API key/settings/security is implemented in commit `7e3a082`.
 
 Completed:
 
@@ -27,7 +27,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Current implementation milestone is M9: API key/settings/security.
+- Next implementation milestone after M9 is M10: IDE Mode experimental integration.
 
 ## Dependency Graph
 
@@ -61,7 +61,7 @@ M13 -> M14
 | M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | Completed in `4ac57c9`; SAF/share UI evidence remains future work. |
 | M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, and save/update library texts. | Repository tests and Compose UI tests. | Keep library screen behind navigation item until stable. | Completed in `4396158`; manual UI evidence remains future work. |
 | M8 - Editing/reorder/reset behavior | Medium | Edit row fields, reset, reorder, delete, add rows while preserving metadata. | `LibraryViewModelTest`, repository regression tests, UI evidence later. | Disable row mutation actions if persistence invariant breaks. | Completed in `e17cd9e`; manual UI evidence remains future work. |
-| M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows. | Settings repository/ViewModel tests, no-secret export/log tests. | Keep real providers disabled until provider-specific auth is safe. | In progress: `feat(settings): add secure provider configuration`. |
+| M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows. | Settings repository/ViewModel tests, no-secret export/log tests. | Keep real providers disabled until provider-specific auth is safe. | Completed in `7e3a082`; manual Keystore/UI evidence remains future work. |
 | M10 - IDE Mode experimental integration | Medium | Keep IDE Mode separate and experimental with shared models only. | Navigation tests, no Classic dependency regression. | Hide IDE entry if it destabilizes Classic. | `feat(ide): define experimental workspace shell`. |
 | M11 - Import/compatibility layer | Medium | Import Android ZIP and compatible old web JSON where possible. | Import fixture tests and partial import tests. | Import remains read-only preview until safe. | `feat(import): add library compatibility import`. |
 | M12 - Premium UI/UX polish | Medium | Improve native phone UX, accessibility, RTL, insets, long text. | UI DoD evidence and accessibility smoke tests. | Keep functional UI if polish causes regressions. | `feat(ui): polish classic mode premium workflow`. |
@@ -285,7 +285,7 @@ Still out of scope for M8:
 
 ## M9 Implementation Status
 
-Implemented in patch P011, pending commit hash:
+Implemented in patch P011, commit `7e3a082`:
 
 - `ProviderCredentialId` defines the provider credentials currently allowed in Settings: `gcp_translate`, `gemini_legacy`, and `google_online_tts`.
 - `AndroidKeystoreSecureKeyValueStore` stores credential values in `SharedPreferences` encrypted with an Android Keystore AES/GCM key.
