@@ -1917,7 +1917,9 @@ private fun DisclosureSurfaceCard(
 private fun MessageCard(message: String, onDismiss: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(message)
+            SelectionContainer {
+                Text(message)
+            }
             SecondaryActionButton("Dismiss", onDismiss)
         }
     }

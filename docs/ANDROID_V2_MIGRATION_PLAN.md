@@ -23,6 +23,7 @@ P019 fixes parity regressions found during user smoke: Google Translate Free now
 P020 fixes follow-up Classic smoke regressions: translation-provider changes rebuild the existing table, System fallback TTS hides unsupported profile controls and reports missing Android TTS engines explicitly, transliteration fallback is fixture-tested against the source prototype, and table cells support touch/mouse text selection.
 P021 fixes Gemini HTTP 400 handling: Android now uses the source-compatible `gemini-flash-latest` model alias, requests JSON output explicitly, maps HTTP 400 by Google's error body instead of treating every 400 as an invalid API key, and clarifies that Settings validation is local format validation.
 P022 hardens Gemini response parsing: malformed candidate JSON and unexpected row envelopes now surface as `InvalidResponse` with details instead of generic `Unknown`, while top-level row arrays and `translation`/`russian` aliases are accepted.
+P023 adds Gemini loose row recovery for partially malformed candidate JSON and makes visible message/error cards selectable for copy diagnostics.
 Classic Mode / Library v3 mobile parity based on v4 screenshots is now specified in `docs/ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md`.
 P014 implements the first native v4 parity pass in commit `844239b`: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards without clipping, text-level metadata editor, and Room schema version 2 metadata fields.
 

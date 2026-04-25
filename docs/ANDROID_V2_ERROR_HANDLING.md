@@ -92,6 +92,11 @@ P022 provider error status:
 - Gemini successful HTTP responses whose candidate text is malformed, not an object with `rows`, or otherwise unparsable must be `InvalidResponse`, never generic `Unknown`.
 - Gemini parsing accepts both `{ "rows": [...] }` and a top-level row array, and accepts Russian translation under `ru`, `russian`, or `translation`.
 
+P023 provider error status:
+
+- Gemini parsing now attempts a best-effort row recovery from partially malformed candidate JSON before failing. This covers common model mistakes such as a missing comma between row objects while preserving visible `InvalidResponse` for unrecoverable output.
+- Visible Classic/Settings error message cards must use selectable text so users can copy diagnostics with touch or mouse.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)

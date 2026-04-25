@@ -469,16 +469,24 @@ class GeminiLegacyTranslationProvider(
 
     internal fun parseGeminiTableResponse(body: String): List<GeneratedRow> {
         val text = extractGeminiText(body)
-        val rows = runCatching {
-            rowsFromGeminiJson(json.parseToJsonElement(stripJsonFence(text)))
+        val jsonText = stripJsonFence(text)
+        val parsedRows = runCatching {
+            rowsFromJsonElements(rowsFromGeminiJson(json.parseToJsonElement(jsonText)))
         }.getOrElse { error ->
-            throw invalidEnvelope(
-                providerId = id.wireId,
-                label = "Gemini table rows",
-                details = error.message,
-            )
+            rowsFromLooseGeminiText(jsonText).ifEmpty {
+                throw invalidEnvelope(
+                    providerId = id.wireId,
+                    label = "Gemini table rows",
+                    details = error.message,
+                )
+            }
         }
-        val parsedRows = rows.mapIndexedNotNull { index, element ->
+        if (parsedRows.isEmpty()) throw invalidEnvelope(id.wireId, "Gemini table rows")
+        return parsedRows
+    }
+
+    private fun rowsFromJsonElements(rows: JsonArray): List<GeneratedRow> =
+        rows.mapIndexedNotNull { index, element ->
             val row = runCatching { element.jsonObject }.getOrElse { return@mapIndexedNotNull null }
             val he = row["he"]?.jsonPrimitive?.contentOrNull.orEmpty().trim()
             if (he.isBlank()) return@mapIndexedNotNull null
@@ -494,15 +502,54 @@ class GeminiLegacyTranslationProvider(
                     ?: "",
             )
         }
-        if (parsedRows.isEmpty()) throw invalidEnvelope(id.wireId, "Gemini table rows")
-        return parsedRows
-    }
 
     private fun rowsFromGeminiJson(root: JsonElement): JsonArray =
         when (root) {
             is JsonArray -> root
             else -> root.jsonObject["rows"]?.jsonArray ?: throw invalidEnvelope(id.wireId, "Gemini table rows")
         }
+
+    private fun rowsFromLooseGeminiText(text: String): List<GeneratedRow> =
+        Regex("""\{[^{}]*"(?:he|hebrew)"\s*:[^{}]*}""", RegexOption.DOT_MATCHES_ALL)
+            .findAll(text)
+            .mapIndexedNotNull { index, match ->
+                val objectText = match.value
+                val he = looseStringField(objectText, "he").ifBlank { looseStringField(objectText, "hebrew") }
+                if (he.isBlank()) return@mapIndexedNotNull null
+                GeneratedRow(
+                    segmentIndex = looseIntField(objectText, "segment_index")
+                        ?: looseIntField(objectText, "index")
+                        ?: index,
+                    hebrewPlain = he,
+                    hebrewNiqqud = looseStringField(objectText, "he_niqqud"),
+                    translit = looseStringField(objectText, "translit"),
+                    translitRu = looseStringField(objectText, "translit_ru"),
+                    russian = looseStringField(objectText, "ru")
+                        .ifBlank { looseStringField(objectText, "russian") }
+                        .ifBlank { looseStringField(objectText, "translation") },
+                )
+            }
+            .toList()
+
+    private fun looseStringField(objectText: String, field: String): String {
+        val knownFields = "segment_index|index|he|hebrew|he_niqqud|translit|translit_ru|ru|russian|translation"
+        return Regex(
+            """"$field"\s*:\s*"([\s\S]*?)(?="\s*,\s*"(?:$knownFields)"\s*:|"\s*}|$)""",
+        ).find(objectText)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.replace("\\n", "\n")
+            ?.replace("\\\"", "\"")
+            ?.trim()
+            .orEmpty()
+    }
+
+    private fun looseIntField(objectText: String, field: String): Int? =
+        Regex(""""$field"\s*:\s*(\d+)""")
+            .find(objectText)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
 
     private fun extractGeminiText(body: String): String {
         val text = json.parseToJsonElement(body)

@@ -61,7 +61,7 @@ Current runtime wiring:
 
 - `google_translate_free`: implemented as a source-prototype-compatible best-effort adapter using `translate.googleapis.com/translate_a/single`, `client=gtx`, legacy Hebrew source code `sl=iw`, browser User-Agent, and a newline batch request before individual fallback.
 - `gcp_translate`: implemented as Google Cloud Translation adapter. It supports v3 service-account JSON bearer auth and legacy v2 restricted API keys, and maps HTTP failures into provider categories without fallback.
-- `gemini_legacy`: implemented as keyed Gemini adapter for full Classic table generation. It asks Gemini for strict JSON with segments, Hebrew, niqqud, SBL transliteration, and Russian translation, sets JSON response mode, then maps rows into the Android table model without hidden fallback. Parser hardening accepts `{ "rows": [...] }` or top-level row arrays and maps malformed candidate JSON to `InvalidResponse`.
+- `gemini_legacy`: implemented as keyed Gemini adapter for full Classic table generation. It asks Gemini for strict JSON with segments, Hebrew, niqqud, SBL transliteration, and Russian translation, sets JSON response mode, then maps rows into the Android table model without hidden fallback. Parser hardening accepts `{ "rows": [...] }` or top-level row arrays, recovers rows from partially malformed candidate JSON when row objects are still present, and maps unrecoverable malformed candidate JSON to `InvalidResponse`.
 
 ## Allowed TTS Providers
 
