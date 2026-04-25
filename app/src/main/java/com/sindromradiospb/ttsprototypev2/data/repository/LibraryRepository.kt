@@ -12,13 +12,25 @@ import com.sindromradiospb.ttsprototypev2.data.db.AudioAssetEntity
 import com.sindromradiospb.ttsprototypev2.data.db.LibraryRowEntity
 import com.sindromradiospb.ttsprototypev2.data.db.LibraryTextEntity
 import com.sindromradiospb.ttsprototypev2.data.db.RowAudioEntity
+import com.sindromradiospb.ttsprototypev2.data.db.TextAudioEntity
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 data class LibraryTextSummary(
     val textId: String,
@@ -96,6 +108,21 @@ data class AudioAssetInput(
     val isMissing: Boolean = false,
 )
 
+enum class LegacyWebImportMode {
+    SKIP,
+    AS_NEW,
+}
+
+data class LegacyWebLibraryImportResult(
+    val mode: LegacyWebImportMode,
+    val importedCount: Int,
+    val skippedCount: Int,
+    val errorCount: Int,
+    val rowCount: Int,
+    val missingAudioLinkCount: Int,
+    val errors: List<String>,
+)
+
 interface LibraryRepository {
     fun observeTexts(includeArchived: Boolean): Flow<List<LibraryTextSummary>>
     suspend fun getText(textId: String): LibraryText
@@ -122,7 +149,7 @@ class RoomLibraryRepository(
                     textKey = it.textKey,
                     title = it.title,
                     level = it.level,
-                    tags = json.decodeFromString(it.tagsJson),
+                    tags = decodeTags(it.tagsJson),
                     sourceLabel = it.sourceLabel,
                     topic = it.topic,
                     createdAt = it.createdAt,
@@ -338,6 +365,180 @@ class RoomLibraryRepository(
             requireText(textId)
         }
 
+    suspend fun importLegacyWebLibraryJson(
+        payload: String,
+        mode: LegacyWebImportMode = LegacyWebImportMode.SKIP,
+    ): LegacyWebLibraryImportResult =
+        database.withTransaction {
+            val root = json.decodeFromString<JsonObject>(payload)
+            val exportType = root.stringOrNull("exportType")
+            require(exportType == null || exportType == "linguist-pro-library") {
+                "Unsupported exportType: ${exportType.orEmpty()}"
+            }
+
+            val items = root["texts"]?.jsonArray.orEmpty()
+            require(items.isNotEmpty()) { "Legacy library export does not contain texts." }
+
+            var importedCount = 0
+            var skippedCount = 0
+            var errorCount = 0
+            var rowCount = 0
+            var missingAudioLinkCount = 0
+            val errors = mutableListOf<String>()
+
+            for (itemElement in items) {
+                val item = itemElement.jsonObject
+                val textObject = (item["text"] ?: item["meta"] ?: itemElement).jsonObject
+                val titleForError = textObject.stringOrNull("title").orEmpty().ifBlank { "Untitled" }
+                var insertedTextId: String? = null
+                try {
+                    val sourceText = textObject.stringOrNull("source_text")
+                        ?: textObject.stringOrNull("sourceText")
+                        ?: ""
+                    if (sourceText.isBlank()) {
+                        errorCount++
+                        errors += "$titleForError: NO_SOURCE_TEXT"
+                        continue
+                    }
+
+                    val ttsProfileJson = textObject.rawJsonOrNull("tts_profile_json", "ttsProfile")
+                    val tableModelMetaJson = textObject.rawJsonOrNull("table_model_meta_json", "tableModelMeta")
+                    val sourceMetaJson = textObject.rawJsonOrNull("source_meta_json", "sourceMeta")
+                    val sourceTextKey = textObject.stringOrNull("text_key")
+                        ?: textObject.stringOrNull("textKey")
+                    val textKey = if (mode == LegacyWebImportMode.AS_NEW || sourceTextKey.isNullOrBlank()) {
+                        computeLegacyWebTextKey(
+                            sourceText = sourceText,
+                            ttsProfileJson = ttsProfileJson,
+                            tableModelMetaJson = if (mode == LegacyWebImportMode.AS_NEW) {
+                                appendImportSalt(tableModelMetaJson)
+                            } else {
+                                tableModelMetaJson
+                            },
+                        )
+                    } else {
+                        sourceTextKey
+                    }
+
+                    if (mode == LegacyWebImportMode.SKIP && dao.getTextByKey(textKey) != null) {
+                        skippedCount++
+                        continue
+                    }
+
+                    val sentences = item["sentences"]?.jsonArray.orEmpty()
+                    if (sentences.isEmpty()) {
+                        errorCount++
+                        errors += "$titleForError: NO_SENTENCES"
+                        continue
+                    }
+
+                    val now = clock()
+                    val textId = idFactory()
+                    val createdAt = textObject.stringOrNull("created_at") ?: now
+                    val updatedAt = textObject.stringOrNull("updated_at") ?: now
+                    val progress = item["progress"]?.jsonObject
+                    val lastOpenedAt = textObject.stringOrNull("last_opened_at")
+                        ?: progress?.stringOrNull("lastOpenedAt")
+                    val tags = textObject.tagsFromLegacy()
+                    val textEntity = LibraryTextEntity(
+                        textId = textId,
+                        textKey = textKey,
+                        title = textObject.stringOrNull("title")?.takeIf { it.isNotBlank() }
+                            ?: guessTitle(sourceText),
+                        level = textObject.stringOrNull("level")?.trim()?.takeIf { it.isNotEmpty() },
+                        tagsJson = json.encodeToString(normalizeTags(tags)),
+                        sourceLabel = textObject.stringOrNull("source")?.trim()?.takeIf { it.isNotEmpty() },
+                        topic = textObject.stringOrNull("topic")?.trim()?.takeIf { it.isNotEmpty() },
+                        sourceText = sourceText.trim(),
+                        sourceMetaJson = sourceMetaJson,
+                        tableModelMetaJson = tableModelMetaJson,
+                        ttsProfileJson = ttsProfileJson,
+                        isArchived = textObject.boolCompat("is_archived") || textObject.boolCompat("isArchived"),
+                        createdAt = createdAt,
+                        updatedAt = updatedAt,
+                        lastOpenedAt = lastOpenedAt,
+                        schemaVersion = 1,
+                    )
+
+                    dao.insertText(textEntity)
+                    insertedTextId = textId
+                    val rowEntitiesRaw = sentences.mapIndexed { index, sentenceElement ->
+                        val sentence = sentenceElement.jsonObject
+                        LibraryRowEntity(
+                            rowId = idFactory(),
+                            textId = textId,
+                            orderIndex = sentence.intOrNull("order_index") ?: index,
+                            hebrewPlain = sentence.stringOrNull("he_plain")
+                                ?: sentence.stringOrNull("he")
+                                ?: "",
+                            hebrewNiqqud = sentence.stringOrNull("he_niqqud")
+                                ?: sentence.stringOrNull("heNiq")
+                                ?: sentence.stringOrNull("he_niqqud_text")
+                                ?: "",
+                            translit = sentence.stringOrNull("translit").orEmpty(),
+                            translitRu = sentence.stringOrNull("translit_ru").orEmpty(),
+                            russian = sentence.stringOrNull("ru").orEmpty(),
+                            rowHash = sentence.stringOrNull("row_hash"),
+                            editMetaJson = null,
+                            sourceMetaJson = sentence.rawJsonOrNull("meta_json"),
+                            createdAt = sentence.stringOrNull("created_at") ?: createdAt,
+                            updatedAt = updatedAt,
+                        )
+                    }
+                    val rowEntities = rowEntitiesRaw.sortedBy { it.orderIndex }
+                        .mapIndexed { index, row -> row.copy(orderIndex = index) }
+                    val rowEntitiesById = rowEntities.associateBy { it.rowId }
+                    var itemMissingAudioLinkCount = 0
+
+                    dao.insertRows(rowEntities)
+
+                    itemMissingAudioLinkCount += importMissingAudioLink(
+                        ownerType = "text",
+                        ownerId = textId,
+                        assetKey = textObject.stringOrNull("audio_asset_key"),
+                        ttsProfileJson = textObject.rawJsonOrNull("audio_tts_profile_json")
+                            ?: ttsProfileJson,
+                        createdAt = createdAt,
+                    )
+
+                    sentences.zip(rowEntitiesRaw).forEach { (sentenceElement, originalRowEntity) ->
+                        val sentence = sentenceElement.jsonObject
+                        val rowEntity = rowEntitiesById.getValue(originalRowEntity.rowId)
+                        itemMissingAudioLinkCount += importMissingAudioLink(
+                            ownerType = "row",
+                            ownerId = rowEntity.rowId,
+                            assetKey = sentence.stringOrNull("audio_asset_key"),
+                            ttsProfileJson = sentence.rawJsonOrNull("audio_tts_profile_json")
+                                ?: ttsProfileJson,
+                            createdAt = rowEntity.createdAt,
+                        )
+                    }
+
+                    rowCount += rowEntities.size
+                    missingAudioLinkCount += itemMissingAudioLinkCount
+                    importedCount++
+                } catch (error: Exception) {
+                    insertedTextId?.let { textId ->
+                        runCatching { dao.deleteText(textId) }
+                    }
+                    errorCount++
+                    if (errors.size < 50) {
+                        errors += "$titleForError: ${error.message.orEmpty()}"
+                    }
+                }
+            }
+
+            LegacyWebLibraryImportResult(
+                mode = mode,
+                importedCount = importedCount,
+                skippedCount = skippedCount,
+                errorCount = errorCount,
+                rowCount = rowCount,
+                missingAudioLinkCount = missingAudioLinkCount,
+                errors = errors.take(50),
+            )
+        }
+
     suspend fun linkDefaultRowAudio(rowId: String, input: AudioAssetInput) {
         database.withTransaction {
             dao.insertAudioAsset(input.toEntity(createdAt = clock()))
@@ -430,13 +631,13 @@ class RoomLibraryRepository(
             textKey = textKey,
             title = title,
             level = level,
-            tags = json.decodeFromString(tagsJson),
+            tags = decodeTags(tagsJson),
             sourceLabel = sourceLabel,
             topic = topic,
             sourceText = sourceText,
-            sourceMeta = sourceMetaJson?.let { json.decodeFromString(it) },
-            ttsProfile = ttsProfileJson?.let { json.decodeFromString(it) },
-            tableModelMeta = tableModelMetaJson?.let { json.decodeFromString(it) },
+            sourceMeta = sourceMetaJson?.decodeOrNull(),
+            ttsProfile = ttsProfileJson?.decodeOrNull(),
+            tableModelMeta = tableModelMetaJson?.decodeOrNull(),
             rows = rows,
             isArchived = isArchived,
             createdAt = createdAt,
@@ -478,7 +679,146 @@ class RoomLibraryRepository(
         )
 
     private fun decodeEditMeta(editMetaJson: String?): EditMeta =
-        editMetaJson?.let { json.decodeFromString(it) } ?: EditMeta()
+        editMetaJson?.decodeOrNull() ?: EditMeta()
+
+    private inline fun <reified T> String.decodeOrNull(): T? =
+        runCatching { json.decodeFromString<T>(this) }.getOrNull()
+
+    private fun decodeTags(tagsJson: String): List<String> =
+        runCatching { json.decodeFromString<List<String>>(tagsJson) }.getOrElse { emptyList() }
+
+    private suspend fun importMissingAudioLink(
+        ownerType: String,
+        ownerId: String,
+        assetKey: String?,
+        ttsProfileJson: String?,
+        createdAt: String,
+    ): Int {
+        val key = assetKey?.trim()?.takeIf { it.isNotEmpty() } ?: return 0
+        if (dao.getAudioAsset(key) == null) {
+            val profile = ttsProfileJson?.parseJsonObjectOrNull()
+            dao.insertAudioAsset(
+                AudioAssetEntity(
+                    assetKey = key,
+                    fileName = safeAudioFileName(key),
+                    relativePath = "audio/missing/${sha256(key).take(24)}.missing",
+                    mimeType = "application/octet-stream",
+                    providerId = profile?.stringOrNull("providerId")
+                        ?: profile?.stringOrNull("provider")
+                        ?: "legacy_web_import",
+                    voiceName = profile?.stringOrNull("voiceName"),
+                    language = profile?.stringOrNull("language") ?: "he-IL",
+                    durationMs = null,
+                    sizeBytes = null,
+                    contentHash = null,
+                    createdAt = createdAt,
+                    provenanceJson = buildJsonObject {
+                        put("origin", "legacy_web_json_import")
+                        put("asset_key", key)
+                        if (ttsProfileJson != null) put("tts_profile", ttsProfileJson)
+                    }.toString(),
+                    isMissing = true,
+                ),
+            )
+        }
+        when (ownerType) {
+            "text" -> dao.insertTextAudio(
+                TextAudioEntity(
+                    textId = ownerId,
+                    assetKey = key,
+                    isDefault = true,
+                    isStale = true,
+                    staleReason = "legacy_web_json_missing_audio_file",
+                    createdAt = createdAt,
+                ),
+            )
+            "row" -> dao.insertRowAudio(
+                RowAudioEntity(
+                    rowId = ownerId,
+                    assetKey = key,
+                    isDefault = true,
+                    isStale = true,
+                    staleReason = "legacy_web_json_missing_audio_file",
+                    createdAt = createdAt,
+                ),
+            )
+        }
+        return 1
+    }
+
+    private fun String.parseJsonObjectOrNull(): JsonObject? =
+        runCatching { json.decodeFromString<JsonObject>(this) }.getOrNull()
+
+    private fun JsonObject.stringOrNull(name: String): String? =
+        this[name]?.jsonPrimitive?.contentOrNull
+
+    private fun JsonObject.intOrNull(name: String): Int? =
+        this[name]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+
+    private fun JsonObject.boolCompat(name: String): Boolean {
+        val primitive = this[name]?.jsonPrimitive ?: return false
+        return primitive.booleanOrNull ?: (primitive.contentOrNull == "1")
+    }
+
+    private fun JsonObject.rawJsonOrNull(vararg names: String): String? {
+        for (name in names) {
+            val value = this[name] ?: continue
+            if (value is JsonNull) continue
+            return if (value is JsonPrimitive && value.isString) {
+                value.contentOrNull?.takeIf { it.isNotBlank() }
+            } else {
+                value.toString()
+            }
+        }
+        return null
+    }
+
+    private fun JsonObject.tagsFromLegacy(): List<String> {
+        val tags = this["tags"]
+        if (tags != null && tags !is JsonNull) {
+            runCatching {
+                return tags.jsonArray.mapNotNull { it.jsonPrimitive.contentOrNull }
+            }
+        }
+        val tagsJson = stringOrNull("tags_json") ?: return emptyList()
+        return runCatching { json.decodeFromString<List<String>>(tagsJson) }.getOrElse { emptyList() }
+    }
+
+    private fun computeLegacyWebTextKey(
+        sourceText: String,
+        ttsProfileJson: String?,
+        tableModelMetaJson: String?,
+    ): String {
+        val payload = buildJsonObject {
+            put("v", 1)
+            put("sourceText", sourceText.replace("\r\n", "\n").replace("\r", "\n").trim())
+            put("ttsProfile", ttsProfileJson?.let { json.decodeFromString<JsonElement>(it) } ?: JsonNull)
+            put("tableModelMeta", tableModelMetaJson?.let { json.decodeFromString<JsonElement>(it) } ?: JsonNull)
+        }
+        return sha256(payload.toString())
+    }
+
+    private fun appendImportSalt(tableModelMetaJson: String?): String =
+        buildJsonObject {
+            val original = tableModelMetaJson?.parseJsonObjectOrNull()
+            if (original != null) {
+                original.forEach { (key, value) -> put(key, value) }
+            }
+            put("importSalt", idFactory())
+        }.toString()
+
+    private fun safeAudioFileName(assetKey: String): String =
+        assetKey.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "legacy-audio" }.take(96)
+
+    private fun guessTitle(sourceText: String): String =
+        sourceText.replace("\r\n", "\n")
+            .replace("\r", "\n")
+            .trim()
+            .lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.isNotEmpty() }
+            ?.take(80)
+            ?: "Untitled"
 
     private fun LibraryRowEntity.valueFor(field: RowField): String =
         when (field) {

@@ -143,6 +143,56 @@ Current limits:
 - import remains future work;
 - provider event export is still deferred until provider call logging is populated.
 
+## P016 Legacy Web JSON Import Status
+
+P016 implements the first compatibility importer for source prototype exports shaped like:
+
+```json
+{
+  "exportType": "linguist-pro-library",
+  "exportVersion": 1,
+  "texts": [
+    {
+      "text": {
+        "text_key": "...",
+        "title": "...",
+        "level": "alef+",
+        "tags_json": "[\"song\"]",
+        "source_text": "...",
+        "source": "https://...",
+        "topic": "lyrics"
+      },
+      "sentences": [
+        {
+          "order_index": 0,
+          "he_plain": "...",
+          "he_niqqud": "...",
+          "translit": "...",
+          "ru": "...",
+          "audio_asset_key": "..."
+        }
+      ],
+      "progress": null
+    }
+  ]
+}
+```
+
+Implemented mapping:
+
+- `texts[].text.text_key` is preserved and used for duplicate detection.
+- `title`, `level`, `tags_json`/`tags`, `source_text`, `source`, `topic`, `created_at`, `updated_at`, `last_opened_at`, and `is_archived` map to `library_texts`.
+- `sentences[]` maps to `library_rows` with Hebrew plain, niqqud, translit, Russian, row hash, and legacy `meta_json` stored as row source metadata.
+- legacy `tts_profile_json`, `table_model_meta_json`, and `source_meta_json` are stored as raw JSON for export compatibility; domain decoding treats incompatible legacy provider IDs as optional metadata instead of crashing the UI.
+- `audio_asset_key` links are imported as missing audio placeholders in `audio_assets`, `row_audio`, and `text_audio`, because the old JSON export does not include binary audio files.
+- The UI `Импорт Библиотеки` button opens Android SAF for `.json` files and imports in safe `skip` mode.
+
+Current limits:
+
+- Old JSON import does not reconstruct actual audio files; subsequent Android ZIP export reports those links as missing audio.
+- Progress is only partially represented through `last_opened_at`; Android v2 has no dedicated progress table yet.
+- Android ZIP import remains future work.
+
 ## Android Storage Behavior
 
 - Use Android Storage Access Framework for user-selected destination.
@@ -152,17 +202,20 @@ Current limits:
 
 ## Import Strategy
 
-Future import supports:
+Import support now includes:
+
+- Old web JSON import from `GET /api/library/export` shape with safe duplicate skipping.
+
+Future import still needs:
 
 - Android v2 ZIP import with schema version checks.
-- Old web JSON import from `GET /api/library/export` shape where fields can be mapped.
 
 Old web import compatibility:
 
 - `texts` maps to `library_texts`.
 - `sentences` maps to `library_rows`.
-- audio references are imported as missing unless an audio bundle is present.
-- unsupported web-only metadata is stored in `source_meta` or ignored with import report entry.
+- audio references are imported as missing placeholders because the legacy JSON has no audio bundle.
+- unsupported web-only metadata is stored in raw JSON columns where available or ignored with an import report entry.
 
 ## Privacy Warning
 

@@ -54,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -79,6 +80,9 @@ import com.sindromradiospb.ttsprototypev2.feature.library.LibraryViewModel
 import com.sindromradiospb.ttsprototypev2.feature.settings.SettingsUiState
 import com.sindromradiospb.ttsprototypev2.feature.settings.SettingsViewModel
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val AppBackground = Color(0xFFF4F6F8)
 private val PanelBackground = Color(0xFFFFFFFF)
@@ -178,6 +182,7 @@ fun AppRoot(
                 onMetadataDraftChanged = libraryViewModel::updateMetadataDraft,
                 onSaveMetadata = libraryViewModel::saveMetadata,
                 onCancelMetadataEdit = libraryViewModel::cancelMetadataEdit,
+                onImportLibraryJson = libraryViewModel::importLegacyWebLibraryJson,
                 onDismissMessage = libraryViewModel::clearMessage,
             )
         }
@@ -534,6 +539,7 @@ private fun LibraryV3Modal(
     onMetadataDraftChanged: (LibraryTextMetadataDraft) -> Unit,
     onSaveMetadata: () -> Unit,
     onCancelMetadataEdit: () -> Unit,
+    onImportLibraryJson: (String) -> Unit,
     onDismissMessage: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -543,6 +549,34 @@ private fun LibraryV3Modal(
     var sortMode by rememberSaveable { mutableStateOf(LibrarySortMode.LAST_OPENED) }
     var selectedTags by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var localNotice by rememberSaveable { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val importReadScope = rememberCoroutineScope()
+    val importJsonPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            importReadScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)
+                            ?.bufferedReader(Charsets.UTF_8)
+                            ?.use { it.readText() }
+                            .orEmpty()
+                    }
+                }
+                result.fold(
+                    onSuccess = { text ->
+                        if (text.isBlank()) {
+                            localNotice = "Выбранный JSON пуст."
+                        } else {
+                            onImportLibraryJson(text)
+                        }
+                    },
+                    onFailure = { error ->
+                        localNotice = "Не удалось прочитать JSON: ${error.message.orEmpty()}"
+                    },
+                )
+            }
+        }
+    }
 
     val tagCounts = remember(state.summaries) { buildTagCounts(state.summaries) }
     val filtered = remember(state.summaries, query, level, selectedTags, tagsMode, searchScope, sortMode) {
@@ -582,7 +616,10 @@ private fun LibraryV3Modal(
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SecondaryActionButton("Экспорт Библиотеки", onClick = { localNotice = "ZIP export UI будет подключён в M6/M7." })
-                    SecondaryActionButton("Импорт Библиотеки", onClick = { localNotice = "Import пока не реализован; silent fail запрещён." })
+                    SecondaryActionButton(
+                        "Импорт Библиотеки",
+                        onClick = { importJsonPicker.launch(arrayOf("application/json", "text/*")) },
+                    )
                     SecondaryActionButton("Обновить", onClick = { localNotice = "Список синхронизирован с локальной Room Flow." })
                     SecondaryActionButton("Закрыть", onClick = onClose)
                 }

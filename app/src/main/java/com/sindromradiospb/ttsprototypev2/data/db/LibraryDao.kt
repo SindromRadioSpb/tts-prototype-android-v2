@@ -103,6 +103,9 @@ interface LibraryDao {
     @Query("SELECT * FROM row_audio WHERE row_id = :rowId AND is_default = 1")
     suspend fun getDefaultRowAudio(rowId: String): RowAudioEntity?
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTextAudio(textAudio: TextAudioEntity)
+
     @Query("SELECT * FROM library_texts ORDER BY updated_at DESC, text_id ASC")
     suspend fun getTextsForExport(): List<LibraryTextEntity>
 

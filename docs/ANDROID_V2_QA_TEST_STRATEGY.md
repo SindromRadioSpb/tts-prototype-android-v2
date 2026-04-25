@@ -126,6 +126,18 @@ M5 tests do not play real audio on a device. Manual emulator/device playback evi
 
 M6 tests do not cover SAF/share-sheet UI because that UI is not implemented yet.
 
+## Current M11 Legacy Import Coverage
+
+`RoomLibraryRepositoryTest` covers:
+
+- importing source-prototype `exportType=linguist-pro-library` JSON;
+- mapping `text_key`, title, level, tags, source URL, topic, archive/date fields, and rows into Room;
+- preserving Hebrew/Russian mixed text in imported row/card data;
+- importing legacy row/text `audio_asset_key` values as missing audio placeholders;
+- skipping duplicate imports by `text_key`.
+
+P016 does not cover Android ZIP import yet. Manual SAF import evidence with a real exported JSON file is still required.
+
 ## Current M7 Coverage
 
 `LibraryViewModelTest` covers:

@@ -220,6 +220,45 @@ class RoomLibraryRepositoryTest {
     }
 
     @Test
+    fun importLegacyWebLibraryJsonPreservesPrototypeCardFields() = runTest {
+        val result = repository.importLegacyWebLibraryJson(legacyWebExportJson())
+
+        val summary = repository.observeTexts(includeArchived = true).first().single()
+        val loaded = repository.getText(summary.textId)
+        val dao = database.libraryDao()
+
+        assertEquals(1, result.importedCount)
+        assertEquals(2, result.rowCount)
+        assertEquals(2, result.missingAudioLinkCount)
+        assertEquals("legacy-key-1", loaded.textKey)
+        assertEquals("Position 1. כולם גנבים - אושר כהן", loaded.title)
+        assertEquals("alef+", loaded.level)
+        assertEquals(listOf("hitlist.mako", "song"), loaded.tags)
+        assertEquals("https://www.youtube.com/watch?v=demo", loaded.sourceLabel)
+        assertEquals("lyrics", loaded.topic)
+        assertEquals("2026-04-19T02:10:00.000Z", loaded.createdAt)
+        assertEquals("2026-04-19T02:20:00.000Z", loaded.updatedAt)
+        assertEquals("2026-04-19T02:30:00.000Z", loaded.lastOpenedAt)
+        assertEquals(listOf("כולם", "גנבים"), loaded.rows.map { it.hebrewPlain })
+        assertEquals("kulam", loaded.rows[0].translit)
+        assertEquals("все", loaded.rows[0].russian)
+        assertEquals("asset-row-1", loaded.rows[0].audioAssetKey)
+        assertEquals(true, dao.getAudioAsset("asset-row-1")?.isMissing)
+        assertEquals(true, dao.getAudioAsset("asset-text-1")?.isMissing)
+    }
+
+    @Test
+    fun importLegacyWebLibraryJsonSkipsDuplicateTextKey() = runTest {
+        val first = repository.importLegacyWebLibraryJson(legacyWebExportJson())
+        val second = repository.importLegacyWebLibraryJson(legacyWebExportJson())
+
+        assertEquals(1, first.importedCount)
+        assertEquals(0, second.importedCount)
+        assertEquals(1, second.skippedCount)
+        assertEquals(1, repository.observeTexts(includeArchived = true).first().size)
+    }
+
+    @Test
     fun archiveHidesTextFromDefaultSummaryFlow() = runTest {
         val saved = (repository.saveGeneratedText(sampleRequest()) as SaveTextResult.Saved).text
 
@@ -310,6 +349,76 @@ class RoomLibraryRepositoryTest {
             language = "he",
             provenanceJson = """{"requested_provider_id":"google_online_tts"}""",
         )
+
+    private fun legacyWebExportJson(): String =
+        """
+        {
+          "exportType": "linguist-pro-library",
+          "exportVersion": 1,
+          "exportedAt": "2026-04-19T02:53:24.734Z",
+          "texts": [
+            {
+              "text": {
+                "id": "web-text-1",
+                "text_key": "legacy-key-1",
+                "title": "Position 1. כולם גנבים - אושר כהן",
+                "level": "alef+",
+                "tags_json": "[\"hitlist.mako\",\"song\",\"hitlist.mako\"]",
+                "source_text": "כולם\nגנבים",
+                "source_meta_json": "{\"origin\":\"web-prototype\"}",
+                "tts_profile_json": "{\"language\":\"he-IL\",\"voiceName\":null,\"speakingRate\":0.8,\"pitch\":2.5}",
+                "table_model_meta_json": "{\"promptId\":\"he-ru-table-v2\",\"model\":\"madlad-400-10b-ct2-int8f16@v1\",\"provider\":\"madlad\"}",
+                "audio_asset_key": "asset-text-1",
+                "audio_tts_profile_json": "{\"language\":\"he-IL\"}",
+                "source": "https://www.youtube.com/watch?v=demo",
+                "topic": "lyrics",
+                "is_archived": 0,
+                "created_at": "2026-04-19T02:10:00.000Z",
+                "updated_at": "2026-04-19T02:20:00.000Z",
+                "last_opened_at": "2026-04-19T02:30:00.000Z",
+                "tags": ["hitlist.mako", "song"]
+              },
+              "sentences": [
+                {
+                  "id": "web-row-1",
+                  "text_id": "web-text-1",
+                  "order_index": 0,
+                  "he_plain": "כולם",
+                  "he_niqqud": "כֻּלָּם",
+                  "translit": "kulam",
+                  "ru": "все",
+                  "row_hash": "row-hash-1",
+                  "meta_json": "{\"verbs\":[]}",
+                  "created_at": "2026-04-19T02:11:00.000Z",
+                  "audio_asset_key": "asset-row-1",
+                  "audio_tts_profile_json": "{\"language\":\"he-IL\"}"
+                },
+                {
+                  "id": "web-row-2",
+                  "text_id": "web-text-1",
+                  "order_index": 1,
+                  "he_plain": "גנבים",
+                  "he_niqqud": "גַּנָּבִים",
+                  "translit": "ganavim",
+                  "ru": "воры",
+                  "row_hash": "row-hash-2",
+                  "meta_json": null,
+                  "created_at": "2026-04-19T02:12:00.000Z",
+                  "audio_asset_key": "",
+                  "audio_tts_profile_json": ""
+                }
+              ],
+              "progress": {
+                "textId": "web-text-1",
+                "lastOpenedAt": "2026-04-19T02:31:00.000Z",
+                "lastRowIdx": 1,
+                "lastStepId": null,
+                "updatedAt": "2026-04-19T02:31:00.000Z"
+              }
+            }
+          ]
+        }
+        """.trimIndent()
 
     private suspend fun assertFailsWithMessage(
         expectedMessage: String,

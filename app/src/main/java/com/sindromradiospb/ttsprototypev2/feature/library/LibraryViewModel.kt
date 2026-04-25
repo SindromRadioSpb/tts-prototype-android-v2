@@ -6,11 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.sindromradiospb.ttsprototypev2.core.model.LibraryRow
 import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.data.repository.EditableRowFields
+import com.sindromradiospb.ttsprototypev2.data.repository.LegacyWebImportMode
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.RoomLibraryRepository
 import com.sindromradiospb.ttsprototypev2.data.repository.RowField
 import com.sindromradiospb.ttsprototypev2.data.repository.TextMetadataUpdate
 import java.time.Instant
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +23,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class LibraryUiState(
     val includeArchived: Boolean = false,
@@ -90,6 +94,7 @@ data class LibraryRowDraft(
 class LibraryViewModel(
     private val repository: RoomLibraryRepository,
     private val clock: () -> String = { Instant.now().toString() },
+    private val importDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
     private val includeArchived = MutableStateFlow(false)
     private val _uiState = MutableStateFlow(LibraryUiState())
@@ -283,6 +288,37 @@ class LibraryViewModel(
                                 validationMessage = "Could not save metadata: ${error.message.orEmpty()}",
                             ),
                         )
+                    }
+                },
+            )
+        }
+    }
+
+    fun importLegacyWebLibraryJson(payload: String) {
+        viewModelScope.launch {
+            if (payload.isBlank()) {
+                _uiState.update { it.copy(message = "Import file is empty.") }
+                return@launch
+            }
+            _uiState.update { it.copy(isLoading = true, message = null) }
+            runCatching {
+                withContext(importDispatcher) {
+                    repository.importLegacyWebLibraryJson(payload, LegacyWebImportMode.SKIP)
+                }
+            }.fold(
+                onSuccess = { result ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            message = "Импортировано: ${result.importedCount}; строк: ${result.rowCount}; " +
+                                "пропущено дублей: ${result.skippedCount}; ошибок: ${result.errorCount}; " +
+                                "audio links missing: ${result.missingAudioLinkCount}.",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, message = "Import failed: ${error.message.orEmpty()}")
                     }
                 },
             )
