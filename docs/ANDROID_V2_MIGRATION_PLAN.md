@@ -224,4 +224,4 @@ Required before each implementation checkpoint:
 - [x] Android lint passing: `.\gradlew.bat lint`.
 - [x] Git repository initialized with remote.
 - [x] Initial commit created.
-- [ ] Initial commit pushed if remote access is available.
+- [x] Initial commit pushed to `origin/main`.
