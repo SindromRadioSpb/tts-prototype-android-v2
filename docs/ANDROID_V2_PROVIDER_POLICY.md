@@ -2,43 +2,61 @@
 
 Date: 2026-04-25
 
-## Allowed Translation Providers
+This policy is binding for runtime code, docs, tests, UI labels, and future provider additions.
 
-- `google_translate_free` - online, no stored key, best-effort path equivalent to the current `google-free` provider.
-- `gcp_translate` - online, user-configured Google Cloud Translate credentials/key, explicit quota/billing/key errors.
-- `gemini_legacy` - online legacy provider, isolated behind the same provider interface and never required for core Classic Mode.
+## Allowed Translation Provider IDs
 
-## Disallowed Translation Providers
+- `google_translate_free`
+- `gcp_translate`
+- `gemini_legacy`
 
-- Railway-dependent translation routes.
-- `madlad` local sidecar and all `ai-local` localhost translation flows.
-- HY-MT/local desktop sidecars.
-- Any desktop/server-only provider chain not listed above.
+## Blocked Translation Provider IDs
 
-## Allowed TTS Providers
+- `madlad`
+- `ai-local sidecar`
+- `HY-MT sidecar`
+- Railway routes
+- desktop localhost translation services
+- browser/server-only provider chains
+- any provider not explicitly added to this policy and the code allowlist
 
-- `google_online_tts` - online Google TTS with configurable key/credentials and persisted local audio output.
-- `system_or_browser_fallback_low_quality` - Android platform/system speech fallback, clearly labeled low quality.
+## Allowed TTS Provider IDs
 
-## Disallowed TTS Providers
+- `google_online_tts`
+- `system_or_browser_fallback_low_quality`
 
-- Railway-dependent TTS.
-- Hebrew Local Piper as a required runtime provider.
-- sherpa-onnx Web/WASM runtime.
-- localhost sidecar TTS.
-- Desktop-only or noncommercial experimental Hebrew TTS as a production default.
+For native Android, `system_or_browser_fallback_low_quality` means Android platform TextToSpeech fallback.
 
-## Required Provider Interface Rules
+## Blocked TTS Provider IDs
 
-- Every request has a typed request model and explicit provider ID.
-- Every response includes provenance: requested provider, actual provider, model/version if known, generated timestamp.
-- Fallback must be visible. No silent provider switching.
-- Quota, billing and invalid-key errors must not be hidden by automatic fallback.
-- No provider may log API keys, service account JSON, bearer tokens or full credential paths.
+- Railway-dependent TTS
+- Hebrew Local Piper as required runtime
+- sherpa-onnx Web/WASM runtime
+- localhost sidecar TTS
+- desktop-only TTS flows
+- noncommercial experimental Hebrew TTS as production default
 
-## Error Categories
+## Code Guard Requirements
 
-Android v2 provider implementations must map failures to:
+- `AndroidV2ProviderPolicy` must reject any provider not listed above.
+- Provider IDs must use stable wire IDs from `core.model`.
+- UI must not show blocked providers as selectable runtime choices.
+- Tests must assert the allowlist exactly.
+
+## Provenance Requirements
+
+Every provider response persisted or shown in UI must include:
+
+- requested provider ID;
+- actual provider ID;
+- model or voice when known;
+- generated timestamp;
+- from-cache flag when relevant;
+- degraded/fallback reason when relevant.
+
+## Error Mapping Requirements
+
+Providers must map failures to:
 
 - `NetworkUnavailable`
 - `Timeout`
@@ -51,14 +69,39 @@ Android v2 provider implementations must map failures to:
 - `UnsupportedLanguage`
 - `Unknown`
 
-## API-Key Handling
+Quota, billing, invalid-key, and unauthorized errors must not silently fallback.
 
-- Store keys only in Android Keystore-backed encrypted storage.
-- Show masked summaries only.
-- Allow update/delete.
-- Exclude keys from library exports.
-- Tests must use fake providers; no CI test may require real API keys.
+## Security Requirements
 
-## Code Guard
+- No API keys, service account JSON, bearer tokens, or full credential paths in logs.
+- No secrets in Room.
+- No secrets in exports.
+- No secrets in Git.
+- Provider tests use fake providers unless explicitly marked manual.
 
-The initial app skeleton includes `AndroidV2ProviderPolicy` in `app/src/main/java/.../core/provider/ProviderContracts.kt`. Any new provider must be added there and in this policy before runtime wiring.
+## Provider UI Display Requirements
+
+- Display provider label, quality/degraded state, and fallback state where visible to user.
+- `system_or_browser_fallback_low_quality` must be labeled low quality.
+- `google_translate_free` must be labeled best effort/unofficial until production stability is proven.
+- Provider errors must include an actionable message and never leave infinite loading.
+
+## Provider Addition Process
+
+Before adding a provider:
+
+- [ ] Added to policy.
+- [ ] Added to code allowlist.
+- [ ] Added fake implementation.
+- [ ] Added contract tests.
+- [ ] Added user-visible error states.
+- [ ] Added docs.
+- [ ] Confirmed no Railway/localhost dependency.
+- [ ] Confirmed no secret logging.
+
+## Related Docs
+
+- [Provider Implementation Plan](ANDROID_V2_PROVIDER_IMPLEMENTATION_PLAN.md)
+- [Error Handling](ANDROID_V2_ERROR_HANDLING.md)
+- [Settings and Secrets](ANDROID_V2_SETTINGS_AND_SECRETS.md)
+- [Requirements Traceability](ANDROID_V2_REQUIREMENTS_TRACEABILITY.md)

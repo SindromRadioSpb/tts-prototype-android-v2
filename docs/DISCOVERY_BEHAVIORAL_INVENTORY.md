@@ -120,3 +120,13 @@ Potential blocking questions for later provider implementation:
 - Should GCP use service-account JSON import on device, or API-key only through a constrained backendless REST path?
 - Is Gemini legacy expected to use a user-provided Gemini API key stored on device?
 - Must Android v2 support import of old `linguist-pro-library` JSON in PATCH-01, or can it wait until after ZIP export is implemented?
+
+### Related Docs
+
+- [Documentation index](README.md)
+- [Premium product target](ANDROID_V2_PREMIUM_PRODUCT_TARGET.md)
+- [Architecture](ANDROID_V2_ARCHITECTURE.md)
+- [Data model](ANDROID_V2_DATA_MODEL.md)
+- [Provider policy](ANDROID_V2_PROVIDER_POLICY.md)
+- [Export spec](ANDROID_V2_LIBRARY_EXPORT_SPEC.md)
+- [Risk and gap register](ANDROID_V2_RISK_AND_GAP_REGISTER.md)

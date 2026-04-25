@@ -1,85 +1,101 @@
-# Android v2 Classic Mode UI Specification
+# Android v2 Classic Mode UI/UX Master Spec
 
 Date: 2026-04-25
 
-## Navigation
+Classic Mode is the production workflow. It must feel like a native Android study app, not a compressed web table.
 
-- Bottom/top mode switch with `Classic` first and `IDE` second.
-- Classic Mode is the default first launch destination.
-- IDE Mode is reachable but labeled `Experimental / under development`.
+## Phone Portrait Layout
 
-## Classic Mode Layout
+Top to bottom:
 
-- Scrollable single-column phone layout.
-- Primary source text field supports multiline Hebrew input and RTL display.
-- Provider controls are visible before generation:
-  - translation provider
-  - TTS provider
-  - provider status/key state
-- Primary actions:
-  - `Generate table`
-  - `Speak`
-  - `Save`
-  - `Export ZIP`
+1. App bar with mode switch and library/settings actions.
+2. Hebrew source input card with scrollable multiline text field.
+3. Provider controls as compact chips/menus.
+4. Primary generation button with progress state.
+5. Generated row cards in a vertical list.
+6. Save/export actions near the generated result and library context.
 
-## Generated Result Display
+## Phone Landscape Behavior
 
-- Use row cards/list by default on phones.
-- Preserve table semantics through fields:
-  - Hebrew original
-  - Hebrew niqqud
-  - SBL transliteration
-  - Russian phonetic transliteration when present
-  - Russian translation
-- Wide screens may add table mode later, but narrow screens must not depend on cramped web-table layout.
+- Source input and generated rows may use two-pane layout when width allows.
+- No row card may shrink below readable Hebrew line height.
+- Keyboard must not hide the generation button or active editing field.
 
-## Editing Behavior
+## Source Input
 
-- Row edit opens a touch-safe sheet/dialog.
-- Editable fields: `he_plain`, `he_niqqud`, `translit`, `translit_ru`, `ru`.
-- First edit stores original values in edit metadata for reset.
-- Editing Hebrew/niqqud marks row audio stale.
+- Accepts long Hebrew text.
+- Uses readable RTL rendering.
+- Preserves line breaks.
+- Shows validation only for empty input or unsupported size.
+
+## Provider Controls
+
+- Translation provider: `google_translate_free`, `gcp_translate`, `gemini_legacy`.
+- TTS provider: `google_online_tts`, `system_or_browser_fallback_low_quality`.
+- Blocked providers are not selectable.
+- Provider chips show missing key/configuration state before generation.
+
+## Generated Row Card
+
+Each row card displays:
+
+- Hebrew original, right-aligned/RTL.
+- Hebrew with niqqud when available; if missing, show `Niqqud unavailable` degraded badge.
+- SBL Academic transliteration.
+- Russian phonetic transliteration when available.
+- Russian translation.
+- Provider/degraded state when row was generated.
+- TTS controls and stale/missing audio indicator.
+- Edit/reset/reorder actions.
 
 ## TTS Controls
 
-- Full text playback near source/result.
-- Per-row playback on each row card.
-- Show audio state: missing, generating, ready, stale, failed.
-- System fallback must be labeled low quality.
+- Row play button.
+- Row regenerate button when provider configured.
+- Text-level play/regenerate action.
+- Low-quality fallback label for Android platform TTS.
+- Missing audio state with retry/regenerate action.
 
-## Library Navigation
+## Editing
 
-- Save creates a local Room/SQLite library item.
-- Saved text reloads must preserve stable text/row IDs, rows, edits, audio metadata and provider provenance.
-- Library list supports search/filter later; first shell must keep the entry point visible.
+- Use bottom sheet or dialog with fields: Hebrew, niqqud, transliteration, Russian transliteration, Russian translation.
+- Save applies one row transaction.
+- Reset can restore selected fields.
+- Editing Hebrew or niqqud marks row audio stale immediately.
+- Reorder uses drag handle or explicit move controls with 48dp touch targets.
 
-## Export Entry Point
+## Loading, Empty, Error States
 
-- Export is a first-class action from Classic and Library.
-- Export ZIP must remain reachable after a text is saved.
-- Show export success/failure and missing-audio warnings.
+- Empty: prompt user to enter Hebrew text.
+- Loading: show cancellable progress and selected provider.
+- Provider error: show category, provider, and action.
+- Database error: keep current visible table and show retry.
+- Export partial: show missing audio count and export location/status.
 
-## IDE Mode Placement
+## Accessibility and Insets
 
-- IDE Mode is a secondary tab/screen.
-- It must not dominate Classic Mode.
-- It must show experimental status clearly.
-- It reuses shared typed models and provider boundaries.
-
-## Accessibility
-
-- Touch targets should be at least 48dp.
-- Icon-only controls need content descriptions when icons are introduced.
-- Long content scrolls.
-- Hebrew text uses RTL alignment.
-- Loading, empty and error states are visible.
-- Dynamic font scaling must not hide primary actions.
+- Touch targets at least 48dp.
+- Buttons and icon controls have content descriptions.
+- Text contrast meets Android accessibility expectations.
+- UI handles status/navigation bars and IME insets.
+- Long content scrolls without overlapping controls.
 
 ## UI DoD Evidence Checklist
 
-- [ ] Phone portrait: Classic screen renders, text input visible, actions reachable.
-- [ ] Phone landscape: content scrolls and actions remain reachable.
-- [ ] Long Hebrew text: no clipped fields, rows remain readable.
-- [ ] Keyboard: source input and generate action remain accessible.
-- [ ] Loading/empty/error states visible.
-- [ ] IDE Mode marked experimental.
+- [ ] Portrait screenshot or written result recorded.
+- [ ] Landscape screenshot or written result recorded.
+- [ ] Long Hebrew text verified.
+- [ ] Keyboard behavior verified.
+- [ ] Row edit sheet verified.
+- [ ] TTS stale/missing states verified.
+- [ ] Error states verified.
+- [ ] IDE Mode remains visibly experimental.
+
+Evidence is tracked in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
+
+## Related Docs
+
+- [Premium Product Target](ANDROID_V2_PREMIUM_PRODUCT_TARGET.md)
+- [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md)
+- [Error Handling](ANDROID_V2_ERROR_HANDLING.md)
+- [Audio Architecture](ANDROID_V2_AUDIO_ARCHITECTURE.md)

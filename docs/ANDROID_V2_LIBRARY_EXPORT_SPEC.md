@@ -1,86 +1,153 @@
-# Android v2 Library and Export Specification
+# Android v2 Library Export and Import Spec
 
 Date: 2026-04-25
 
-## Local Storage Model
-
-Baseline: Room/SQLite on device, no cloud storage requirement.
-
-Core tables:
-
-- `library_texts`
-  - `id`, `text_key`, `title`, `level`, `tags_json`, `source_text`, `source_meta_json`
-  - `tts_profile_json`, `table_model_meta_json`
-  - `is_archived`, `created_at`, `updated_at`, `last_opened_at`, `schema_version`
-- `library_rows`
-  - `id`, `text_id`, `order_index`
-  - `he_plain`, `he_niqqud`, `translit`, `translit_ru`, `ru`
-  - `row_hash`, `edit_meta_json`, `created_at`
-- `audio_assets`
-  - `id`, `asset_key`, `asset_type`, `relative_path`, `mime`, `duration_ms`, `size_bytes`
-  - `tts_profile_json`, `provider_id`, `created_at`, `last_used_at`
-- `row_audio`, `text_audio`
-  - owner ID, audio ID, `is_default`
-
-The schema intentionally mirrors the confirmed web subset in `migrations/002_v3_library.sql` and `migrations/004_v3_audio_assets.sql`, but excludes web-only dashboard/SRS/Anki/sidecar tables from the first Android runtime.
-
-## Audio Storage
-
-- Store generated audio under app-specific storage, for example `files/audio/<asset_key>.mp3`.
-- `asset_key` is deterministic from text + normalized TTS profile + provider version.
-- If a row is edited in Hebrew/niqqud fields, mark existing default audio stale.
-- Audio playback reads from local file first, then provider if allowed and configured.
-
-## Export Bundle
-
-Preferred filename:
+## Export ZIP Layout
 
 ```text
-library-export-YYYYMMDD-HHMM.zip
+android-v2-library-export.zip
+  manifest.json
+  library/library.json
+  audio/rows/{text_id}/{row_id}/{asset_key}.mp3
+  audio/texts/{text_id}/{asset_key}.mp3
+  metadata/missing_audio.json
+  metadata/provider_events.json
 ```
 
-Structure:
+## `manifest.json`
 
-```text
-manifest.json
-library.json
-audio/
-  item_<id>_<provider>.<mp3|wav>
-metadata/
-  app_version.json
-  provider_provenance.json
+```json
+{
+  "export_schema_version": 1,
+  "app_id": "com.sindromradiospb.ttsprototypev2",
+  "created_at": "2026-04-25T00:00:00Z",
+  "partial_backup": true,
+  "text_count": 1,
+  "row_count": 2,
+  "audio_count": 1,
+  "missing_audio_count": 1,
+  "contains_secrets": false,
+  "library_json_path": "library/library.json",
+  "missing_audio_path": "metadata/missing_audio.json"
+}
 ```
 
-## Manifest Schema
+`contains_secrets` must always be `false`. Export must fail if a code path tries to include credentials.
 
-The Kotlin skeleton defines `LibraryExportManifest` in `core/export/ExportManifest.kt`.
+## `library/library.json`
 
-Required fields:
+```json
+{
+  "schema_version": 1,
+  "texts": [
+    {
+      "text_id": "txt_001",
+      "text_key": "sha256:...",
+      "title": "Psalm sample",
+      "level": "A2",
+      "tags": ["hebrew", "practice"],
+      "source_text": "שלום עולם",
+      "source_meta": {"origin": "manual"},
+      "table_model_meta": {
+        "provider": "gcp_translate",
+        "actual_provider": "gcp_translate",
+        "model": "google-cloud-translate",
+        "from_cache": false,
+        "niqqud_degraded": true,
+        "generated_at": "2026-04-25T00:00:00Z"
+      },
+      "rows": [
+        {
+          "row_id": "row_001",
+          "order_index": 0,
+          "hebrew_plain": "שלום עולם",
+          "hebrew_niqqud": "",
+          "translit": "shalom olam",
+          "translit_ru": "шалом олам",
+          "russian": "мир",
+          "edit_meta": null,
+          "audio_asset_key": "asset_row_001"
+        }
+      ],
+      "text_audio_asset_key": null,
+      "created_at": "2026-04-25T00:00:00Z",
+      "updated_at": "2026-04-25T00:00:00Z"
+    }
+  ],
+  "audio_assets": [
+    {
+      "asset_key": "asset_row_001",
+      "relative_export_path": "audio/rows/txt_001/row_001/asset_row_001.mp3",
+      "mime_type": "audio/mpeg",
+      "provider_id": "google_online_tts",
+      "duration_ms": 1200,
+      "size_bytes": 42000,
+      "provenance": {
+        "requested_provider_id": "google_online_tts",
+        "actual_provider_id": "google_online_tts",
+        "generated_at": "2026-04-25T00:00:00Z"
+      }
+    }
+  ]
+}
+```
 
-- `exportType`: `tts-prototype-android-v2-library`
-- `exportVersion`
-- `appSchemaVersion`
-- `exportedAt`
-- `textCount`
-- `rowCount`
-- `audioFiles[]`
-- `missingAudio[]`
+## Missing Audio Manifest
 
-Each audio file entry must include `assetKey`, relative path inside ZIP, MIME type, provider ID and available duration/size.
+```json
+{
+  "missing_audio": [
+    {
+      "owner_type": "row",
+      "text_id": "txt_001",
+      "row_id": "row_002",
+      "asset_key": "asset_missing",
+      "reason": "file_missing_in_app_storage"
+    }
+  ]
+}
+```
 
-## Missing Audio Handling
+Missing audio sets `partial_backup=true`. It does not fail export unless the user selected a strict mode in a future release.
 
-- Do not fail the whole export when an audio file is missing.
-- Add `missingAudio[]` manifest records with owner type, owner ID, expected `assetKey` and reason.
-- Mark exported library items as partially backed up if any referenced audio is missing.
+## Export Transaction Strategy
 
-## Future Import Compatibility
+1. Open read transaction and create immutable snapshot of texts, rows, audio metadata, and provider events.
+2. Close DB transaction.
+3. Copy files from app storage into ZIP.
+4. Record missing files into `metadata/missing_audio.json`.
+5. Write `manifest.json` last.
+6. Record `export_history` result.
 
-- Import of Android v2 ZIP is a future extension unless cheap after export implementation.
-- Import of old web `linguist-pro-library` JSON should be a separate compatibility patch with tests.
-- No API keys are imported or exported.
+Interrupted export leaves no completed manifest in the destination. UI reports interrupted export and allows retry.
 
-## Privacy
+## Android Storage Behavior
 
-- Export contains source texts, translations and audio; show explicit share/export confirmation.
-- Do not include API keys, credential file names, device logs or provider raw error payloads.
+- Use Android Storage Access Framework for user-selected destination.
+- Use share sheet for "send export" workflow.
+- Do not write raw external storage paths.
+- Do not require cloud storage.
+
+## Import Strategy
+
+Future import supports:
+
+- Android v2 ZIP import with schema version checks.
+- Old web JSON import from `GET /api/library/export` shape where fields can be mapped.
+
+Old web import compatibility:
+
+- `texts` maps to `library_texts`.
+- `sentences` maps to `library_rows`.
+- audio references are imported as missing unless an audio bundle is present.
+- unsupported web-only metadata is stored in `source_meta` or ignored with import report entry.
+
+## Privacy Warning
+
+Export UI must state: "This export includes library text and available audio files. It does not include API keys or provider credentials."
+
+## Related Docs
+
+- [Data Model](ANDROID_V2_DATA_MODEL.md)
+- [Audio Architecture](ANDROID_V2_AUDIO_ARCHITECTURE.md)
+- [Release Readiness](ANDROID_V2_RELEASE_READINESS.md)
