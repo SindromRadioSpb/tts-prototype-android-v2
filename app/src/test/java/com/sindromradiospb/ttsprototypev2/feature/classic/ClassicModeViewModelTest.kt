@@ -271,6 +271,20 @@ class ClassicModeViewModelTest {
         assertEquals("Нет строк для построчного воспроизведения.", state.message)
     }
 
+    @Test
+    fun disclosureToggleCollapsesClassicBlocks() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.toggleDisclosure(ClassicDisclosurePanel.Voice)
+        viewModel.toggleDisclosure(ClassicDisclosurePanel.Result)
+
+        val state = viewModel.uiState.value
+        assertFalse(state.disclosure.voiceOpen)
+        assertFalse(state.disclosure.resultOpen)
+        assertTrue(state.disclosure.sourceOpen)
+        assertTrue(state.disclosure.translationOpen)
+    }
+
     private fun viewModel(
         repository: LibraryRepository = FakeLibraryRepository(),
         translationProviders: TranslationProviderRegistry = TranslationProviderRegistry(

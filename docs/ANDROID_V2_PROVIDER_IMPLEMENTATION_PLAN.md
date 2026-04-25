@@ -27,10 +27,10 @@ M4 implementation status:
 - `AndroidPlatformTtsProvider` wraps native Android `TextToSpeech` for `system_or_browser_fallback_low_quality`.
 - `google_online_tts` has a keyed Google Cloud Text-to-Speech adapter that reads the M9 secure credential store, writes synthesized MP3 output to app cache, and returns domain metadata without persisting secrets.
 
-P015 credential/provider status:
+P019 credential/provider status:
 
 - `gcp_translate` is implemented as a Google Cloud Translation adapter: legacy single-line keys use Basic v2 JSON POST, while attached service-account JSON uses Cloud Translation v3 REST with OAuth JWT bearer auth.
-- `gemini_legacy` is implemented as a Gemini `gemini-2.0-flash` JSON POST adapter using either a legacy stored single-line key or a provider-specific JSON wrapper.
+- `gemini_legacy` is implemented as a Gemini `gemini-flash-latest` JSON POST adapter using a pasted single-line API key as the primary credential path, with the older provider-specific JSON wrapper still accepted for compatibility.
 - `google_online_tts` is implemented as a Google Cloud Text-to-Speech `text:synthesize` JSON POST adapter using either a legacy stored single-line key or an attached service-account JSON credential with OAuth JWT bearer auth.
 - Missing credentials still produce `MissingConfiguration` and do not fallback automatically.
 - Raw service account JSON/private-key material remains blocked from manual single-line entry, but the SAF JSON attachment path validates and stores provider credentials in encrypted app-private storage.
@@ -59,9 +59,9 @@ P015 UI status:
 
 Current runtime wiring:
 
-- `google_translate_free`: implemented as best-effort HTTP adapter using `translate.googleapis.com/translate_a/single`.
+- `google_translate_free`: implemented as a source-prototype-compatible best-effort adapter using `translate.googleapis.com/translate_a/single`, `client=gtx`, legacy Hebrew source code `sl=iw`, browser User-Agent, and a newline batch request before individual fallback.
 - `gcp_translate`: implemented as Google Cloud Translation adapter. It supports v3 service-account JSON bearer auth and legacy v2 restricted API keys, and maps HTTP failures into provider categories without fallback.
-- `gemini_legacy`: implemented as keyed Gemini adapter for Hebrew-to-Russian translation. It supports the JSON wrapper and legacy single-line API keys, and maps HTTP failures into provider categories without fallback.
+- `gemini_legacy`: implemented as keyed Gemini adapter for full Classic table generation. It asks Gemini for strict JSON with segments, Hebrew, niqqud, SBL transliteration, and Russian translation, then maps rows into the Android table model without hidden fallback.
 
 ## Allowed TTS Providers
 
@@ -132,7 +132,7 @@ Persist for every generated row or audio asset:
 | Decision | Current default | Owner / next action |
 |----------|-----------------|---------------------|
 | GCP credential JSON on device | Implemented through SAF, encrypted storage, and OAuth JWT bearer auth. | Collect emulator/device evidence with the user's real service account. |
-| Gemini key handling | Implemented with provider-specific JSON wrapper, for example `{ "provider": "gemini_legacy", "api_key": "..." }`. | Add cost-warning UX before release. |
+| Gemini key handling | Implemented as primary single-line API-key paste, with JSON wrapper retained only for compatibility. | Add cost-warning UX before release and run real-key smoke. |
 | Google Online TTS credentials | Implemented through SAF, encrypted storage, and OAuth JWT bearer auth. | Collect emulator/device evidence with the user's real service account. |
 | niqqud provider strategy | Store niqqud as optional/degraded; do not depend on desktop sidecar. | Decide in M3 after Android-safe options review. |
 | Google Free production stability | Treat as best-effort with visible degraded/unofficial label. | Validate with provider tests and UX copy in M3. |

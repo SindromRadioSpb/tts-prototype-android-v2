@@ -168,6 +168,16 @@ P018 behavior:
 - Tapping a row selects it and determines the next auto-next start point.
 - The row action column keeps the source-prototype semantics: row number, cache marker, row TTS play, and row note action.
 
+P019 behavior:
+
+- `google_translate_free` now follows the source prototype path more closely: batch newline request, `sl=iw`, browser User-Agent, no silent quota fallback, and provenance model `google-free-gtx-v1`.
+- `gemini_legacy` now uses the prototype-style strict JSON table prompt. It produces rows with `he`, `he_niqqud`, `translit`, and `ru` instead of only a Russian string.
+- Gemini credentials are entered as a pasted API key in Settings; service-account JSON attachment remains for GCP/Google TTS.
+- Row playback cache is keyed by the full active TTS profile. If provider, voice, language, rate, pitch, or row text changes, row play regenerates audio and overwrites/adopts the current row cache instead of playing stale audio.
+- The last visible table column now has the same resize handle as all other columns.
+- The Russian phonetic transliteration view can be derived from `he_niqqud` when imported legacy rows lack `translit_ru`, so switching `SBL Academic` / `Русская фонетика` changes the visible table.
+- Classic source, voice settings, translation/table settings, and result sections are collapsible, matching the source prototype's lower-noise mobile interaction pattern.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.

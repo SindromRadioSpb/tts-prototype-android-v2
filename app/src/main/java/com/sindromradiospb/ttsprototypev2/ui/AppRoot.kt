@@ -78,6 +78,7 @@ import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialStatus
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicDisclosurePanel
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicHebrewTableFont
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicGeneratedRowUi
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeUiState
@@ -171,6 +172,7 @@ fun AppRoot(
                     onToggleTableColumn = classicModeViewModel::toggleTableColumn,
                     onResetTableDisplay = classicModeViewModel::resetTableDisplay,
                     onAdjustTableColumnWidth = classicModeViewModel::adjustTableColumnWidth,
+                    onToggleDisclosure = classicModeViewModel::toggleDisclosure,
                     onRowNoteDraftChanged = classicModeViewModel::updateRowNoteDraft,
                     onSaveRowNote = classicModeViewModel::saveRowNote,
                     onDeleteRowNote = classicModeViewModel::deleteRowNote,
@@ -251,6 +253,7 @@ fun ClassicModeScreen(
     onToggleTableColumn: (ClassicTableColumn) -> Unit,
     onResetTableDisplay: () -> Unit,
     onAdjustTableColumnWidth: (ClassicTableColumn, Float) -> Unit,
+    onToggleDisclosure: (ClassicDisclosurePanel) -> Unit,
     onRowNoteDraftChanged: (String) -> Unit,
     onSaveRowNote: () -> Unit,
     onDeleteRowNote: () -> Unit,
@@ -301,6 +304,8 @@ fun ClassicModeScreen(
 
         SourceComposerCard(
             state = state,
+            isOpen = state.disclosure.sourceOpen,
+            onToggle = { onToggleDisclosure(ClassicDisclosurePanel.Source) },
             onSourceTextChanged = onSourceTextChanged,
             onClearSource = onClearSource,
             onGenerate = onGenerate,
@@ -309,6 +314,8 @@ fun ClassicModeScreen(
 
         VoiceSettingsCard(
             state = state,
+            isOpen = state.disclosure.voiceOpen,
+            onToggle = { onToggleDisclosure(ClassicDisclosurePanel.Voice) },
             onSourceLanguageChanged = onSourceLanguageChanged,
             onTtsProviderChanged = onTtsProviderChanged,
             onTtsVoiceNameChanged = onTtsVoiceNameChanged,
@@ -319,6 +326,8 @@ fun ClassicModeScreen(
 
         TranslationTableSettingsCard(
             state = state,
+            isOpen = state.disclosure.translationOpen,
+            onToggle = { onToggleDisclosure(ClassicDisclosurePanel.Translation) },
             onTranslationProviderChanged = onTranslationProviderChanged,
             onTranslitProfileChanged = onTranslitProfileChanged,
             onHebrewTableFontChanged = onHebrewTableFontChanged,
@@ -331,6 +340,8 @@ fun ClassicModeScreen(
 
         ClassicResultCard(
             state = state,
+            isOpen = state.disclosure.resultOpen,
+            onToggle = { onToggleDisclosure(ClassicDisclosurePanel.Result) },
             rows = state.rows,
             generatedAt = state.generatedAt,
             generationLabel = state.generationLabel,
@@ -437,15 +448,21 @@ private fun QuotaTile(value: String, label: String, subLabel: String, modifier: 
 @Composable
 private fun SourceComposerCard(
     state: ClassicModeUiState,
+    isOpen: Boolean,
+    onToggle: () -> Unit,
     onSourceTextChanged: (String) -> Unit,
     onClearSource: () -> Unit,
     onGenerate: () -> Unit,
     onSpeak: () -> Unit,
 ) {
-    SurfaceCard {
+    DisclosureSurfaceCard(
+        title = "Исходный текст",
+        subtitle = "Текст, сборка таблицы и быстрое озвучивание источника.",
+        isOpen = isOpen,
+        onToggle = onToggle,
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
-                Text("Исходный текст", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
                     "Здесь начинается основной сценарий. Состояние текста и результата должно читаться мгновенно.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -498,6 +515,8 @@ private fun SourceComposerCard(
 @Composable
 private fun VoiceSettingsCard(
     state: ClassicModeUiState,
+    isOpen: Boolean,
+    onToggle: () -> Unit,
     onSourceLanguageChanged: (ClassicSourceLanguage) -> Unit,
     onTtsProviderChanged: (TtsProviderId) -> Unit,
     onTtsVoiceNameChanged: (String?) -> Unit,
@@ -505,9 +524,12 @@ private fun VoiceSettingsCard(
     onPitchChanged: (Double) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    SurfaceCard {
-        Text("Настройки озвучки", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Язык, голос, темп и ключи провайдера.", color = MutedText)
+    DisclosureSurfaceCard(
+        title = "Настройки озвучки",
+        subtitle = "Язык, голос, темп и ключи провайдера.",
+        isOpen = isOpen,
+        onToggle = onToggle,
+    ) {
         Spacer(Modifier.height(10.dp))
         LabeledChoiceRow(
             label = "Язык исходного текста",
@@ -558,14 +580,19 @@ private fun VoiceSettingsCard(
 @Composable
 private fun TranslationTableSettingsCard(
     state: ClassicModeUiState,
+    isOpen: Boolean,
+    onToggle: () -> Unit,
     onTranslationProviderChanged: (TranslationProviderId) -> Unit,
     onTranslitProfileChanged: (ClassicTranslitProfile) -> Unit,
     onHebrewTableFontChanged: (ClassicHebrewTableFont) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    SurfaceCard {
-        Text("Настройки перевода и таблицы", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Переводчик, транслит, шрифт таблицы и сохранение результата.", color = MutedText)
+    DisclosureSurfaceCard(
+        title = "Настройки перевода и таблицы",
+        subtitle = "Переводчик, транслит, шрифт таблицы и сохранение результата.",
+        isOpen = isOpen,
+        onToggle = onToggle,
+    ) {
         Spacer(Modifier.height(10.dp))
         LabeledChoiceRow(
             label = "Провайдер перевода",
@@ -669,6 +696,8 @@ private fun translationProviderLabel(provider: TranslationProviderId): String =
 @Composable
 private fun ClassicResultCard(
     state: ClassicModeUiState,
+    isOpen: Boolean,
+    onToggle: () -> Unit,
     rows: List<ClassicGeneratedRowUi>,
     generatedAt: String?,
     generationLabel: String,
@@ -685,7 +714,12 @@ private fun ClassicResultCard(
     onResetTableDisplay: () -> Unit,
     onAdjustTableColumnWidth: (ClassicTableColumn, Float) -> Unit,
 ) {
-    SurfaceCard {
+    DisclosureSurfaceCard(
+        title = "Результат",
+        subtitle = "Таблица, построчное воспроизведение, заметки и сохранение карточки.",
+        isOpen = isOpen,
+        onToggle = onToggle,
+    ) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             StatusPill(generationLabel)
             StatusPill("Audio: ${if (rows.isEmpty()) "missing" else "pending"}")
@@ -694,7 +728,6 @@ private fun ClassicResultCard(
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
-                Text("Результат", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("Таблица с колонками как в Classic Mode: действие, иврит, огласовки, транслит и перевод.", color = MutedText)
             }
             PrimaryGreenButton(
@@ -801,7 +834,7 @@ private fun GeneratedRowsTable(
                 ClassicTableHeaderCell(
                     text = column.columnHeaderLabel(state),
                     widthDp = state.tableDisplay.columnWidthsDp[column] ?: column.defaultWidthDp(),
-                    canResize = index < visibleColumns.lastIndex,
+                    canResize = true,
                     onResize = { dragPx ->
                         onAdjustColumnWidth(column, with(density) { dragPx.toDp().value })
                     },
@@ -972,10 +1005,81 @@ private fun ClassicGeneratedRowUi.tableCellText(column: ClassicTableColumn, stat
         ClassicTableColumn.Hebrew -> hebrewPlain
         ClassicTableColumn.Niqqud -> hebrewNiqqud.ifBlank { "—" }
         ClassicTableColumn.Translit -> when (state.translitProfile) {
-            ClassicTranslitProfile.Sbl -> translit
-            ClassicTranslitProfile.RuPhonetic -> translitRu.ifBlank { translit }
+            ClassicTranslitProfile.Sbl -> translit.ifBlank { sblFallback(hebrewNiqqud) }
+            ClassicTranslitProfile.RuPhonetic -> translitRu.ifBlank { ruPhoneticFallback(hebrewNiqqud) }.ifBlank { translit }
         }.ifBlank { "—" }
         ClassicTableColumn.Translation -> russian.ifBlank { "—" }
+    }
+
+private fun sblFallback(hebrewNiqqud: String): String =
+    hebrewNiqqud.filter { it !in HebrewMarks }.trim()
+
+private fun ruPhoneticFallback(hebrewNiqqud: String): String {
+    if (hebrewNiqqud.isBlank()) return ""
+    val result = StringBuilder()
+    var index = 0
+    while (index < hebrewNiqqud.length) {
+        val char = hebrewNiqqud[index]
+        if (char in HebrewMarks) {
+            index += 1
+            continue
+        }
+        val marks = buildString {
+            var markIndex = index + 1
+            while (markIndex < hebrewNiqqud.length && hebrewNiqqud[markIndex] in HebrewMarks) {
+                append(hebrewNiqqud[markIndex])
+                markIndex += 1
+            }
+        }
+        result.append(ruConsonant(char, marks))
+        result.append(ruVowel(char, marks))
+        index += 1 + marks.length
+    }
+    return result.toString().replace(Regex("\\s+"), " ").trim()
+}
+
+private val HebrewMarks: Set<Char> = ('\u0591'..'\u05C7').toSet()
+
+private fun ruConsonant(char: Char, marks: String): String =
+    when (char) {
+        'א', 'ע' -> ""
+        'ב' -> if ('\u05BC' in marks) "б" else "в"
+        'ג' -> "г"
+        'ד' -> "д"
+        'ה' -> "h"
+        'ו' -> if ('\u05BC' in marks) "" else "в"
+        'ז' -> "з"
+        'ח' -> "х"
+        'ט' -> "т"
+        'י' -> "й"
+        'כ', 'ך' -> if ('\u05BC' in marks) "к" else "х"
+        'ל' -> "л"
+        'מ', 'ם' -> "м"
+        'נ', 'ן' -> "н"
+        'ס' -> "с"
+        'פ', 'ף' -> if ('\u05BC' in marks) "п" else "ф"
+        'צ', 'ץ' -> "ц"
+        'ק' -> "к"
+        'ר' -> "р"
+        'ש' -> if ('\u05C1' in marks) "ш" else "с"
+        'ת' -> "т"
+        else -> char.toString()
+    }
+
+private fun ruVowel(char: Char, marks: String): String =
+    when {
+        char == 'ו' && '\u05BC' in marks -> "у"
+        '\u05B4' in marks -> "и"
+        '\u05B5' in marks -> "е"
+        '\u05B6' in marks -> "э"
+        '\u05B7' in marks -> "а"
+        '\u05B8' in marks -> "а"
+        '\u05B9' in marks || '\u05BA' in marks -> "о"
+        '\u05BB' in marks -> "у"
+        '\u05B1' in marks -> "э"
+        '\u05B2' in marks -> "а"
+        '\u05B3' in marks -> "о"
+        else -> ""
     }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1775,6 +1879,7 @@ private fun ProviderCredentialCard(
             onAttachJson(text)
         }
     }
+    val isGemini = status.id == ProviderCredentialId.GeminiLegacy
 
     SurfaceCard {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -1785,20 +1890,22 @@ private fun ProviderCredentialCard(
         Text("Provider ID: ${status.id.wireId}", style = MaterialTheme.typography.bodySmall)
         Text("Stored value: ${status.maskedValue ?: "Not configured"}", style = MaterialTheme.typography.bodySmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryActionButton("Прикрепить JSON", onClick = { jsonPicker.launch(arrayOf("application/json", "text/*")) })
+            if (!isGemini) {
+                SecondaryActionButton("Прикрепить JSON", onClick = { jsonPicker.launch(arrayOf("application/json", "text/*")) })
+            }
             SecondaryActionButton("Проверить", onClick = onValidate, enabled = status.isConfigured)
             SecondaryActionButton("Удалить ключ", onDelete, enabled = status.isConfigured)
         }
         OutlinedTextField(
             value = draft,
             onValueChange = onDraftChanged,
-            label = { Text("Interim single-line credential for smoke checks") },
+            label = { Text(if (isGemini) "Gemini API Key" else "Interim single-line credential for smoke checks") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             shape = RoundedCornerShape(16.dp),
         )
-        PrimaryBlueButton("Save credential", onSave, modifier = Modifier.fillMaxWidth())
+        PrimaryBlueButton(if (isGemini) "Сохранить API Key" else "Save credential", onSave, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -1830,6 +1937,32 @@ private fun SurfaceCard(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
+    }
+}
+
+@Composable
+private fun DisclosureSurfaceCard(
+    title: String,
+    subtitle: String,
+    isOpen: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    SurfaceCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = MutedText)
+            }
+            SecondaryActionButton(if (isOpen) "Скрыть" else "Показать", onToggle)
+        }
+        if (isOpen) {
+            content()
+        }
     }
 }
 

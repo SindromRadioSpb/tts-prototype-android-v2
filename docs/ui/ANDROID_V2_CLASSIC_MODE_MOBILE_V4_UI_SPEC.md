@@ -473,9 +473,12 @@ Native Android adaptation:
 - Preserve field labels and order exactly.
 - Mixed Hebrew/Latin text must render correctly.
 
-## JSON Credential File Attachment And Validation UI
+## Credential Attachment And Validation UI
 
-The Android v2 target UX for provider credentials is JSON file attachment and validation through Android file picker / Storage Access Framework. Manual raw text key input is an interim implementation and must not remain the primary target UX.
+The Android v2 target UX is provider-specific:
+
+- `gcp_translate` and `google_online_tts`: JSON service-account attachment and validation through Android file picker / Storage Access Framework.
+- `gemini_legacy`: pasted single-line Gemini API key as the primary UX, because the source prototype and real Gemini key shape are plain `AIza...` keys.
 
 Required flow:
 
@@ -483,7 +486,7 @@ Required flow:
 Settings
   -> Provider credentials
   -> Select provider
-  -> Attach JSON file
+  -> Attach JSON file or paste Gemini API key
   -> Validate
   -> Store securely
   -> Show masked status
@@ -491,11 +494,11 @@ Settings
 
 Affected providers:
 
-- `gcp_translate`;
-- `google_online_tts`;
-- `gemini_legacy`.
+- `gcp_translate`: service-account JSON;
+- `google_online_tts`: service-account JSON;
+- `gemini_legacy`: single-line API key. The provider-specific JSON wrapper remains accepted only for backward compatibility.
 
-If a provider technically needs a simple API key, Android v2 must wrap it in provider-specific JSON unless a future ADR changes this decision. Proposed Gemini wrapper:
+Backward-compatible Gemini wrapper:
 
 ```json
 {
@@ -506,11 +509,12 @@ If a provider technically needs a simple API key, Android v2 must wrap it in pro
 
 Validation:
 
-- parse JSON;
+- parse JSON for service-account providers and parse a single-line key for Gemini;
 - validate required fields for the selected provider;
 - reject wrong provider type;
 - reject malformed JSON;
 - reject empty credential file;
+- reject blank/multiline Gemini API keys;
 - show masked credential summary;
 - optionally perform provider health check when network is available;
 - do not log secrets;
@@ -529,7 +533,8 @@ Settings UI must present:
 
 - provider name;
 - current credential status: `not configured`, `attached but not validated`, `valid`, `invalid`, `expired/revoked if known`;
-- `Прикрепить JSON`;
+- `Прикрепить JSON` for service-account providers;
+- `Gemini API Key` and `Сохранить API Key` for `gemini_legacy`;
 - `Проверить`;
 - `Удалить ключ`.
 
@@ -677,8 +682,8 @@ data class CredentialFileUiState(
 - [Classic Mode UI Spec](../ANDROID_V2_CLASSIC_MODE_UI_SPEC.md) links here.
 - [Migration Plan](../ANDROID_V2_MIGRATION_PLAN.md) tracks Library v3 v4 screenshot parity in M7/M8/M12.
 - [Patch Register](../ANDROID_V2_PATCH_REGISTER.md) records this documentation patch.
-- [Settings and Secrets](../ANDROID_V2_SETTINGS_AND_SECRETS.md) states the target credential UX is JSON file attachment and validation.
-- [Requirements Traceability](../ANDROID_V2_REQUIREMENTS_TRACEABILITY.md) tracks Library v3 UI parity and JSON credential file flow.
+- [Settings and Secrets](../ANDROID_V2_SETTINGS_AND_SECRETS.md) states the target credential UX is service-account JSON attachment for GCP/Google TTS and API-key paste for Gemini.
+- [Requirements Traceability](../ANDROID_V2_REQUIREMENTS_TRACEABILITY.md) tracks Library v3 UI parity and provider-specific credential flow.
 - [UI DoD Evidence](../ANDROID_V2_UI_DOD_EVIDENCE.md) has evidence slots for Library v3 filters, dropdowns, list cards, action cards, and metadata editor.
 - [Risk and Gap Register](../ANDROID_V2_RISK_AND_GAP_REGISTER.md) tracks UI parity and credential JSON risks.
 - No source repository files are modified.
@@ -693,6 +698,14 @@ P017 implementation status:
 - Row `▶` uses real selected TTS providers. Saved rows adopt generated audio into `audio_assets`/`row_audio`; unsaved rows can play temporary provider output.
 - Row notes persist in Room `sentence_notes`, matching the prototype's one-note-per-`(text_id, sentence_id)` rule. The Android note editor improves the web dialog with row context, keyboard-safe scrolling, Markdown helper buttons, and explicit save/delete behavior.
 - Remaining evidence gaps: manual screenshot comparison against `0. Main classic mode.JPG`, real-key TTS playback smoke, and Android ZIP export/import expansion for `sentence_notes`.
+
+P019 implementation status:
+
+- Classic source, voice settings, translation/table settings, and result blocks are collapsible with `Скрыть` / `Показать`, preserving the prototype's lower-noise mobile behavior.
+- Google Translate Free uses the source-prototype `gtx` path with `sl=iw`, browser User-Agent, and newline batch translation before individual fallback.
+- Gemini legacy uses pasted API keys and a strict JSON table prompt for segmentation, niqqud, SBL transliteration, and Russian translation.
+- Row TTS cache is reused only when the stored row audio key matches the current provider/voice/language/rate/pitch/text profile.
+- The final visible table column can be resized, and missing imported `translit_ru` can be displayed through a Russian phonetic fallback derived from `he_niqqud`.
 
 ## UI DoD Evidence Checklist
 

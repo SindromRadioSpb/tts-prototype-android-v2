@@ -35,6 +35,7 @@ Date: 2026-04-25
 - Invalid key: "Google Cloud key is invalid. Update the key in Settings. No fallback was used."
 - Missing configuration: "GCP Translate is not configured. Add credentials in Settings or choose another provider. No fallback was used."
 - Invalid credential file: "Credential JSON does not match gemini_legacy. Attach the correct JSON file. The secret was not stored."
+- Invalid Gemini API key: "Gemini API key is invalid. Paste a valid single-line API key in Settings. No fallback was used."
 - Quota: "GCP quota is exhausted. Try later or switch provider manually."
 - Missing audio: "Audio file is missing. The row text is safe; regenerate audio to restore playback."
 - Partial export: "Export completed with 2 missing audio files. See missing_audio.json in the ZIP."
@@ -66,6 +67,13 @@ P015 credential UI status:
 - GCP Translate and Google Online TTS service-account JSON must contain `type=service_account`, `project_id`, `private_key`, and `client_email`.
 - Gemini JSON wrapper must contain `api_key` and, if present, `provider=gemini_legacy`.
 - The legacy single-line credential path still uses existing validation errors for blank, multiline, oversized, or private-key/service-account-shaped values.
+
+P019 provider error status:
+
+- Google Free HTTP 429 remains `QuotaExceeded` and must not be hidden by fallback.
+- Google Free network failures remain `NetworkUnavailable`; batch fallback must not convert offline failures into blank rows.
+- Gemini malformed, fenced, or prose-only responses that do not contain strict JSON table rows are `InvalidResponse`.
+- Gemini credential errors use the single-line API-key validation path, while malformed JSON errors apply only to the optional backward-compatible wrapper.
 
 ## Related Docs
 

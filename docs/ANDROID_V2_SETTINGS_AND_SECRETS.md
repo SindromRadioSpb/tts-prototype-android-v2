@@ -5,7 +5,8 @@ Date: 2026-04-25
 ## Storage Rules
 
 - API keys and credentials use Android Keystore-backed encrypted preferences.
-- Target UX for provider credentials is JSON file attachment and validation through Android Storage Access Framework, not manual raw text entry.
+- Target UX for service-account credentials is JSON file attachment and validation through Android Storage Access Framework, not manual raw text entry.
+- Gemini legacy is the exception: it uses a Google Generative Language API key pasted as a single-line value, because the source prototype and real Gemini key shape are plain `AIza...` keys rather than service-account JSON.
 - Raw secrets are not stored in Room.
 - Raw secrets are not included in exports.
 - Raw secrets are not logged.
@@ -33,15 +34,16 @@ UI must not show full key, full service account JSON, or full credential file pa
 Current P015 status values:
 
 - `gcp_translate`: accepts service-account JSON through SAF and uses OAuth JWT bearer calls to Google Translation; the legacy single-line key path remains available for restricted-key smoke only.
-- `gemini_legacy`: accepts provider-specific JSON wrapper `{ "provider": "gemini_legacy", "api_key": "..." }`; the legacy single-line API key path remains available for smoke only.
+- `gemini_legacy`: accepts a pasted single-line Gemini API key as the primary UX. The older provider-specific JSON wrapper remains accepted for backward compatibility, but Settings no longer presents `Прикрепить JSON` as the Gemini primary action.
 - `google_online_tts`: accepts service-account JSON through SAF and uses OAuth JWT bearer calls to Google Cloud Text-to-Speech; the legacy single-line key path remains available for restricted-key smoke only.
 
-P015 UI status:
+P019 UI status:
 
-- Settings shows the target controls `Прикрепить JSON`, `Проверить`, and `Удалить ключ` for each provider.
+- Settings shows `Прикрепить JSON`, `Проверить`, and `Удалить ключ` for service-account providers.
+- Settings shows `Gemini API Key`, `Сохранить API Key`, `Проверить`, and `Удалить ключ` for `gemini_legacy`.
 - `Прикрепить JSON` opens Android Storage Access Framework and reads only the selected JSON contents; the external file path is discarded.
 - `Проверить` performs offline schema validation against the selected provider and updates masked status. Real network validation occurs when the provider is used.
-- The single-line credential field remains available only as a legacy smoke-check path for restricted keys and is no longer the target UX.
+- The single-line credential field remains available for restricted key smoke where supported, and is the primary Gemini credential path.
 
 ## Target JSON Credential Attachment Flow
 
@@ -65,7 +67,7 @@ The Settings screen must present:
 - `Проверить`;
 - `Удалить ключ`.
 
-Manual raw text API-key fields are interim and must not remain the primary UX.
+Manual raw text API-key fields are not the primary UX for service-account providers. Gemini legacy intentionally keeps single-line API-key paste as the primary UX.
 
 Validation requirements:
 
@@ -78,14 +80,9 @@ Validation requirements:
 - never log secret fields or full file path;
 - never store raw external file path as source of truth.
 
-Proposed Gemini wrapper until source parity or ADR says otherwise:
+Backward-compatible Gemini wrapper:
 
-```json
-{
-  "provider": "gemini_legacy",
-  "api_key": "..."
-}
-```
+`{ "provider": "gemini_legacy", "api_key": "..." }`
 
 ## Key Operations
 

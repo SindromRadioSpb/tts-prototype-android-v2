@@ -132,15 +132,16 @@ class GoogleTranslateFreeProvider(
             require(request.providerId == id) {
                 "Request provider ${request.providerId.wireId} does not match ${id.wireId}"
             }
-            val rows = splitSource(request.sourceText).mapIndexed { index, segment ->
-                val translated = translateSegment(segment, request.sourceLanguage, request.targetLanguage)
+            val segments = splitSource(request.sourceText)
+            val translations = translateSegments(segments, request.targetLanguage)
+            val rows = segments.mapIndexed { index, segment ->
                 GeneratedRow(
                     segmentIndex = index,
                     hebrewPlain = segment,
                     hebrewNiqqud = "",
                     translit = "",
                     translitRu = "",
-                    russian = translated,
+                    russian = translations.getOrElse(index) { "" },
                 )
             }
             TranslationResponse(
@@ -148,16 +149,42 @@ class GoogleTranslateFreeProvider(
                 provenance = ProviderProvenance(
                     requestedProviderId = request.providerId.wireId,
                     actualProviderId = id.wireId,
-                    model = "google_translate_free_http",
+                    model = "google-free-gtx-v1",
                     generatedAt = clock(),
                 ),
             )
         }.mapFailureToProviderException(id.wireId)
 
-    private suspend fun translateSegment(segment: String, sourceLanguage: String, targetLanguage: String): String {
-        val uri = buildUri(segment, sourceLanguage, targetLanguage)
+    private suspend fun translateSegments(segments: List<String>, targetLanguage: String): List<String> {
+        if (segments.isEmpty()) return emptyList()
+        val combined = segments.joinToString("\n")
+        val batch = runCatching { translateSegment(combined, targetLanguage) }
+        val batchText = batch.getOrElse { error ->
+            if (error is ProviderException && error.category != ProviderErrorCategory.QuotaExceeded) {
+                null
+            } else {
+                throw error
+            }
+        }
+        if (batchText != null) {
+            val lines = batchText.split('\n')
+            if (lines.size == segments.size) return lines
+        }
+        return segments.map { segment ->
+            runCatching { translateSegment(segment, targetLanguage) }.getOrElse { error ->
+                if (error is ProviderException && error.category != ProviderErrorCategory.QuotaExceeded) {
+                    ""
+                } else {
+                    throw error
+                }
+            }
+        }
+    }
+
+    private suspend fun translateSegment(segment: String, targetLanguage: String): String {
+        val uri = buildUri(segment, targetLanguage)
         val response = withTimeout(20_000) {
-            httpClient.get(uri)
+            httpClient.get(uri, GoogleFreeHeaders)
         }
         if (response.statusCode !in 200..299) {
             throw httpFailure(response.statusCode)
@@ -165,11 +192,11 @@ class GoogleTranslateFreeProvider(
         return parseGoogleFreeTranslation(response.body)
     }
 
-    private fun buildUri(segment: String, sourceLanguage: String, targetLanguage: String): URI {
+    private fun buildUri(segment: String, targetLanguage: String): URI {
         val encoded = URLEncoder.encode(segment, Charsets.UTF_8.name())
         return URI(
             "https://translate.googleapis.com/translate_a/single" +
-                "?client=gtx&sl=$sourceLanguage&tl=$targetLanguage&dt=t&q=$encoded",
+                "?client=gtx&sl=iw&tl=$targetLanguage&dt=t&q=$encoded",
         )
     }
 
@@ -208,6 +235,10 @@ class GoogleTranslateFreeProvider(
             providerId = id.wireId,
             userMessage = "Google Free translation failed with HTTP $statusCode.",
         )
+    }
+
+    private companion object {
+        val GoogleFreeHeaders = mapOf("User-Agent" to "Mozilla/5.0")
     }
 }
 
@@ -332,7 +363,7 @@ class GeminiLegacyTranslationProvider(
     private val httpClient: TranslationHttpClient = UrlConnectionTranslationHttpClient(),
     private val clock: () -> String = { Instant.now().toString() },
     private val json: Json = Json { ignoreUnknownKeys = true },
-    private val model: String = "gemini-2.0-flash",
+    private val model: String = "gemini-flash-latest",
 ) : TranslationProvider {
     override val id: TranslationProviderId = TranslationProviderId.GeminiLegacy
 
@@ -342,17 +373,7 @@ class GeminiLegacyTranslationProvider(
                 "Request provider ${request.providerId.wireId} does not match ${id.wireId}"
             }
             val apiKey = requireCredential().value
-            val rows = splitSource(request.sourceText).mapIndexed { index, segment ->
-                val translated = translateSegment(segment, request.targetLanguage, apiKey)
-                GeneratedRow(
-                    segmentIndex = index,
-                    hebrewPlain = segment,
-                    hebrewNiqqud = "",
-                    translit = "",
-                    translitRu = "",
-                    russian = translated,
-                )
-            }
+            val rows = translateTable(request.sourceText.trim(), apiKey)
             TranslationResponse(
                 rows = rows,
                 provenance = ProviderProvenance(
@@ -364,9 +385,9 @@ class GeminiLegacyTranslationProvider(
             )
         }.mapFailureToProviderException(id.wireId)
 
-    private suspend fun translateSegment(segment: String, targetLanguage: String, apiKey: String): String {
+    private suspend fun translateTable(sourceText: String, apiKey: String): List<GeneratedRow> {
         val uri = URI("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${urlEncode(apiKey)}")
-        val prompt = "Translate this Hebrew text to Russian. Return only the Russian translation, no commentary:\n$segment"
+        val prompt = geminiTablePrompt(sourceText)
         val body = json.encodeToString(
             buildJsonObject {
                 put(
@@ -388,7 +409,7 @@ class GeminiLegacyTranslationProvider(
                     "generationConfig",
                     buildJsonObject {
                         put("temperature", 0.1)
-                        put("maxOutputTokens", 512)
+                        put("maxOutputTokens", 4096)
                     },
                 )
             },
@@ -399,10 +420,73 @@ class GeminiLegacyTranslationProvider(
         if (response.statusCode !in 200..299) {
             throw httpFailure(id.wireId, response.statusCode, "Gemini")
         }
-        return parseGeminiTranslation(response.body, targetLanguage)
+        return parseGeminiTableResponse(response.body)
     }
 
-    internal fun parseGeminiTranslation(body: String, targetLanguage: String = "ru"): String {
+    private fun geminiTablePrompt(sourceText: String): String {
+        val escapedSource = "\"\"\"\n$sourceText\n\"\"\""
+        return """
+        You are a strict JSON generator.
+
+        Task:
+        1) Split the input Hebrew text into logical sentences / segments in the original order.
+        2) Add Hebrew niqqud for each segment.
+        3) Transliterate each niqqud segment using SBL Academic transliteration.
+        4) Translate each segment into Russian.
+        5) Produce JSON with:
+           - "segments": list of original segments.
+           - "rows": table rows for the UI, one row per segment.
+
+        Input text (Hebrew, may contain newlines):
+
+        $escapedSource
+
+        Strict output format (JSON only, no comments, no markdown):
+        {
+          "segments": [
+            { "index": 1, "he": "..." }
+          ],
+          "rows": [
+            {
+              "segment_index": 1,
+              "he": "...",
+              "he_niqqud": "...",
+              "translit": "...",
+              "ru": "..."
+            }
+          ]
+        }
+
+        Rules:
+        - Preserve the original order of sentences.
+        - Do NOT merge semantically different sentences into a single row.
+        - If the input contains line breaks, you MAY use them as additional hints for segmentation.
+        - Always return ALL data inside a single JSON object exactly in the format above.
+        """.trimIndent()
+    }
+
+    internal fun parseGeminiTableResponse(body: String): List<GeneratedRow> {
+        val text = extractGeminiText(body)
+        val root = json.parseToJsonElement(stripJsonFence(text)).jsonObject
+        val rows = root["rows"]?.jsonArray ?: throw invalidEnvelope(id.wireId, "Gemini table rows")
+        val parsedRows = rows.mapIndexedNotNull { index, element ->
+            val row = element.jsonObject
+            val he = row["he"]?.jsonPrimitive?.contentOrNull.orEmpty().trim()
+            if (he.isBlank()) return@mapIndexedNotNull null
+            GeneratedRow(
+                segmentIndex = index,
+                hebrewPlain = he,
+                hebrewNiqqud = row["he_niqqud"]?.jsonPrimitive?.contentOrNull.orEmpty().trim(),
+                translit = row["translit"]?.jsonPrimitive?.contentOrNull.orEmpty().trim(),
+                translitRu = row["translit_ru"]?.jsonPrimitive?.contentOrNull.orEmpty().trim(),
+                russian = row["ru"]?.jsonPrimitive?.contentOrNull.orEmpty().trim(),
+            )
+        }
+        if (parsedRows.isEmpty()) throw invalidEnvelope(id.wireId, "Gemini table rows")
+        return parsedRows
+    }
+
+    private fun extractGeminiText(body: String): String {
         val text = json.parseToJsonElement(body)
             .jsonObject["candidates"]
             ?.jsonArray
@@ -419,9 +503,16 @@ class GeminiLegacyTranslationProvider(
             ?.contentOrNull
             .orEmpty()
             .trim()
-        if (text.isBlank()) throw invalidEnvelope(id.wireId, "Gemini $targetLanguage translation")
+        if (text.isBlank()) throw invalidEnvelope(id.wireId, "Gemini table response")
         return text
     }
+
+    private fun stripJsonFence(text: String): String =
+        text
+            .removePrefix("```json")
+            .removePrefix("```")
+            .removeSuffix("```")
+            .trim()
 
     private fun requireCredential(): ProviderCredentialMaterial.ApiKey =
         settingsRepository.getCredentialForProvider(ProviderCredentialId.GeminiLegacy)
@@ -439,7 +530,7 @@ data class TranslationHttpResponse(
 )
 
 interface TranslationHttpClient {
-    suspend fun get(uri: URI): TranslationHttpResponse
+    suspend fun get(uri: URI, headers: Map<String, String> = emptyMap()): TranslationHttpResponse
     suspend fun postJson(
         uri: URI,
         body: String,
@@ -448,8 +539,8 @@ interface TranslationHttpClient {
 }
 
 class UrlConnectionTranslationHttpClient : TranslationHttpClient {
-    override suspend fun get(uri: URI): TranslationHttpResponse =
-        request(uri = uri, method = "GET", body = null)
+    override suspend fun get(uri: URI, headers: Map<String, String>): TranslationHttpResponse =
+        request(uri = uri, method = "GET", body = null, headers = headers)
 
     override suspend fun postJson(
         uri: URI,

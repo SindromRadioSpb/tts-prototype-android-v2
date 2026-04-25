@@ -102,6 +102,12 @@ P015 UI status:
 - `Проверить` validates provider-specific JSON/schema locally.
 - The interim single-line credential field still exists for restricted-key smoke checks and must not be treated as the final production UX.
 
+P019 provider policy update:
+
+- `google_translate_free` must use the source-prototype-compatible `gtx` strategy: `sl=iw`, browser User-Agent, newline batch request first, visible HTTP/error mapping, and no silent fallback for 429 quota.
+- `gemini_legacy` uses a pasted single-line Gemini API key as the primary credential UX. The older JSON wrapper remains allowed only as a backward-compatible stored format.
+- `gemini_legacy` table generation must request strict JSON rows containing Hebrew, niqqud, SBL transliteration, and Russian translation; raw prose responses are invalid.
+
 ## Security Requirements
 
 - No API keys, service account JSON, bearer tokens, or full credential paths in logs.

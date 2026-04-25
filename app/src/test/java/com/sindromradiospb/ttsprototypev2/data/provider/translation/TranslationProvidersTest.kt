@@ -109,6 +109,31 @@ class TranslationProvidersTest {
     }
 
     @Test
+    fun googleFreeUsesPrototypeCompatibleBatchRequest() = runTest {
+        val httpClient = StaticHttpClient(
+            TranslationHttpResponse(
+                statusCode = 200,
+                body = """[[["Привет\nМир","שלום\nעולם",null,null,10]],null,"iw"]""",
+            ),
+        )
+        val provider = GoogleTranslateFreeProvider(httpClient = httpClient)
+
+        val response = provider.translate(
+            TranslationRequest(
+                sourceText = "שלום\nעולם",
+                providerId = TranslationProviderId.GoogleTranslateFree,
+            ),
+        ).getOrThrow()
+
+        assertEquals(2, response.rows.size)
+        assertEquals("Привет", response.rows[0].russian)
+        assertEquals("Мир", response.rows[1].russian)
+        assertTrue(httpClient.lastUri.toString().contains("sl=iw"))
+        assertEquals("Mozilla/5.0", httpClient.lastHeaders["User-Agent"])
+        assertEquals("google-free-gtx-v1", response.provenance.model)
+    }
+
+    @Test
     fun gcpTranslateUsesStoredCredentialAndParsesResponse() = runTest {
         val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
         settings.updateCredential(ProviderCredentialId.GcpTranslate, "gcp-key")
@@ -180,7 +205,7 @@ class TranslationProvidersTest {
             httpClient = StaticHttpClient(
                 TranslationHttpResponse(
                     statusCode = 200,
-                    body = """{"candidates":[{"content":{"parts":[{"text":"Здравствуйте"}]}}]}""",
+                    body = geminiTableResponse(),
                 ),
             ),
             clock = { "2026-04-25T03:00:00Z" },
@@ -190,8 +215,10 @@ class TranslationProvidersTest {
             TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GeminiLegacy),
         ).getOrThrow()
 
+        assertEquals("שָׁלוֹם", response.rows.single().hebrewNiqqud)
+        assertEquals("shalom", response.rows.single().translit)
         assertEquals("Здравствуйте", response.rows.single().russian)
-        assertEquals("gemini-2.0-flash", response.provenance.model)
+        assertEquals("gemini-flash-latest", response.provenance.model)
     }
 
     @Test
@@ -204,7 +231,7 @@ class TranslationProvidersTest {
         val httpClient = StaticHttpClient(
             TranslationHttpResponse(
                 statusCode = 200,
-                body = """{"candidates":[{"content":{"parts":[{"text":"Здравствуйте"}]}}]}""",
+                body = geminiTableResponse(),
             ),
         )
         val provider = GeminiLegacyTranslationProvider(
@@ -235,7 +262,12 @@ private class StaticHttpClient(
     lateinit var lastUri: URI
     var lastHeaders: Map<String, String> = emptyMap()
 
-    override suspend fun get(uri: URI): TranslationHttpResponse = response
+    override suspend fun get(uri: URI, headers: Map<String, String>): TranslationHttpResponse {
+        lastUri = uri
+        lastHeaders = headers
+        return response
+    }
+
     override suspend fun postJson(
         uri: URI,
         body: String,
@@ -250,7 +282,7 @@ private class StaticHttpClient(
 private class FailingHttpClient(
     private val error: Throwable,
 ) : TranslationHttpClient {
-    override suspend fun get(uri: URI): TranslationHttpResponse {
+    override suspend fun get(uri: URI, headers: Map<String, String>): TranslationHttpResponse {
         throw error
     }
 
@@ -280,5 +312,22 @@ private fun serviceAccountJson(): String =
       "project_id": "proj-123",
       "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
       "client_email": "svc@example.iam.gserviceaccount.com"
+    }
+    """.trimIndent()
+
+private fun geminiTableResponse(): String =
+    """
+    {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "{\"segments\":[{\"index\":1,\"he\":\"שלום\"}],\"rows\":[{\"segment_index\":1,\"he\":\"שלום\",\"he_niqqud\":\"שָׁלוֹם\",\"translit\":\"shalom\",\"ru\":\"Здравствуйте\"}]}"
+              }
+            ]
+          }
+        }
+      ]
     }
     """.trimIndent()

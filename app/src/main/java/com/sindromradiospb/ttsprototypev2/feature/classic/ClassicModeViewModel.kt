@@ -18,6 +18,7 @@ import com.sindromradiospb.ttsprototypev2.data.audio.AudioPlaybackController
 import com.sindromradiospb.ttsprototypev2.data.audio.AudioPlaybackResult
 import com.sindromradiospb.ttsprototypev2.data.audio.AudioStorageRepository
 import com.sindromradiospb.ttsprototypev2.data.audio.PlayableAudioResult
+import com.sindromradiospb.ttsprototypev2.data.provider.tts.deterministicAudioAssetKey
 import com.sindromradiospb.ttsprototypev2.data.repository.GeneratedLibraryRowInput
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
@@ -99,6 +100,36 @@ data class ClassicTableDisplayState(
     val isAutoNextActive: Boolean = false,
 )
 
+enum class ClassicDisclosurePanel {
+    Source,
+    Voice,
+    Translation,
+    Result,
+}
+
+data class ClassicDisclosureState(
+    val sourceOpen: Boolean = true,
+    val voiceOpen: Boolean = true,
+    val translationOpen: Boolean = true,
+    val resultOpen: Boolean = true,
+) {
+    fun isOpen(panel: ClassicDisclosurePanel): Boolean =
+        when (panel) {
+            ClassicDisclosurePanel.Source -> sourceOpen
+            ClassicDisclosurePanel.Voice -> voiceOpen
+            ClassicDisclosurePanel.Translation -> translationOpen
+            ClassicDisclosurePanel.Result -> resultOpen
+        }
+
+    fun toggled(panel: ClassicDisclosurePanel): ClassicDisclosureState =
+        when (panel) {
+            ClassicDisclosurePanel.Source -> copy(sourceOpen = !sourceOpen)
+            ClassicDisclosurePanel.Voice -> copy(voiceOpen = !voiceOpen)
+            ClassicDisclosurePanel.Translation -> copy(translationOpen = !translationOpen)
+            ClassicDisclosurePanel.Result -> copy(resultOpen = !resultOpen)
+        }
+}
+
 data class ClassicModeUiState(
     val sourceText: String = "שלום, זהו אבטיפוס פשוט של המערכת",
     val sourceLanguage: ClassicSourceLanguage = ClassicSourceLanguage.Hebrew,
@@ -116,6 +147,7 @@ data class ClassicModeUiState(
     val isSpeaking: Boolean = false,
     val playingRowIndex: Int? = null,
     val tableDisplay: ClassicTableDisplayState = ClassicTableDisplayState(),
+    val disclosure: ClassicDisclosureState = ClassicDisclosureState(),
     val savedTextId: String? = null,
     val saveMetadataDraft: ClassicSaveMetadataDraft? = null,
     val noteEditor: ClassicNoteEditorState? = null,
@@ -215,6 +247,15 @@ class ClassicModeViewModel(
             it.copy(
                 tableDisplay = ClassicTableDisplayState(isColumnsPanelOpen = it.tableDisplay.isColumnsPanelOpen),
                 message = "Настройки таблицы сброшены.",
+            )
+        }
+    }
+
+    fun toggleDisclosure(panel: ClassicDisclosurePanel) {
+        _uiState.update {
+            it.copy(
+                disclosure = it.disclosure.toggled(panel),
+                message = null,
             )
         }
     }
@@ -581,7 +622,17 @@ class ClassicModeViewModel(
                 )
             }
 
-            val existingAssetKey = row.audioAssetKey?.takeIf { it.isNotBlank() }
+            val profile = current.toTtsProfile()
+            val ttsRequest = TtsRequest(
+                text = textForTts,
+                profile = profile,
+                libraryTextId = current.savedTextId,
+                libraryRowId = row.rowId,
+            )
+            val expectedAssetKey = deterministicAudioAssetKey(ttsRequest)
+            val existingAssetKey = row.audioAssetKey
+                ?.takeIf { it.isNotBlank() }
+                ?.takeIf { it == expectedAssetKey }
             val storage = audioStorageRepository
             if (storage != null && existingAssetKey != null) {
                 when (val cached = storage.resolvePlayableAudio(existingAssetKey)) {
@@ -604,15 +655,7 @@ class ClassicModeViewModel(
                 }
             }
 
-            val profile = current.toTtsProfile()
-            val result = registry.get(current.ttsProvider).synthesize(
-                TtsRequest(
-                    text = textForTts,
-                    profile = profile,
-                    libraryTextId = current.savedTextId,
-                    libraryRowId = row.rowId,
-                ),
-            )
+            val result = registry.get(current.ttsProvider).synthesize(ttsRequest)
 
             result.fold(
                 onSuccess = { response ->
