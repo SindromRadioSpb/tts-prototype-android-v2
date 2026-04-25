@@ -73,14 +73,17 @@ Providers must map failures to:
 Quota, billing, invalid-key, and unauthorized errors must not silently fallback.
 Missing configuration must not silently fallback either; the UI must ask the user to configure the provider or choose a different provider manually.
 
-For TTS, `google_online_tts` must remain missing-configuration until provider-specific auth is implemented on top of secure credential storage. Raw Google service account JSON must not be embedded in the APK, copied into source/resources, logged, stored in Room, or exported.
+For TTS, `google_online_tts` may use only the secure single-line credential stored through Settings. Raw Google service account JSON must not be embedded in the APK, copied into source/resources, logged, stored in Room, or exported.
 
 M9 provider security status:
 
 - secure credential storage exists for `gcp_translate`, `gemini_legacy`, and `google_online_tts`;
 - UI shows only configured/missing status and masked values;
 - raw service account JSON/private-key material is rejected;
-- real keyed provider adapters remain disabled until each provider has validation, error mapping, and no-silent-fallback tests.
+- real keyed provider adapters exist for `gcp_translate`, `gemini_legacy`, and `google_online_tts`;
+- keyed adapters read credentials only from the secure settings repository;
+- missing credentials, invalid responses, and HTTP failures are surfaced without silent fallback;
+- real network smoke evidence with restricted keys is still required before release.
 
 ## Security Requirements
 

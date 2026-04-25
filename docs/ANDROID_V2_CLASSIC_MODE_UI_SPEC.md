@@ -52,9 +52,9 @@ M3 implementation status:
 
 - Generated row cards are wired to `ClassicModeViewModel` and the translation provider registry.
 - The row card labels the actual translation provider, for example `Translation: google_translate_free`.
-- `gcp_translate` and `gemini_legacy` currently show visible missing-configuration errors until M9 secure settings.
+- `gcp_translate` and `gemini_legacy` use secure Settings credentials when configured and otherwise show visible missing-configuration errors.
 - Niqqud is shown as not generated in M3.
-- Play/edit buttons remain disabled until M4/M5 and M8.
+- Row play remains disabled until row/text audio UI wiring; edit controls are implemented in the Library tab.
 - Saved summary count is shown from the local Room-backed repository.
 
 ## TTS Controls
@@ -64,6 +64,14 @@ M3 implementation status:
 - Text-level play/regenerate action.
 - Low-quality fallback label for Android platform TTS.
 - Missing audio state with retry/regenerate action.
+
+P012 behavior:
+
+- Classic `Speak` invokes the selected TTS provider for source-level Hebrew synthesis.
+- `google_online_tts` reads the secure Settings credential and writes the returned MP3 under app cache for smoke validation.
+- `system_or_browser_fallback_low_quality` routes through the Android platform TTS adapter.
+- The `Speak` button shows `Speaking...` while synthesis is active and reports either the local file name or a mapped provider error.
+- The `Speak` result is not yet adopted into `audio_assets`, `row_audio`, or `text_audio`, and it does not start audible playback automatically.
 
 ## Editing
 
@@ -111,7 +119,7 @@ M9 behavior:
 - Settings is a separate top-level tab.
 - Provider credentials show configured/missing status and masked values only.
 - Credential input is single-line and rejects raw service account JSON/private-key material.
-- Classic provider selection still surfaces missing-configuration for keyed providers until real provider adapters use the secure settings layer.
+- Classic provider selection uses configured credentials for `gcp_translate`, `gemini_legacy`, and `google_online_tts`; missing credentials still surface without silent fallback.
 
 ## Accessibility and Insets
 

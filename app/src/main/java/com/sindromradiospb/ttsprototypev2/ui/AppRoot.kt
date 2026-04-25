@@ -92,6 +92,7 @@ fun AppRoot(
                 onTtsProviderChanged = classicModeViewModel::onTtsProviderChanged,
                 onGenerate = classicModeViewModel::generateTable,
                 onSave = classicModeViewModel::saveCurrent,
+                onSpeak = classicModeViewModel::speakSource,
                 onDismissMessage = classicModeViewModel::clearMessage,
                 modifier = Modifier.padding(innerPadding),
             )
@@ -137,6 +138,7 @@ fun ClassicModeScreen(
     onTtsProviderChanged: (TtsProviderId) -> Unit,
     onGenerate: () -> Unit,
     onSave: () -> Unit,
+    onSpeak: () -> Unit,
     onDismissMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -169,6 +171,7 @@ fun ClassicModeScreen(
             state = state,
             onGenerate = onGenerate,
             onSave = onSave,
+            onSpeak = onSpeak,
         )
 
         state.message?.let {
@@ -226,6 +229,7 @@ private fun ActionButtons(
     state: ClassicModeUiState,
     onGenerate: () -> Unit,
     onSave: () -> Unit,
+    onSpeak: () -> Unit,
 ) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Button(
@@ -241,10 +245,10 @@ private fun ActionButtons(
             Text(if (state.isSaving) "Saving..." else "Save")
         }
         OutlinedButton(
-            onClick = { },
-            enabled = false,
+            onClick = onSpeak,
+            enabled = !state.isGenerating && !state.isSaving && !state.isSpeaking,
         ) {
-            Text("Speak")
+            Text(if (state.isSpeaking) "Speaking..." else "Speak")
         }
     }
 }

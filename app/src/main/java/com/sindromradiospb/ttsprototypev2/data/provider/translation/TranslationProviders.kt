@@ -9,6 +9,8 @@ import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProvider
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationRequest
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationResponse
+import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsRepository
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
@@ -19,28 +21,42 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 fun createAndroidTranslationProviderRegistry(
+    providerSettingsRepository: ProviderSettingsRepository? = null,
     clock: () -> String = { Instant.now().toString() },
 ): TranslationProviderRegistry =
     TranslationProviderRegistry(
         providers = listOf(
             GoogleTranslateFreeProvider(clock = clock),
-            MissingConfigurationTranslationProvider(
-                id = TranslationProviderId.GcpTranslate,
-                message = "gcp_translate requires secure key storage from M9 before runtime use.",
-                clock = clock,
-            ),
-            MissingConfigurationTranslationProvider(
-                id = TranslationProviderId.GeminiLegacy,
-                message = "gemini_legacy requires secure key storage and cost warning UI from M9 before runtime use.",
-                clock = clock,
-            ),
+            if (providerSettingsRepository == null) {
+                MissingConfigurationTranslationProvider(
+                    id = TranslationProviderId.GcpTranslate,
+                    message = "gcp_translate requires secure key storage before runtime use.",
+                    clock = clock,
+                )
+            } else {
+                GcpTranslateProvider(settingsRepository = providerSettingsRepository, clock = clock)
+            },
+            if (providerSettingsRepository == null) {
+                MissingConfigurationTranslationProvider(
+                    id = TranslationProviderId.GeminiLegacy,
+                    message = "gemini_legacy requires secure key storage and cost warning UI before runtime use.",
+                    clock = clock,
+                )
+            } else {
+                GeminiLegacyTranslationProvider(settingsRepository = providerSettingsRepository, clock = clock)
+            },
         ),
     )
 
@@ -190,6 +206,197 @@ class GoogleTranslateFreeProvider(
     }
 }
 
+class GcpTranslateProvider(
+    private val settingsRepository: ProviderSettingsRepository,
+    private val httpClient: TranslationHttpClient = UrlConnectionTranslationHttpClient(),
+    private val clock: () -> String = { Instant.now().toString() },
+    private val json: Json = Json { ignoreUnknownKeys = true },
+) : TranslationProvider {
+    override val id: TranslationProviderId = TranslationProviderId.GcpTranslate
+
+    override suspend fun translate(request: TranslationRequest): Result<TranslationResponse> =
+        runCatching {
+            require(request.providerId == id) {
+                "Request provider ${request.providerId.wireId} does not match ${id.wireId}"
+            }
+            val apiKey = requireCredential(ProviderCredentialId.GcpTranslate)
+            val rows = splitSource(request.sourceText).mapIndexed { index, segment ->
+                val translated = translateSegment(segment, request.sourceLanguage, request.targetLanguage, apiKey)
+                GeneratedRow(
+                    segmentIndex = index,
+                    hebrewPlain = segment,
+                    hebrewNiqqud = "",
+                    translit = "",
+                    translitRu = "",
+                    russian = translated,
+                )
+            }
+            TranslationResponse(
+                rows = rows,
+                provenance = ProviderProvenance(
+                    requestedProviderId = request.providerId.wireId,
+                    actualProviderId = id.wireId,
+                    model = "cloud_translation_basic_v2",
+                    generatedAt = clock(),
+                ),
+            )
+        }.mapFailureToProviderException(id.wireId)
+
+    private suspend fun translateSegment(
+        segment: String,
+        sourceLanguage: String,
+        targetLanguage: String,
+        apiKey: String,
+    ): String {
+        val uri = URI("https://translation.googleapis.com/language/translate/v2?key=${urlEncode(apiKey)}")
+        val body = json.encodeToString(
+            buildJsonObject {
+                put("q", segment)
+                put("source", sourceLanguage)
+                put("target", targetLanguage)
+                put("format", "text")
+            },
+        )
+        val response = withTimeout(20_000) {
+            httpClient.postJson(uri, body)
+        }
+        if (response.statusCode !in 200..299) {
+            throw httpFailure(id.wireId, response.statusCode, "GCP Translate")
+        }
+        return parseGcpTranslation(response.body)
+    }
+
+    internal fun parseGcpTranslation(body: String): String {
+        val translations = json.parseToJsonElement(body)
+            .jsonObject["data"]
+            ?.jsonObject
+            ?.get("translations")
+            ?.jsonArray
+            ?: throw invalidEnvelope(id.wireId, "GCP Translate")
+        val translated = translations.firstOrNull()
+            ?.jsonObject
+            ?.get("translatedText")
+            ?.jsonPrimitive
+            ?.contentOrNull
+            .orEmpty()
+        if (translated.isBlank()) throw invalidEnvelope(id.wireId, "GCP Translate")
+        return translated
+    }
+
+    private fun requireCredential(id: ProviderCredentialId): String =
+        settingsRepository.getCredentialForProvider(id)
+            ?: throw ProviderException(
+                category = ProviderErrorCategory.MissingConfiguration,
+                providerId = this.id.wireId,
+                userMessage = "${this.id.wireId} is not configured in Settings.",
+            )
+}
+
+class GeminiLegacyTranslationProvider(
+    private val settingsRepository: ProviderSettingsRepository,
+    private val httpClient: TranslationHttpClient = UrlConnectionTranslationHttpClient(),
+    private val clock: () -> String = { Instant.now().toString() },
+    private val json: Json = Json { ignoreUnknownKeys = true },
+    private val model: String = "gemini-2.0-flash",
+) : TranslationProvider {
+    override val id: TranslationProviderId = TranslationProviderId.GeminiLegacy
+
+    override suspend fun translate(request: TranslationRequest): Result<TranslationResponse> =
+        runCatching {
+            require(request.providerId == id) {
+                "Request provider ${request.providerId.wireId} does not match ${id.wireId}"
+            }
+            val apiKey = requireCredential()
+            val rows = splitSource(request.sourceText).mapIndexed { index, segment ->
+                val translated = translateSegment(segment, request.targetLanguage, apiKey)
+                GeneratedRow(
+                    segmentIndex = index,
+                    hebrewPlain = segment,
+                    hebrewNiqqud = "",
+                    translit = "",
+                    translitRu = "",
+                    russian = translated,
+                )
+            }
+            TranslationResponse(
+                rows = rows,
+                provenance = ProviderProvenance(
+                    requestedProviderId = request.providerId.wireId,
+                    actualProviderId = id.wireId,
+                    model = model,
+                    generatedAt = clock(),
+                ),
+            )
+        }.mapFailureToProviderException(id.wireId)
+
+    private suspend fun translateSegment(segment: String, targetLanguage: String, apiKey: String): String {
+        val uri = URI("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${urlEncode(apiKey)}")
+        val prompt = "Translate this Hebrew text to Russian. Return only the Russian translation, no commentary:\n$segment"
+        val body = json.encodeToString(
+            buildJsonObject {
+                put(
+                    "contents",
+                    buildJsonArray {
+                        add(
+                            buildJsonObject {
+                                put(
+                                    "parts",
+                                    buildJsonArray {
+                                        add(buildJsonObject { put("text", prompt) })
+                                    },
+                                )
+                            },
+                        )
+                    },
+                )
+                put(
+                    "generationConfig",
+                    buildJsonObject {
+                        put("temperature", 0.1)
+                        put("maxOutputTokens", 512)
+                    },
+                )
+            },
+        )
+        val response = withTimeout(30_000) {
+            httpClient.postJson(uri, body)
+        }
+        if (response.statusCode !in 200..299) {
+            throw httpFailure(id.wireId, response.statusCode, "Gemini")
+        }
+        return parseGeminiTranslation(response.body, targetLanguage)
+    }
+
+    internal fun parseGeminiTranslation(body: String, targetLanguage: String = "ru"): String {
+        val text = json.parseToJsonElement(body)
+            .jsonObject["candidates"]
+            ?.jsonArray
+            ?.firstOrNull()
+            ?.jsonObject
+            ?.get("content")
+            ?.jsonObject
+            ?.get("parts")
+            ?.jsonArray
+            ?.firstOrNull()
+            ?.jsonObject
+            ?.get("text")
+            ?.jsonPrimitive
+            ?.contentOrNull
+            .orEmpty()
+            .trim()
+        if (text.isBlank()) throw invalidEnvelope(id.wireId, "Gemini $targetLanguage translation")
+        return text
+    }
+
+    private fun requireCredential(): String =
+        settingsRepository.getCredentialForProvider(ProviderCredentialId.GeminiLegacy)
+            ?: throw ProviderException(
+                category = ProviderErrorCategory.MissingConfiguration,
+                providerId = id.wireId,
+                userMessage = "${id.wireId} is not configured in Settings.",
+            )
+}
+
 data class TranslationHttpResponse(
     val statusCode: Int,
     val body: String,
@@ -197,15 +404,27 @@ data class TranslationHttpResponse(
 
 interface TranslationHttpClient {
     suspend fun get(uri: URI): TranslationHttpResponse
+    suspend fun postJson(uri: URI, body: String): TranslationHttpResponse
 }
 
 class UrlConnectionTranslationHttpClient : TranslationHttpClient {
     override suspend fun get(uri: URI): TranslationHttpResponse =
+        request(uri = uri, method = "GET", body = null)
+
+    override suspend fun postJson(uri: URI, body: String): TranslationHttpResponse =
+        request(uri = uri, method = "POST", body = body)
+
+    private suspend fun request(uri: URI, method: String, body: String?): TranslationHttpResponse =
         withContext(Dispatchers.IO) {
             val connection = uri.toURL().openConnection() as HttpURLConnection
             connection.connectTimeout = 20_000
             connection.readTimeout = 20_000
-            connection.requestMethod = "GET"
+            connection.requestMethod = method
+            if (body != null) {
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            }
             try {
                 val status = connection.responseCode
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
@@ -256,3 +475,30 @@ private fun <T> Result<T>.mapFailureToProviderException(providerId: String): Res
             )
         }
     }
+
+private fun httpFailure(providerId: String, statusCode: Int, label: String): ProviderException {
+    val category = when (statusCode) {
+        400 -> ProviderErrorCategory.InvalidApiKey
+        401 -> ProviderErrorCategory.Unauthorized
+        403 -> ProviderErrorCategory.BillingRequired
+        408 -> ProviderErrorCategory.Timeout
+        429 -> ProviderErrorCategory.QuotaExceeded
+        in 500..599 -> ProviderErrorCategory.ProviderUnavailable
+        else -> ProviderErrorCategory.InvalidResponse
+    }
+    return ProviderException(
+        category = category,
+        providerId = providerId,
+        userMessage = "$label failed with HTTP $statusCode.",
+    )
+}
+
+private fun invalidEnvelope(providerId: String, label: String): ProviderException =
+    ProviderException(
+        category = ProviderErrorCategory.InvalidResponse,
+        providerId = providerId,
+        userMessage = "$label returned an invalid response envelope.",
+    )
+
+private fun urlEncode(value: String): String =
+    URLEncoder.encode(value, Charsets.UTF_8.name())

@@ -14,6 +14,7 @@ M6 export ZIP with audio is implemented in commit `4ac57c9`.
 M7 library UI and saved text lifecycle is implemented in commit `4396158`.
 M8 editing/reorder/reset behavior is implemented in commit `e17cd9e`.
 M9 API key/settings/security is implemented in commit `7e3a082`.
+M9 follow-up keyed provider smoke adapters are in progress: stored single-line credentials now feed GCP Translate, Gemini, and Google Online TTS HTTP adapters, while raw service account JSON remains blocked.
 
 Completed:
 
@@ -27,7 +28,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Next implementation milestone after M9 is M10: IDE Mode experimental integration.
+- Next implementation milestone after the keyed provider smoke patch is M10: IDE Mode experimental integration. A manual device/emulator smoke pass for Settings, translation, and TTS should run before release hardening.
 
 ## Dependency Graph
 
@@ -61,7 +62,7 @@ M13 -> M14
 | M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | Completed in `4ac57c9`; SAF/share UI evidence remains future work. |
 | M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, and save/update library texts. | Repository tests and Compose UI tests. | Keep library screen behind navigation item until stable. | Completed in `4396158`; manual UI evidence remains future work. |
 | M8 - Editing/reorder/reset behavior | Medium | Edit row fields, reset, reorder, delete, add rows while preserving metadata. | `LibraryViewModelTest`, repository regression tests, UI evidence later. | Disable row mutation actions if persistence invariant breaks. | Completed in `e17cd9e`; manual UI evidence remains future work. |
-| M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows. | Settings repository/ViewModel tests, no-secret export/log tests. | Keep real providers disabled until provider-specific auth is safe. | Completed in `7e3a082`; manual Keystore/UI evidence remains future work. |
+| M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows, and wire stored credentials into allowed keyed providers. | Settings repository/ViewModel tests, no-secret export/log tests, keyed adapter contract tests. | Disable only the failing keyed provider while preserving visible errors and no silent fallback. | Completed in `7e3a082`; keyed adapter follow-up in progress; manual Keystore/UI/network evidence remains future work. |
 | M10 - IDE Mode experimental integration | Medium | Keep IDE Mode separate and experimental with shared models only. | Navigation tests, no Classic dependency regression. | Hide IDE entry if it destabilizes Classic. | `feat(ide): define experimental workspace shell`. |
 | M11 - Import/compatibility layer | Medium | Import Android ZIP and compatible old web JSON where possible. | Import fixture tests and partial import tests. | Import remains read-only preview until safe. | `feat(import): add library compatibility import`. |
 | M12 - Premium UI/UX polish | Medium | Improve native phone UX, accessibility, RTL, insets, long text. | UI DoD evidence and accessibility smoke tests. | Keep functional UI if polish causes regressions. | `feat(ui): polish classic mode premium workflow`. |
@@ -297,10 +298,28 @@ Implemented in patch P011, commit `7e3a082`:
 
 Still out of scope for M9:
 
-- Real GCP/Gemini/Google Online TTS network adapters using the stored credentials.
 - Storing raw service account JSON in Android.
 - Device/emulator screenshot evidence for Settings.
-- Provider validation calls against real endpoints.
+- Formal provider validation button/check per credential.
+
+## M9 Keyed Provider Follow-up Status
+
+Implemented in patch P012:
+
+- `createAndroidTranslationProviderRegistry` now receives `ProviderSettingsRepository` from `TtsPrototypeApplication`.
+- `gcp_translate` reads the stored `gcp_translate` credential and calls Google Cloud Translation Basic v2 with JSON POST.
+- `gemini_legacy` reads the stored `gemini_legacy` credential and calls Gemini `gemini-2.0-flash` for Hebrew-to-Russian translation.
+- `google_online_tts` reads the stored `google_online_tts` credential, calls Google Cloud Text-to-Speech `text:synthesize`, decodes returned MP3 bytes, and writes them under app cache for smoke validation.
+- Classic Mode `Speak` now invokes the selected TTS provider for source-level Hebrew synthesis and shows either the generated local file name or the mapped provider error.
+- Unit tests cover credential usage, missing-credential no-fallback behavior, GCP/Gemini parsing, and Google TTS audio-file creation.
+
+Still out of scope for P012:
+
+- Copying service account JSON/private keys into Android. The Settings validation still rejects that material.
+- Persisting the Classic `Speak` result into `audio_assets`, `row_audio`, or `text_audio`.
+- Audible playback from the Classic `Speak` button.
+- Real endpoint validation in CI. CI remains fake/stubbed and must not require provider credentials.
+- Manual Android Keystore, emulator/device, quota/billing, and real network smoke evidence.
 
 ## Blocking Questions
 

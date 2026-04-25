@@ -2,7 +2,7 @@
 
 Date: 2026-04-25
 
-This file is updated whenever UI changes. M3 has code/test evidence but no emulator screenshot evidence yet.
+This file is updated whenever UI changes. Current evidence is code/test evidence only; emulator screenshot and device smoke evidence are still pending.
 
 | Area | Status | Date | Device/emulator | Build variant | Evidence path or written result | Known issues | Follow-up patch |
 |------|--------|------|-----------------|---------------|----------------------------------|--------------|-----------------|
@@ -12,11 +12,11 @@ This file is updated whenever UI changes. M3 has code/test evidence but no emula
 | Keyboard behavior | Not collected yet: no UI milestone has been implemented after M0. | 2026-04-25 | Not run | Debug | IME behavior not manually captured. | Needs device/emulator check. | M12 |
 | Generated rows | Code evidence collected; manual visual evidence pending. | 2026-04-25 | Not run | Debug | `ClassicModeViewModelTest` verifies provider-backed generation; `AppRoot` renders generated row cards with provider label. | Needs emulator screenshot/manual portrait check. | M12 |
 | Row editing | Code evidence collected; manual visual evidence pending. | 2026-04-25 | Unit tests | Debug | M8 adds Library tab inline row editor, reset, up/down reorder, add row, add after, and delete row; `LibraryViewModelTest` covers edit/reset/reorder/delete/add behavior. | Needs emulator screenshot/manual keyboard and touch-target evidence. | M12/M13 |
-| TTS controls | Partial code evidence collected; UI/manual evidence pending. | 2026-04-25 | Not run | Debug | M4 added TTS providers; M5 added audio storage/playback controller tests. Row buttons remain disabled in UI. | Needs device playback and UI wiring. | M7/M12 |
+| TTS controls | Partial code evidence collected; UI/manual evidence pending. | 2026-04-25 | Unit tests | Debug | M4 added TTS providers; M5 added audio storage/playback controller tests; P012 wires Classic source-level `Speak` to selected TTS provider and verifies success/missing-configuration through `ClassicModeViewModelTest`. Row playback/adoption remains unwired. | Needs device playback, real-key network smoke, and row/text audio UI wiring. | M12/M13 |
 | Library screen | Partial code evidence collected; manual screenshot evidence pending. | 2026-04-25 | Unit tests | Debug | M7 adds Library tab with browse/open/archive/restore/delete and row preview; M8 adds row mutation controls; `LibraryViewModelTest` covers lifecycle and row edit behavior. | Add emulator screenshots/manual evidence. | M12/M13 |
 | Export flow | Partial code evidence: repository ZIP export is implemented; SAF/share UI is not implemented. | 2026-04-25 | Unit tests | Debug | `LibraryZipExportRepositoryTest` verifies ZIP structure, manifest, missing-audio manifest, and export history. | Add SAF/share UI evidence when export UI is wired. | M7/M12 |
-| Settings credentials | Code evidence collected; manual visual and device Keystore evidence pending. | 2026-04-25 | Unit tests | Debug | M9 adds Settings tab with provider credential status, masked values, save/delete actions, and validation; `ProviderSettingsRepositoryTest` and `SettingsViewModelTest` cover behavior. | Needs emulator screenshot and Android Keystore persistence smoke. | M12/M13 |
-| Error states | Partial code evidence collected. | 2026-04-25 | Not run | Debug | Blank input, duplicate save, and provider missing-configuration messages covered by `ClassicModeViewModelTest`. | Database/export/TTS error UI still pending. | M13 |
+| Settings credentials | Code evidence collected; manual visual and device Keystore evidence pending. | 2026-04-25 | Unit tests | Debug | M9 adds Settings tab with provider credential status, masked values, save/delete actions, and validation; P012 keyed adapters read those stored credentials; settings/provider tests cover behavior. | Needs emulator screenshot, Android Keystore persistence smoke, and real restricted-key endpoint smoke. | M12/M13 |
+| Error states | Partial code evidence collected. | 2026-04-25 | Unit tests | Debug | Blank input, duplicate save, provider missing-configuration, and source-level TTS missing-configuration messages are covered by `ClassicModeViewModelTest`. | Database/export/manual network failure UI still pending. | M13 |
 | IDE Mode experimental screen | Not collected yet: M0 shell only. | 2026-04-25 | Not run | Debug | Needs visible experimental label verification. | Keep separate from Classic. | M10 |
 
 ## Related Docs

@@ -10,6 +10,8 @@ import com.sindromradiospb.ttsprototypev2.core.model.TtsProfile
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
 import com.sindromradiospb.ttsprototypev2.core.provider.ProviderException
 import com.sindromradiospb.ttsprototypev2.core.provider.ProviderProvenance
+import com.sindromradiospb.ttsprototypev2.core.provider.TtsProviderRegistry
+import com.sindromradiospb.ttsprototypev2.core.provider.TtsRequest
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationRequest
 import com.sindromradiospb.ttsprototypev2.data.repository.GeneratedLibraryRowInput
@@ -44,6 +46,7 @@ data class ClassicModeUiState(
     val libraryTexts: List<LibraryTextSummary> = emptyList(),
     val isGenerating: Boolean = false,
     val isSaving: Boolean = false,
+    val isSpeaking: Boolean = false,
     val savedTextId: String? = null,
     val generatedAt: String? = null,
     val generationLabel: String = "Generation: not started",
@@ -54,6 +57,7 @@ data class ClassicModeUiState(
 class ClassicModeViewModel(
     private val repository: LibraryRepository,
     private val translationProviders: TranslationProviderRegistry = createAndroidTranslationProviderRegistry(),
+    private val ttsProviders: TtsProviderRegistry? = null,
     private val clock: () -> String = { Instant.now().toString() },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ClassicModeUiState())
@@ -183,6 +187,54 @@ class ClassicModeViewModel(
         }
     }
 
+    fun speakSource() {
+        val current = uiState.value
+        if (current.sourceText.isBlank()) {
+            _uiState.update { it.copy(message = "Введите Hebrew source text перед TTS.") }
+            return
+        }
+        val registry = ttsProviders
+        if (registry == null) {
+            _uiState.update { it.copy(message = "TTS registry is not available in this build path.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSpeaking = true, message = null) }
+            val profile = TtsProfile(
+                providerId = current.ttsProvider,
+                language = "he-IL",
+                voiceName = null,
+            )
+            val provider = registry.get(current.ttsProvider)
+            val result = provider.synthesize(
+                TtsRequest(
+                    text = current.sourceText,
+                    profile = profile,
+                ),
+            )
+            result.fold(
+                onSuccess = { response ->
+                    _uiState.update {
+                        it.copy(
+                            isSpeaking = false,
+                            message = "TTS complete via ${response.provenance.actualProviderId}: ${response.localFileName.orEmpty()}",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    val providerError = error as? ProviderException
+                    val message = if (providerError != null) {
+                        "TTS failed (${providerError.category}): ${providerError.userMessage}"
+                    } else {
+                        "TTS failed: ${error.message.orEmpty().ifBlank { "Unknown provider error." }}"
+                    }
+                    _uiState.update { it.copy(isSpeaking = false, message = message) }
+                },
+            )
+        }
+    }
+
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
     }
@@ -224,13 +276,19 @@ class ClassicModeViewModel(
 
     class Factory(
         private val repository: LibraryRepository,
+        private val translationProviders: TranslationProviderRegistry = createAndroidTranslationProviderRegistry(),
+        private val ttsProviders: TtsProviderRegistry? = null,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(ClassicModeViewModel::class.java)) {
                 "Unsupported ViewModel class: ${modelClass.name}"
             }
-            return ClassicModeViewModel(repository) as T
+            return ClassicModeViewModel(
+                repository = repository,
+                translationProviders = translationProviders,
+                ttsProviders = ttsProviders,
+            ) as T
         }
     }
 }

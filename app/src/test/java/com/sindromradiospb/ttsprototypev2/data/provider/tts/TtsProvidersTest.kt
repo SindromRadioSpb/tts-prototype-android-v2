@@ -6,13 +6,23 @@ import com.sindromradiospb.ttsprototypev2.core.provider.ProviderErrorCategory
 import com.sindromradiospb.ttsprototypev2.core.provider.ProviderException
 import com.sindromradiospb.ttsprototypev2.core.provider.TtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TtsRequest
+import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
+import com.sindromradiospb.ttsprototypev2.data.settings.InMemorySecureKeyValueStore
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsRepository
+import java.net.URI
+import java.util.Base64
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 class TtsProvidersTest {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
     @Test
     fun fakeTtsProviderReturnsDeterministicMetadata() = runTest {
         val provider = FakeTtsProvider(
@@ -70,6 +80,41 @@ class TtsProvidersTest {
         assertEquals("google_online_tts", error.providerId)
     }
 
+    @Test
+    fun googleOnlineTtsUsesStoredCredentialAndWritesAudioFile() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GoogleOnlineTts, "tts-key")
+        val audio = Base64.getEncoder().encodeToString("mp3-bytes".toByteArray(Charsets.UTF_8))
+        val provider = GoogleOnlineTtsProvider(
+            settingsRepository = settings,
+            httpClient = StaticTtsHttpClient(TtsHttpResponse(statusCode = 200, body = """{"audioContent":"$audio"}""")),
+            outputDirectory = temporaryFolder.newFolder("tts"),
+            clock = { "2026-04-25T04:00:00Z" },
+        )
+
+        val response = provider.synthesize(sampleRequest(TtsProviderId.GoogleOnlineTts)).getOrThrow()
+
+        assertEquals("google_online_tts", response.provenance.actualProviderId)
+        assertEquals("audio/mpeg", response.mimeType)
+        assertTrue(response.localFilePath!!.endsWith(".mp3"))
+        assertEquals("mp3-bytes".length.toLong(), response.sizeBytes)
+    }
+
+    @Test
+    fun googleOnlineTtsMissingCredentialDoesNotFallback() = runTest {
+        val provider = GoogleOnlineTtsProvider(
+            settingsRepository = ProviderSettingsRepository(InMemorySecureKeyValueStore()),
+            httpClient = StaticTtsHttpClient(TtsHttpResponse(statusCode = 200, body = "{}")),
+            outputDirectory = temporaryFolder.newFolder("tts-missing"),
+        )
+
+        val result = provider.synthesize(sampleRequest(TtsProviderId.GoogleOnlineTts))
+
+        val error = result.exceptionOrNull() as ProviderException
+        assertEquals(ProviderErrorCategory.MissingConfiguration, error.category)
+        assertEquals("google_online_tts", error.providerId)
+    }
+
     private fun sampleRequest(
         providerId: TtsProviderId,
         text: String = "שלום עולם",
@@ -93,4 +138,10 @@ class TtsProvidersTest {
         }
         throw AssertionError("Expected ProviderException")
     }
+}
+
+private class StaticTtsHttpClient(
+    private val response: TtsHttpResponse,
+) : TtsHttpClient {
+    override suspend fun postJson(uri: URI, body: String): TtsHttpResponse = response
 }

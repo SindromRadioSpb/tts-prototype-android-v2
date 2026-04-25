@@ -170,6 +170,28 @@ M8 does not include Compose screenshot tests, drag-and-drop tests, or device man
 
 M9 tests do not instantiate Android Keystore directly and do not use real provider credentials. Device/emulator evidence is still required to verify actual Android Keystore persistence and Settings screen layout before release.
 
+## Current M9 Keyed Adapter Coverage
+
+`TranslationProvidersTest` also covers:
+
+- `gcp_translate` reading a stored credential and sending JSON POST to the Google Cloud Translation endpoint;
+- `gcp_translate` missing-credential behavior without fallback;
+- `gemini_legacy` reading a stored credential and parsing Gemini candidate text.
+
+`TtsProvidersTest` also covers:
+
+- `google_online_tts` reading a stored credential;
+- decoding a base64 MP3 response;
+- writing the synthesized audio file to app cache;
+- missing-credential behavior without fallback.
+
+`ClassicModeViewModelTest` also covers:
+
+- Classic source-level `Speak` invoking the selected TTS provider;
+- visible missing-configuration TTS failure without fallback.
+
+These tests use stub HTTP clients and fake stores. They intentionally do not call real Google endpoints and do not require real provider credentials.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.

@@ -5,6 +5,9 @@ import com.sindromradiospb.ttsprototypev2.core.provider.ProviderErrorCategory
 import com.sindromradiospb.ttsprototypev2.core.provider.ProviderException
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationRequest
+import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
+import com.sindromradiospb.ttsprototypev2.data.settings.InMemorySecureKeyValueStore
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsRepository
 import java.io.IOException
 import java.net.URI
 import kotlinx.coroutines.test.runTest
@@ -103,6 +106,67 @@ class TranslationProvidersTest {
         assertEquals(ProviderErrorCategory.NetworkUnavailable, error.category)
     }
 
+    @Test
+    fun gcpTranslateUsesStoredCredentialAndParsesResponse() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GcpTranslate, "gcp-key")
+        val provider = GcpTranslateProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = """{"data":{"translations":[{"translatedText":"Привет"}]}}""",
+                ),
+            ),
+            clock = { "2026-04-25T03:00:00Z" },
+        )
+
+        val response = provider.translate(
+            TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GcpTranslate),
+        ).getOrThrow()
+
+        assertEquals("Привет", response.rows.single().russian)
+        assertEquals("cloud_translation_basic_v2", response.provenance.model)
+    }
+
+    @Test
+    fun gcpTranslateMissingCredentialDoesNotFallback() = runTest {
+        val provider = GcpTranslateProvider(
+            settingsRepository = ProviderSettingsRepository(InMemorySecureKeyValueStore()),
+            httpClient = StaticHttpClient(TranslationHttpResponse(statusCode = 200, body = "{}")),
+        )
+
+        val result = provider.translate(
+            TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GcpTranslate),
+        )
+
+        val error = result.exceptionOrNull() as ProviderException
+        assertEquals(ProviderErrorCategory.MissingConfiguration, error.category)
+    }
+
+    @Test
+    fun geminiLegacyUsesStoredCredentialAndParsesResponse() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = """{"candidates":[{"content":{"parts":[{"text":"Здравствуйте"}]}}]}""",
+                ),
+            ),
+            clock = { "2026-04-25T03:00:00Z" },
+        )
+
+        val response = provider.translate(
+            TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GeminiLegacy),
+        ).getOrThrow()
+
+        assertEquals("Здравствуйте", response.rows.single().russian)
+        assertEquals("gemini-2.0-flash", response.provenance.model)
+    }
+
     private fun assertProviderException(block: () -> Unit): ProviderException {
         try {
             block()
@@ -117,12 +181,17 @@ private class StaticHttpClient(
     private val response: TranslationHttpResponse,
 ) : TranslationHttpClient {
     override suspend fun get(uri: URI): TranslationHttpResponse = response
+    override suspend fun postJson(uri: URI, body: String): TranslationHttpResponse = response
 }
 
 private class FailingHttpClient(
     private val error: Throwable,
 ) : TranslationHttpClient {
     override suspend fun get(uri: URI): TranslationHttpResponse {
+        throw error
+    }
+
+    override suspend fun postJson(uri: URI, body: String): TranslationHttpResponse {
         throw error
     }
 }

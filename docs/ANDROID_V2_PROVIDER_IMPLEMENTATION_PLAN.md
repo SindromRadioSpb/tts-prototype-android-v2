@@ -25,7 +25,15 @@ M4 implementation status:
 - `TtsProviderRegistry` rejects TTS providers outside `AndroidV2ProviderPolicy`.
 - `FakeTtsProvider` provides deterministic CI-safe TTS metadata without audio engine or network.
 - `AndroidPlatformTtsProvider` wraps native Android `TextToSpeech` for `system_or_browser_fallback_low_quality`.
-- `google_online_tts` is represented by `MissingConfigurationTtsProvider` until provider-specific auth and request signing are implemented on top of M9 secure credential storage.
+- `google_online_tts` has a keyed Google Cloud Text-to-Speech adapter that reads the M9 secure credential store, writes synthesized MP3 output to app cache, and returns domain metadata without persisting secrets.
+
+M9 keyed adapter follow-up status:
+
+- `gcp_translate` is implemented as a Google Cloud Translation Basic v2 JSON POST adapter using a stored single-line API key.
+- `gemini_legacy` is implemented as a Gemini `gemini-2.0-flash` JSON POST adapter using a stored single-line API key.
+- `google_online_tts` is implemented as a Google Cloud Text-to-Speech `text:synthesize` JSON POST adapter using a stored single-line API key.
+- Missing credentials still produce `MissingConfiguration` and do not fallback automatically.
+- Raw service account JSON and private-key material remain blocked by Settings validation and must not be embedded in the APK.
 
 ## Allowed Translation Providers
 
@@ -38,8 +46,8 @@ M4 implementation status:
 Current runtime wiring:
 
 - `google_translate_free`: implemented as best-effort HTTP adapter using `translate.googleapis.com/translate_a/single`.
-- `gcp_translate`: allowlisted but returns `MissingConfiguration`; M9 stores a single-line credential securely, but the real adapter is still deferred until provider-specific validation/auth wiring.
-- `gemini_legacy`: allowlisted but returns `MissingConfiguration`; M9 stores a single-line credential securely, but the real adapter is still deferred until validation and cost-warning behavior are wired.
+- `gcp_translate`: implemented as keyed Google Cloud Translation Basic v2 adapter. It requires a stored restricted API key and maps HTTP failures into provider categories without fallback.
+- `gemini_legacy`: implemented as keyed Gemini adapter for Hebrew-to-Russian translation. It requires a stored Gemini API key and maps HTTP failures into provider categories without fallback.
 
 ## Allowed TTS Providers
 
@@ -50,7 +58,7 @@ Current runtime wiring:
 
 Current runtime wiring:
 
-- `google_online_tts`: allowlisted but returns `MissingConfiguration`; M9 rejects raw service account JSON and stores only single-line credentials, so real Google TTS auth remains a separate provider implementation decision.
+- `google_online_tts`: implemented as keyed Google Cloud Text-to-Speech adapter. It requires a stored restricted API key, decodes returned MP3 bytes, and writes them to app cache before returning `TtsResponse`.
 - `system_or_browser_fallback_low_quality`: implemented as Android platform `TextToSpeech.synthesizeToFile` adapter writing a temporary WAV under app cache.
 
 ## Disallowed Providers
@@ -100,18 +108,18 @@ Persist for every generated row or audio asset:
 
 1. Fake providers and contract tests. Completed for translation in M3.
 2. `google_translate_free` behind policy allowlist. Completed in M3 as best-effort HTTP adapter.
-3. `gcp_translate` with secure key status checks. M9 storage exists; network adapter and validation remain deferred.
+3. `gcp_translate` with secure key status checks. Keyed network adapter is implemented; manual real-key smoke remains required.
 4. `system_or_browser_fallback_low_quality`. Completed in M4 as Android platform adapter; device smoke still required.
-5. `google_online_tts`. M9 storage exists; raw service account JSON remains blocked and network auth remains deferred.
-6. `gemini_legacy` only after key strategy and UI cost warnings are documented.
+5. `google_online_tts`. Keyed network adapter is implemented; service account JSON remains blocked and manual real-key smoke remains required.
+6. `gemini_legacy`. Keyed network adapter is implemented; cost-warning UX remains a release-hardening item.
 
 ## Open Decisions
 
 | Decision | Current default | Owner / next action |
 |----------|-----------------|---------------------|
-| GCP key vs service account JSON on device | M9 accepts only single-line credentials and rejects raw service account JSON. | Add provider-specific validation before enabling `gcp_translate`. |
-| Gemini key handling | M9 uses the same encrypted settings path and masked status only. | Add validation and cost-warning behavior before enabling `gemini_legacy`. |
-| Google Online TTS credentials | M9 rejects service account JSON/private-key material; embedding JSON in APK remains blocked. | Decide restricted-key or brokered auth before enabling `google_online_tts`. |
+| GCP key vs service account JSON on device | Use a stored single-line restricted API key for the adapter; reject service account JSON/private keys. | Run manual real-key smoke and add optional validation UI if needed. |
+| Gemini key handling | Use a stored single-line Gemini API key; no secrets in logs/exports. | Add cost-warning UX before release. |
+| Google Online TTS credentials | Use a stored single-line restricted API key for smoke; embedding service account JSON in APK remains blocked. | Verify whether the configured Google Cloud project accepts API-key TTS calls; otherwise decide brokered auth. |
 | niqqud provider strategy | Store niqqud as optional/degraded; do not depend on desktop sidecar. | Decide in M3 after Android-safe options review. |
 | Google Free production stability | Treat as best-effort with visible degraded/unofficial label. | Validate with provider tests and UX copy in M3. |
 

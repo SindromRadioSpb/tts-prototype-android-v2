@@ -4,7 +4,10 @@ import com.sindromradiospb.ttsprototypev2.MainDispatcherRule
 import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
+import com.sindromradiospb.ttsprototypev2.core.provider.TtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegistry
+import com.sindromradiospb.ttsprototypev2.data.provider.tts.FakeTtsProvider
+import com.sindromradiospb.ttsprototypev2.data.provider.tts.MissingConfigurationTtsProvider
 import com.sindromradiospb.ttsprototypev2.data.provider.translation.FakeTranslationProvider
 import com.sindromradiospb.ttsprototypev2.data.provider.translation.MissingConfigurationTranslationProvider
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
@@ -122,6 +125,52 @@ class ClassicModeViewModelTest {
         assertEquals("This generated text is already saved in the local library.", viewModel.uiState.value.message)
     }
 
+    @Test
+    fun speakSourceUsesSelectedTtsProvider() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel(
+            ttsProviders = TtsProviderRegistry(
+                listOf(
+                    FakeTtsProvider(id = TtsProviderId.GoogleOnlineTts),
+                    FakeTtsProvider(id = TtsProviderId.SystemFallbackLowQuality),
+                ),
+            ),
+        )
+
+        viewModel.onTtsProviderChanged(TtsProviderId.SystemFallbackLowQuality)
+        viewModel.onSourceTextChanged("שלום עולם")
+        viewModel.speakSource()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isSpeaking)
+        assertTrue(state.message.orEmpty().contains("TTS complete via system_or_browser_fallback_low_quality"))
+    }
+
+    @Test
+    fun speakSourceShowsMissingConfigurationWithoutFallback() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel(
+            ttsProviders = TtsProviderRegistry(
+                listOf(
+                    MissingConfigurationTtsProvider(
+                        id = TtsProviderId.GoogleOnlineTts,
+                        message = "google tts missing",
+                    ),
+                    FakeTtsProvider(id = TtsProviderId.SystemFallbackLowQuality),
+                ),
+            ),
+        )
+
+        viewModel.onTtsProviderChanged(TtsProviderId.GoogleOnlineTts)
+        viewModel.onSourceTextChanged("שלום עולם")
+        viewModel.speakSource()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isSpeaking)
+        assertTrue(state.message.orEmpty().contains("MissingConfiguration"))
+        assertTrue(state.message.orEmpty().contains("google tts missing"))
+    }
+
     private fun viewModel(
         repository: LibraryRepository = FakeLibraryRepository(),
         translationProviders: TranslationProviderRegistry = TranslationProviderRegistry(
@@ -131,10 +180,12 @@ class ClassicModeViewModelTest {
                 FakeTranslationProvider(id = TranslationProviderId.GeminiLegacy),
             ),
         ),
+        ttsProviders: TtsProviderRegistry? = null,
     ): ClassicModeViewModel =
         ClassicModeViewModel(
             repository = repository,
             translationProviders = translationProviders,
+            ttsProviders = ttsProviders,
             clock = { "2026-04-25T02:00:00Z" },
         )
 }

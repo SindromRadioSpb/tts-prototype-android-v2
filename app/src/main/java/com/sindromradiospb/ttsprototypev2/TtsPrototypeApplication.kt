@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.sindromradiospb.ttsprototypev2.data.audio.AudioStorageRepository
 import com.sindromradiospb.ttsprototypev2.data.db.AppDatabase
 import com.sindromradiospb.ttsprototypev2.data.export.LibraryZipExportRepository
+import com.sindromradiospb.ttsprototypev2.data.provider.translation.createAndroidTranslationProviderRegistry
 import com.sindromradiospb.ttsprototypev2.data.provider.tts.createAndroidTtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.data.repository.RoomLibraryRepository
 import com.sindromradiospb.ttsprototypev2.data.settings.AndroidKeystoreSecureKeyValueStore
@@ -29,8 +30,15 @@ class TtsPrototypeApplication : Application() {
         )
     }
 
+    val translationProviderRegistry by lazy {
+        createAndroidTranslationProviderRegistry(providerSettingsRepository)
+    }
+
     val ttsProviderRegistry by lazy {
-        createAndroidTtsProviderRegistry(this)
+        createAndroidTtsProviderRegistry(
+            context = this,
+            providerSettingsRepository = providerSettingsRepository,
+        )
     }
 
     val audioStorageRepository: AudioStorageRepository by lazy {

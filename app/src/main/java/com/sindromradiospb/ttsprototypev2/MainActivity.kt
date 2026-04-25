@@ -13,8 +13,11 @@ import com.sindromradiospb.ttsprototypev2.ui.theme.TtsPrototypeTheme
 
 class MainActivity : ComponentActivity() {
     private val classicModeViewModel: ClassicModeViewModel by viewModels {
+        val app = application as TtsPrototypeApplication
         ClassicModeViewModel.Factory(
-            (application as TtsPrototypeApplication).libraryRepository,
+            repository = app.libraryRepository,
+            translationProviders = app.translationProviderRegistry,
+            ttsProviders = app.ttsProviderRegistry,
         )
     }
     private val libraryViewModel: LibraryViewModel by viewModels {
