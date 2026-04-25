@@ -2,7 +2,24 @@
 
 Date: 2026-04-25
 
-This is the implementation spec for M1. It defines the target Room model before code is written.
+This is the implementation spec and current Room baseline for M1.
+
+## Implementation Status
+
+Implemented in Android code:
+
+- Room database: `AppDatabase`, schema version `1`.
+- Entities: `LibraryTextEntity`, `LibraryRowEntity`, `AudioAssetEntity`, `RowAudioEntity`, `TextAudioEntity`, `ExportHistoryEntity`, `ProviderCallLogEntity`.
+- DAO: `LibraryDao`.
+- Repository: `RoomLibraryRepository`.
+- Exported schema: `app/schemas/com.sindromradiospb.ttsprototypev2.data.db.AppDatabase/1.json`.
+
+Not implemented yet:
+
+- Export ZIP writer.
+- Import compatibility layer.
+- Provider event writes from real providers.
+- Audio file cleanup for orphaned assets.
 
 ## Entity List
 
@@ -164,7 +181,7 @@ Excluded from first Android Room schema:
 
 ## Schema Versioning
 
-- Room schema version starts at `1` when M1 is implemented.
+- Room schema version starts at `1`.
 - Every schema change must add a migration test and update this document.
 - Export schema has its own `export_schema_version`, starting at `1`.
 

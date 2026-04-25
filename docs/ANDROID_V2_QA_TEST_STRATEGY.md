@@ -43,6 +43,24 @@ git status --short --branch
 - Reorder preserves exactly one order position per row.
 - App restart preserves library state.
 
+## Current M1 Coverage
+
+`RoomLibraryRepositoryTest` covers:
+
+- save/load round trip;
+- duplicate text conflict;
+- update preserves row IDs by order;
+- update preserves existing row audio links;
+- load includes default row audio links;
+- row patch edit metadata;
+- Hebrew edit marks default row audio stale;
+- reset selected row field;
+- reorder exact-set validation and persisted order;
+- delete compacts order;
+- add row after selected row;
+- archive hidden from default summaries;
+- app restart safety through a file-backed Room database.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.

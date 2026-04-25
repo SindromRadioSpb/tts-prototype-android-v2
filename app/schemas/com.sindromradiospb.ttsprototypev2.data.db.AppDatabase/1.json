@@ -1,0 +1,698 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "9cdf867597458966440aec634bc27ae3",
+    "entities": [
+      {
+        "tableName": "library_texts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`text_id` TEXT NOT NULL, `text_key` TEXT NOT NULL, `title` TEXT NOT NULL, `level` TEXT, `tags_json` TEXT NOT NULL, `source_text` TEXT NOT NULL, `source_meta_json` TEXT, `table_model_meta_json` TEXT, `tts_profile_json` TEXT, `is_archived` INTEGER NOT NULL, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, `last_opened_at` TEXT, `schema_version` INTEGER NOT NULL, PRIMARY KEY(`text_id`))",
+        "fields": [
+          {
+            "fieldPath": "textId",
+            "columnName": "text_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "textKey",
+            "columnName": "text_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "level",
+            "columnName": "level",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "tagsJson",
+            "columnName": "tags_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceText",
+            "columnName": "source_text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceMetaJson",
+            "columnName": "source_meta_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "tableModelMetaJson",
+            "columnName": "table_model_meta_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ttsProfileJson",
+            "columnName": "tts_profile_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isArchived",
+            "columnName": "is_archived",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastOpenedAt",
+            "columnName": "last_opened_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "schemaVersion",
+            "columnName": "schema_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "text_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_library_texts_text_key",
+            "unique": true,
+            "columnNames": [
+              "text_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_library_texts_text_key` ON `${TABLE_NAME}` (`text_key`)"
+          },
+          {
+            "name": "index_library_texts_updated_at",
+            "unique": false,
+            "columnNames": [
+              "updated_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_library_texts_updated_at` ON `${TABLE_NAME}` (`updated_at`)"
+          },
+          {
+            "name": "index_library_texts_is_archived_updated_at",
+            "unique": false,
+            "columnNames": [
+              "is_archived",
+              "updated_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_library_texts_is_archived_updated_at` ON `${TABLE_NAME}` (`is_archived`, `updated_at`)"
+          }
+        ]
+      },
+      {
+        "tableName": "library_rows",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`row_id` TEXT NOT NULL, `text_id` TEXT NOT NULL, `order_index` INTEGER NOT NULL, `hebrew_plain` TEXT NOT NULL, `hebrew_niqqud` TEXT NOT NULL, `translit` TEXT NOT NULL, `translit_ru` TEXT NOT NULL, `russian` TEXT NOT NULL, `row_hash` TEXT, `edit_meta_json` TEXT, `source_meta_json` TEXT, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`row_id`), FOREIGN KEY(`text_id`) REFERENCES `library_texts`(`text_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "rowId",
+            "columnName": "row_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "textId",
+            "columnName": "text_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orderIndex",
+            "columnName": "order_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hebrewPlain",
+            "columnName": "hebrew_plain",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hebrewNiqqud",
+            "columnName": "hebrew_niqqud",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "translit",
+            "columnName": "translit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "translitRu",
+            "columnName": "translit_ru",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "russian",
+            "columnName": "russian",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rowHash",
+            "columnName": "row_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "editMetaJson",
+            "columnName": "edit_meta_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sourceMetaJson",
+            "columnName": "source_meta_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "row_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_library_rows_text_id",
+            "unique": false,
+            "columnNames": [
+              "text_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_library_rows_text_id` ON `${TABLE_NAME}` (`text_id`)"
+          },
+          {
+            "name": "index_library_rows_text_id_order_index",
+            "unique": true,
+            "columnNames": [
+              "text_id",
+              "order_index"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_library_rows_text_id_order_index` ON `${TABLE_NAME}` (`text_id`, `order_index`)"
+          },
+          {
+            "name": "index_library_rows_row_hash",
+            "unique": false,
+            "columnNames": [
+              "row_hash"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_library_rows_row_hash` ON `${TABLE_NAME}` (`row_hash`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "library_texts",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "text_id"
+            ],
+            "referencedColumns": [
+              "text_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "audio_assets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`asset_key` TEXT NOT NULL, `file_name` TEXT NOT NULL, `relative_path` TEXT NOT NULL, `mime_type` TEXT NOT NULL, `provider_id` TEXT NOT NULL, `voice_name` TEXT, `language` TEXT NOT NULL, `duration_ms` INTEGER, `size_bytes` INTEGER, `content_hash` TEXT, `created_at` TEXT NOT NULL, `provenance_json` TEXT NOT NULL, `is_missing` INTEGER NOT NULL, PRIMARY KEY(`asset_key`))",
+        "fields": [
+          {
+            "fieldPath": "assetKey",
+            "columnName": "asset_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileName",
+            "columnName": "file_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "relativePath",
+            "columnName": "relative_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mime_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "providerId",
+            "columnName": "provider_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "voiceName",
+            "columnName": "voice_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "language",
+            "columnName": "language",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "duration_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "sizeBytes",
+            "columnName": "size_bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "contentHash",
+            "columnName": "content_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "provenanceJson",
+            "columnName": "provenance_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isMissing",
+            "columnName": "is_missing",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "asset_key"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_audio_assets_provider_id_created_at",
+            "unique": false,
+            "columnNames": [
+              "provider_id",
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audio_assets_provider_id_created_at` ON `${TABLE_NAME}` (`provider_id`, `created_at`)"
+          },
+          {
+            "name": "index_audio_assets_content_hash",
+            "unique": false,
+            "columnNames": [
+              "content_hash"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audio_assets_content_hash` ON `${TABLE_NAME}` (`content_hash`)"
+          }
+        ]
+      },
+      {
+        "tableName": "row_audio",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`row_id` TEXT NOT NULL, `asset_key` TEXT NOT NULL, `is_default` INTEGER NOT NULL, `is_stale` INTEGER NOT NULL, `stale_reason` TEXT, `created_at` TEXT NOT NULL, PRIMARY KEY(`row_id`, `asset_key`), FOREIGN KEY(`row_id`) REFERENCES `library_rows`(`row_id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`asset_key`) REFERENCES `audio_assets`(`asset_key`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "rowId",
+            "columnName": "row_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "assetKey",
+            "columnName": "asset_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDefault",
+            "columnName": "is_default",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isStale",
+            "columnName": "is_stale",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "staleReason",
+            "columnName": "stale_reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "row_id",
+            "asset_key"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_row_audio_asset_key",
+            "unique": false,
+            "columnNames": [
+              "asset_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_row_audio_asset_key` ON `${TABLE_NAME}` (`asset_key`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "library_rows",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "row_id"
+            ],
+            "referencedColumns": [
+              "row_id"
+            ]
+          },
+          {
+            "table": "audio_assets",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "asset_key"
+            ],
+            "referencedColumns": [
+              "asset_key"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "text_audio",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`text_id` TEXT NOT NULL, `asset_key` TEXT NOT NULL, `is_default` INTEGER NOT NULL, `is_stale` INTEGER NOT NULL, `stale_reason` TEXT, `created_at` TEXT NOT NULL, PRIMARY KEY(`text_id`, `asset_key`), FOREIGN KEY(`text_id`) REFERENCES `library_texts`(`text_id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`asset_key`) REFERENCES `audio_assets`(`asset_key`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "textId",
+            "columnName": "text_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "assetKey",
+            "columnName": "asset_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDefault",
+            "columnName": "is_default",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isStale",
+            "columnName": "is_stale",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "staleReason",
+            "columnName": "stale_reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "text_id",
+            "asset_key"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_text_audio_asset_key",
+            "unique": false,
+            "columnNames": [
+              "asset_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_text_audio_asset_key` ON `${TABLE_NAME}` (`asset_key`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "library_texts",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "text_id"
+            ],
+            "referencedColumns": [
+              "text_id"
+            ]
+          },
+          {
+            "table": "audio_assets",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "asset_key"
+            ],
+            "referencedColumns": [
+              "asset_key"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "export_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`export_id` TEXT NOT NULL, `created_at` TEXT NOT NULL, `destination_uri_redacted` TEXT, `text_count` INTEGER NOT NULL, `row_count` INTEGER NOT NULL, `audio_count` INTEGER NOT NULL, `missing_audio_count` INTEGER NOT NULL, `partial_backup` INTEGER NOT NULL, `schema_version` INTEGER NOT NULL, `status` TEXT NOT NULL, `error_category` TEXT, PRIMARY KEY(`export_id`))",
+        "fields": [
+          {
+            "fieldPath": "exportId",
+            "columnName": "export_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "destinationUriRedacted",
+            "columnName": "destination_uri_redacted",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "textCount",
+            "columnName": "text_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rowCount",
+            "columnName": "row_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "audioCount",
+            "columnName": "audio_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "missingAudioCount",
+            "columnName": "missing_audio_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "partialBackup",
+            "columnName": "partial_backup",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schemaVersion",
+            "columnName": "schema_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "errorCategory",
+            "columnName": "error_category",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "export_id"
+          ]
+        }
+      },
+      {
+        "tableName": "provider_call_log",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`event_id` TEXT NOT NULL, `created_at` TEXT NOT NULL, `provider_id` TEXT NOT NULL, `operation` TEXT NOT NULL, `status` TEXT NOT NULL, `error_category` TEXT, `latency_ms` INTEGER, `model` TEXT, `quota_sensitive` INTEGER NOT NULL, `request_summary_json` TEXT, `response_summary_json` TEXT, PRIMARY KEY(`event_id`))",
+        "fields": [
+          {
+            "fieldPath": "eventId",
+            "columnName": "event_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "providerId",
+            "columnName": "provider_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operation",
+            "columnName": "operation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "errorCategory",
+            "columnName": "error_category",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "latencyMs",
+            "columnName": "latency_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "model",
+            "columnName": "model",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "quotaSensitive",
+            "columnName": "quota_sensitive",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestSummaryJson",
+            "columnName": "request_summary_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "responseSummaryJson",
+            "columnName": "response_summary_json",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "event_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_provider_call_log_provider_id_created_at",
+            "unique": false,
+            "columnNames": [
+              "provider_id",
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_provider_call_log_provider_id_created_at` ON `${TABLE_NAME}` (`provider_id`, `created_at`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9cdf867597458966440aec634bc27ae3')"
+    ]
+  }
+}

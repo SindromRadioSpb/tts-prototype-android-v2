@@ -2,7 +2,27 @@
 
 Date: 2026-04-25
 
-This is the actionable plan for M1: Local Room library storage.
+This is the actionable plan and implementation status for M1: Local Room library storage.
+
+## Implementation Status
+
+Implemented:
+
+- `RoomLibraryRepository` with the repository surface defined below.
+- Room entity/DAO/database layer for local library and audio metadata.
+- Duplicate text conflict through `text_key`.
+- Transactional save/update/edit/reset/reorder/delete/add/archive/opened flows.
+- Update flow preserves existing row IDs and row audio links for rows kept by order.
+- Loaded `LibraryText.rows` include default row audio asset keys when linked.
+- Default row audio stale marking when Hebrew or niqqud fields change.
+- Robolectric Room tests for M1 behavior.
+
+Still pending outside M1:
+
+- Classic Mode ViewModel/UI wiring.
+- Export ZIP writer.
+- Real provider-generated rows.
+- Audio playback and file cleanup.
 
 ## Repository Interfaces
 
@@ -65,12 +85,18 @@ Update uses the same transaction but preserves row IDs where existing rows can b
 - Save/load round trip with Hebrew, niqqud, transliteration, Russian, tags.
 - Duplicate text returns conflict.
 - Update preserves stable row IDs where expected.
+- Update preserves existing row audio links for preserved row IDs.
+- Load includes default row audio link for UI consumers.
 - Edit records original values and marks stale audio.
 - Reset restores selected fields only.
 - Reorder rejects missing/extra row IDs.
 - Delete compacts order and cascades row audio links.
 - Archive hides text by default but keeps data.
 - App restart safety: close/reopen DB and read saved text.
+
+Implemented test file:
+
+- `app/src/test/java/com/sindromradiospb/ttsprototypev2/data/repository/RoomLibraryRepositoryTest.kt`
 
 ## Failure Behavior
 

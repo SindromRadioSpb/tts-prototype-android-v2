@@ -31,7 +31,8 @@ This directory is the living control plane for the Android v2 migration. Future 
 ## Current Checkpoint
 
 - M0 foundation is complete and pushed.
-- The next implementation milestone is M1: Local Room library storage.
+- M1 local Room library storage is implemented at repository level and awaiting UI integration.
+- The next implementation milestone is M2: Classic Mode functional flow.
 - Product code must not depend on Railway, cloud app storage, Node as required runtime, localhost sidecars, Python sidecars, browser APIs, Web/WASM assumptions, or desktop-only workflows.
 - Runtime providers are allowlisted only: `google_translate_free`, `gcp_translate`, `gemini_legacy`, `google_online_tts`, `system_or_browser_fallback_low_quality`.
 

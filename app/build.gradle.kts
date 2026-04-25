@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -45,10 +46,21 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.04.01")
+    val roomVersion = "2.8.4"
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -57,11 +69,21 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+
+    ksp("androidx.room:room-compiler:$roomVersion")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("androidx.room:room-testing:$roomVersion")
+    testImplementation("androidx.test:core:1.7.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
+
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
