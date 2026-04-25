@@ -73,7 +73,7 @@ Providers must map failures to:
 Quota, billing, invalid-key, and unauthorized errors must not silently fallback.
 Missing configuration must not silently fallback either; the UI must ask the user to configure the provider or choose a different provider manually.
 
-For TTS, `google_online_tts` may use only the secure single-line credential stored through Settings. Raw Google service account JSON must not be embedded in the APK, copied into source/resources, logged, stored in Room, or exported.
+For TTS, `google_online_tts` may use only secure credentials stored through Settings. Raw Google service account JSON/private keys must not be embedded in the APK, copied into source/resources, logged, stored in Room, or exported.
 
 M9 provider security status:
 
@@ -85,12 +85,21 @@ M9 provider security status:
 - missing credentials, invalid responses, and HTTP failures are surfaced without silent fallback;
 - real network smoke evidence with restricted keys is still required before release.
 
+P013 credential UI target:
+
+- provider credentials must be attached as JSON through Android Storage Access Framework;
+- Settings must validate JSON before storage;
+- Settings must not store the external file path as the credential source of truth;
+- manual single-line key entry is an interim implementation and must be replaced or demoted;
+- provider docs and tests must cover wrong-provider JSON, malformed JSON, missing fields, and no secret logging.
+
 ## Security Requirements
 
 - No API keys, service account JSON, bearer tokens, or full credential paths in logs.
 - No secrets in Room.
 - No secrets in exports.
 - No secrets in Git.
+- No external credential file paths treated as stable app data.
 - Provider tests use fake providers unless explicitly marked manual.
 
 ## Provider UI Display Requirements
@@ -112,6 +121,7 @@ Before adding a provider:
 - [ ] Added docs.
 - [ ] Confirmed no Railway/localhost dependency.
 - [ ] Confirmed no secret logging.
+- [ ] Confirmed JSON credential attachment/validation behavior if credentials are required.
 
 ## Related Docs
 

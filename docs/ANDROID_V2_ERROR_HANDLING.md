@@ -13,6 +13,7 @@ Date: 2026-04-25
 | `QuotaExceeded` | Provider quota is exhausted. | No automatic retry. |
 | `BillingRequired` | Provider requires billing setup. | No automatic retry. |
 | `InvalidApiKey` | Saved key is invalid. | No, update/delete key. |
+| `InvalidCredentialFile` | Attached JSON credential file is malformed, wrong provider type, empty, or missing required fields. | No, attach a corrected JSON file. |
 | `ProviderUnavailable` | Provider service failed. | Manual retry later. |
 | `InvalidResponse` | Provider returned unusable data. | Manual retry or change provider. |
 | `UnsupportedLanguage` | Provider cannot handle requested language. | Change provider/input. |
@@ -33,6 +34,7 @@ Date: 2026-04-25
 
 - Invalid key: "Google Cloud key is invalid. Update the key in Settings. No fallback was used."
 - Missing configuration: "GCP Translate is not configured. Add credentials in Settings or choose another provider. No fallback was used."
+- Invalid credential file: "Credential JSON does not match gemini_legacy. Attach the correct JSON file. The secret was not stored."
 - Quota: "GCP quota is exhausted. Try later or switch provider manually."
 - Missing audio: "Audio file is missing. The row text is safe; regenerate audio to restore playback."
 - Partial export: "Export completed with 2 missing audio files. See missing_audio.json in the ZIP."
@@ -41,7 +43,22 @@ Date: 2026-04-25
 
 - Retry once automatically only for transient network/server failures where provider policy permits.
 - No automatic retry for key, quota, billing, or unauthorized errors.
+- No automatic retry for malformed credential JSON; user must attach a corrected file.
 - No infinite loading; every operation resolves to success, degraded success, cancelled, or failed.
+
+## Credential JSON Attachment Errors
+
+Settings must distinguish:
+
+- malformed JSON;
+- empty file;
+- wrong provider type;
+- missing required field;
+- rejected private-key/service-account material;
+- health-check failed because network is unavailable;
+- health-check failed because provider rejected credentials.
+
+Secret values and external file paths must not appear in user-facing error details, logs, crash reports, exports, or screenshots intended for documentation.
 
 ## Related Docs
 

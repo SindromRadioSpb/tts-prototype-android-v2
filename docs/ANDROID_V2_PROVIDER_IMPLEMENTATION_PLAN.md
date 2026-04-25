@@ -35,6 +35,13 @@ M9 keyed adapter follow-up status:
 - Missing credentials still produce `MissingConfiguration` and do not fallback automatically.
 - Raw service account JSON and private-key material remain blocked by Settings validation and must not be embedded in the APK.
 
+P013 credential UI target:
+
+- current single-line credential storage is an interim smoke path;
+- production Settings UX must attach JSON through Android Storage Access Framework;
+- provider adapters should continue to receive sanitized credential values from `ProviderSettingsRepository`, not file paths or raw UI state;
+- validation should reject malformed JSON, wrong provider type, missing required fields, and private-key material that would be unsafe on-device.
+
 ## Allowed Translation Providers
 
 | Provider ID | Purpose | Runtime notes | Production risk |
@@ -117,9 +124,9 @@ Persist for every generated row or audio asset:
 
 | Decision | Current default | Owner / next action |
 |----------|-----------------|---------------------|
-| GCP key vs service account JSON on device | Use a stored single-line restricted API key for the adapter; reject service account JSON/private keys. | Run manual real-key smoke and add optional validation UI if needed. |
-| Gemini key handling | Use a stored single-line Gemini API key; no secrets in logs/exports. | Add cost-warning UX before release. |
-| Google Online TTS credentials | Use a stored single-line restricted API key for smoke; embedding service account JSON in APK remains blocked. | Verify whether the configured Google Cloud project accepts API-key TTS calls; otherwise decide brokered auth. |
+| GCP credential JSON on device | Target UX attaches provider JSON through SAF, validates it, and stores extracted safe fields encrypted. Service-account private keys remain blocked unless a future ADR approves brokered auth. | Define final JSON schema and implement attachment/validation UI. |
+| Gemini key handling | Target UX uses provider-specific JSON wrapper, for example `{ "provider": "gemini_legacy", "api_key": "..." }`, unless an ADR supersedes it. | Add wrapper validation and cost-warning UX before release. |
+| Google Online TTS credentials | Target UX attaches provider JSON through SAF; embedding service-account JSON in APK remains blocked. | Verify API-key TTS viability or design brokered auth before release. |
 | niqqud provider strategy | Store niqqud as optional/degraded; do not depend on desktop sidecar. | Decide in M3 after Android-safe options review. |
 | Google Free production stability | Treat as best-effort with visible degraded/unofficial label. | Validate with provider tests and UX copy in M3. |
 

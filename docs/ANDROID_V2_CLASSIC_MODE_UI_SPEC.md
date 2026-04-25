@@ -4,6 +4,8 @@ Date: 2026-04-25
 
 Classic Mode is the production workflow. It must feel like a native Android study app, not a compressed web table.
 
+The detailed mobile parity contract for the source web Classic Mode and Library v3 v4 screenshots is [Classic Mode Mobile v4 UI Spec](ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md). Future Classic/Library UI implementation must follow that document for the `📚 Библиотека` entry point, Library v3 modal/screen, filters, dropdowns, tag chips, saved-text cards, card actions, metadata editor, and JSON credential attachment UI.
+
 ## Phone Portrait Layout
 
 Top to bottom:
@@ -100,8 +102,9 @@ Current M3 behavior:
 
 M7 behavior:
 
-- A separate Library tab is available for browse/open/archive/restore/delete and row preview.
-- Classic Mode still shows the saved summary count, but detailed lifecycle actions live in the Library tab.
+- Current implementation uses a separate Library tab for browse/open/archive/restore/delete and row preview.
+- Target v4 parity requires `📚 Библиотека` to open Library v3 from Classic Mode as a modal/screen with the source filter/card workflow.
+- Future UI work must move the production Library v3 workflow into Classic-owned navigation instead of treating it as an IDE-like separate mode.
 
 M8 behavior:
 
@@ -120,6 +123,11 @@ M9 behavior:
 - Provider credentials show configured/missing status and masked values only.
 - Credential input is single-line and rejects raw service account JSON/private-key material.
 - Classic provider selection uses configured credentials for `gcp_translate`, `gemini_legacy`, and `google_online_tts`; missing credentials still surface without silent fallback.
+
+P013 v4 UI spec decision:
+
+- The target Settings UX for provider credentials is JSON file attachment and validation through Android Storage Access Framework, not manual raw text entry.
+- The current single-line key UI is an interim implementation and must be replaced or demoted when the JSON credential flow is implemented.
 
 ## Accessibility and Insets
 
@@ -146,6 +154,7 @@ Evidence is tracked in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
 ## Related Docs
 
 - [Premium Product Target](ANDROID_V2_PREMIUM_PRODUCT_TARGET.md)
+- [Classic Mode Mobile v4 UI Spec](ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md)
 - [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md)
 - [Error Handling](ANDROID_V2_ERROR_HANDLING.md)
 - [Audio Architecture](ANDROID_V2_AUDIO_ARCHITECTURE.md)

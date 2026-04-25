@@ -10,7 +10,7 @@ This directory is the living control plane for the Android v2 migration. Future 
 2. Read [Architecture](ANDROID_V2_ARCHITECTURE.md) for package boundaries and dependency direction.
 3. Read [Migration Plan](ANDROID_V2_MIGRATION_PLAN.md) for the M0-M14 roadmap and current checkpoint.
 4. Read [Data Model](ANDROID_V2_DATA_MODEL.md), [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md), and [Provider Implementation Plan](ANDROID_V2_PROVIDER_IMPLEMENTATION_PLAN.md) before touching persistence or providers.
-5. Read [Audio Architecture](ANDROID_V2_AUDIO_ARCHITECTURE.md), [Export Spec](ANDROID_V2_LIBRARY_EXPORT_SPEC.md), and [Classic Mode UI Spec](ANDROID_V2_CLASSIC_MODE_UI_SPEC.md) before user-facing work.
+5. Read [Audio Architecture](ANDROID_V2_AUDIO_ARCHITECTURE.md), [Export Spec](ANDROID_V2_LIBRARY_EXPORT_SPEC.md), [Classic Mode UI Spec](ANDROID_V2_CLASSIC_MODE_UI_SPEC.md), and [Classic Mode Mobile v4 UI Spec](ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md) before user-facing work.
 6. Read [QA Strategy](ANDROID_V2_QA_TEST_STRATEGY.md), [Release Readiness](ANDROID_V2_RELEASE_READINESS.md), and [Documentation Maintenance Policy](DOCUMENTATION_MAINTENANCE_POLICY.md) before closing a patch.
 
 ## Documentation Map
@@ -21,18 +21,19 @@ This directory is the living control plane for the Android v2 migration. Future 
 | Architecture | [Architecture](ANDROID_V2_ARCHITECTURE.md), [ADRs](adr/README.md) | Changing packages, dependencies, state flow, storage, provider boundaries. |
 | Providers | [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md), [Provider Implementation Plan](ANDROID_V2_PROVIDER_IMPLEMENTATION_PLAN.md), [Error Handling](ANDROID_V2_ERROR_HANDLING.md) | Adding or changing translation/TTS behavior. |
 | Data | [Data Model](ANDROID_V2_DATA_MODEL.md), [Local Library Plan](ANDROID_V2_LOCAL_LIBRARY_PLAN.md), [Export Spec](ANDROID_V2_LIBRARY_EXPORT_SPEC.md) | Room, repository, import/export, audio metadata. |
-| UI/UX | [Classic Mode UI Spec](ANDROID_V2_CLASSIC_MODE_UI_SPEC.md), [IDE Mode Strategy](ANDROID_V2_IDE_MODE_EXPERIMENTAL_STRATEGY.md), [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md) | Compose screens, navigation, visual polish, manual evidence. |
+| UI/UX | [Classic Mode UI Spec](ANDROID_V2_CLASSIC_MODE_UI_SPEC.md), [Classic Mode Mobile v4 UI Spec](ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md), [IDE Mode Strategy](ANDROID_V2_IDE_MODE_EXPERIMENTAL_STRATEGY.md), [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md) | Compose screens, navigation, visual parity with v4 screenshots, manual evidence. |
 | Audio | [Audio Architecture](ANDROID_V2_AUDIO_ARCHITECTURE.md), [Export Spec](ANDROID_V2_LIBRARY_EXPORT_SPEC.md) | TTS generation, playback, stale audio, export inclusion. |
 | QA | [QA Test Strategy](ANDROID_V2_QA_TEST_STRATEGY.md), [Requirements Traceability](ANDROID_V2_REQUIREMENTS_TRACEABILITY.md) | Test design, regression coverage, required commands. |
 | Release | [Release Readiness](ANDROID_V2_RELEASE_READINESS.md), [Settings and Secrets](ANDROID_V2_SETTINGS_AND_SECRETS.md) | Signing, privacy, API keys, Play Store readiness. |
 | Governance | [Migration Plan](ANDROID_V2_MIGRATION_PLAN.md), [Patch Register](ANDROID_V2_PATCH_REGISTER.md), [Risk and Gap Register](ANDROID_V2_RISK_AND_GAP_REGISTER.md), [Documentation Maintenance Policy](DOCUMENTATION_MAINTENANCE_POLICY.md) | Status, risks, patch closure, doc update rules. |
-| Prompts | [Migration Prompt](android_v2_migration_prompt.md), [Premium Documentation Prompt](android_v2_premium_documentation_package_prompt.md), [Future Patch Template](PROMPT_TEMPLATE_FOR_FUTURE_PATCHES.md) | Reconstructing task intent or starting a future patch. |
+| Prompts | [Migration Prompt](android_v2_migration_prompt.md), [Premium Documentation Prompt](android_v2_premium_documentation_package_prompt.md), [Classic Mobile v4 UI Prompt](ui/classic_mode_mobile_v4_ui_spec_prompt.md), [Future Patch Template](PROMPT_TEMPLATE_FOR_FUTURE_PATCHES.md) | Reconstructing task intent or starting a future patch. |
 
 ## Current Checkpoint
 
-- M0 foundation is complete and pushed.
-- M1 local Room library storage is implemented at repository level and awaiting UI integration.
-- The next implementation milestone is M2: Classic Mode functional flow.
+- M0-M9 plus keyed provider smoke adapters are complete and pushed.
+- Classic Mode, Room library, provider layers, audio storage/export repository work, Library row editing, and settings storage have implementation checkpoints.
+- v4 screenshot-based Classic Mode / Library v3 mobile parity is now a tracked UI requirement under [Classic Mode Mobile v4 UI Spec](ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md).
+- The next recommended implementation milestone is the Library v3 mobile UI parity patch, before further IDE Mode expansion.
 - Product code must not depend on Railway, cloud app storage, Node as required runtime, localhost sidecars, Python sidecars, browser APIs, Web/WASM assumptions, or desktop-only workflows.
 - Runtime providers are allowlisted only: `google_translate_free`, `gcp_translate`, `gemini_legacy`, `google_online_tts`, `system_or_browser_fallback_low_quality`.
 
