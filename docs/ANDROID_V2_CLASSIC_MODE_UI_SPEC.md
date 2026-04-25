@@ -106,6 +106,13 @@ M8 behavior:
 - Row cards show `Edited` and `Added` badges from `EditMeta`.
 - Manual portrait/landscape and keyboard evidence is still pending in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
 
+M9 behavior:
+
+- Settings is a separate top-level tab.
+- Provider credentials show configured/missing status and masked values only.
+- Credential input is single-line and rejects raw service account JSON/private-key material.
+- Classic provider selection still surfaces missing-configuration for keyed providers until real provider adapters use the secure settings layer.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.

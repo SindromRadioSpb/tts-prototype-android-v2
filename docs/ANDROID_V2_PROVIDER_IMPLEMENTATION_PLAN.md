@@ -25,7 +25,7 @@ M4 implementation status:
 - `TtsProviderRegistry` rejects TTS providers outside `AndroidV2ProviderPolicy`.
 - `FakeTtsProvider` provides deterministic CI-safe TTS metadata without audio engine or network.
 - `AndroidPlatformTtsProvider` wraps native Android `TextToSpeech` for `system_or_browser_fallback_low_quality`.
-- `google_online_tts` is represented by `MissingConfigurationTtsProvider` until M9 secure credential storage exists.
+- `google_online_tts` is represented by `MissingConfigurationTtsProvider` until provider-specific auth and request signing are implemented on top of M9 secure credential storage.
 
 ## Allowed Translation Providers
 
@@ -38,8 +38,8 @@ M4 implementation status:
 Current runtime wiring:
 
 - `google_translate_free`: implemented as best-effort HTTP adapter using `translate.googleapis.com/translate_a/single`.
-- `gcp_translate`: allowlisted but returns `MissingConfiguration` until M9 secure settings exist.
-- `gemini_legacy`: allowlisted but returns `MissingConfiguration` until M9 secure settings and cost-warning UI exist.
+- `gcp_translate`: allowlisted but returns `MissingConfiguration`; M9 stores a single-line credential securely, but the real adapter is still deferred until provider-specific validation/auth wiring.
+- `gemini_legacy`: allowlisted but returns `MissingConfiguration`; M9 stores a single-line credential securely, but the real adapter is still deferred until validation and cost-warning behavior are wired.
 
 ## Allowed TTS Providers
 
@@ -50,7 +50,7 @@ Current runtime wiring:
 
 Current runtime wiring:
 
-- `google_online_tts`: allowlisted but returns `MissingConfiguration` until M9 secure settings exist.
+- `google_online_tts`: allowlisted but returns `MissingConfiguration`; M9 rejects raw service account JSON and stores only single-line credentials, so real Google TTS auth remains a separate provider implementation decision.
 - `system_or_browser_fallback_low_quality`: implemented as Android platform `TextToSpeech.synthesizeToFile` adapter writing a temporary WAV under app cache.
 
 ## Disallowed Providers
@@ -100,18 +100,18 @@ Persist for every generated row or audio asset:
 
 1. Fake providers and contract tests. Completed for translation in M3.
 2. `google_translate_free` behind policy allowlist. Completed in M3 as best-effort HTTP adapter.
-3. `gcp_translate` with secure key status checks. Deferred to M9.
+3. `gcp_translate` with secure key status checks. M9 storage exists; network adapter and validation remain deferred.
 4. `system_or_browser_fallback_low_quality`. Completed in M4 as Android platform adapter; device smoke still required.
-5. `google_online_tts`. Deferred to M9/M4 follow-up because secure credential storage is required before network use.
+5. `google_online_tts`. M9 storage exists; raw service account JSON remains blocked and network auth remains deferred.
 6. `gemini_legacy` only after key strategy and UI cost warnings are documented.
 
 ## Open Decisions
 
 | Decision | Current default | Owner / next action |
 |----------|-----------------|---------------------|
-| GCP key vs service account JSON on device | Prefer restricted API key or brokered OAuth; do not embed raw service account JSON on device. | Resolve in M9 before enabling `gcp_translate`. |
-| Gemini key handling | Same encrypted settings path as GCP; masked status only. | Resolve in M9 before `gemini_legacy`. |
-| Google Online TTS credentials | Do not embed service account JSON in APK. Use M9 secure settings or a safer credential strategy before enabling. | Resolve in M9 before `google_online_tts`. |
+| GCP key vs service account JSON on device | M9 accepts only single-line credentials and rejects raw service account JSON. | Add provider-specific validation before enabling `gcp_translate`. |
+| Gemini key handling | M9 uses the same encrypted settings path and masked status only. | Add validation and cost-warning behavior before enabling `gemini_legacy`. |
+| Google Online TTS credentials | M9 rejects service account JSON/private-key material; embedding JSON in APK remains blocked. | Decide restricted-key or brokered auth before enabling `google_online_tts`. |
 | niqqud provider strategy | Store niqqud as optional/degraded; do not depend on desktop sidecar. | Decide in M3 after Android-safe options review. |
 | Google Free production stability | Treat as best-effort with visible degraded/unofficial label. | Validate with provider tests and UX copy in M3. |
 

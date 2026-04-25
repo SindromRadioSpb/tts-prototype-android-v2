@@ -40,6 +40,8 @@ import com.sindromradiospb.ttsprototypev2.core.model.LibraryRow
 import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
+import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
+import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialStatus
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicGeneratedRowUi
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeUiState
@@ -47,16 +49,20 @@ import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeViewModel
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryRowDraft
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryUiState
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryViewModel
+import com.sindromradiospb.ttsprototypev2.feature.settings.SettingsUiState
+import com.sindromradiospb.ttsprototypev2.feature.settings.SettingsViewModel
 
 @Composable
 fun AppRoot(
     classicModeViewModel: ClassicModeViewModel,
     libraryViewModel: LibraryViewModel,
+    settingsViewModel: SettingsViewModel,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Classic", "Library", "IDE")
+    val tabs = listOf("Classic", "Library", "Settings", "IDE")
     val classicState by classicModeViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
+    val settingsState by settingsViewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -107,6 +113,14 @@ fun AppRoot(
                 onMoveRow = libraryViewModel::moveRow,
                 onDeleteRow = libraryViewModel::deleteRow,
                 onDismissMessage = libraryViewModel::clearMessage,
+                modifier = Modifier.padding(innerPadding),
+            )
+            2 -> SettingsScreen(
+                state = settingsState,
+                onDraftChanged = settingsViewModel::onCredentialDraftChanged,
+                onSaveCredential = settingsViewModel::saveCredential,
+                onDeleteCredential = settingsViewModel::deleteCredential,
+                onDismissMessage = settingsViewModel::clearMessage,
                 modifier = Modifier.padding(innerPadding),
             )
             else -> IdeModeScreen(Modifier.padding(innerPadding))
@@ -638,6 +652,85 @@ private fun RowDraftEditor(
                     OutlinedButton(onClick = onReset, enabled = !isLoading) { Text("Reset row") }
                 }
                 OutlinedButton(onClick = onCancel, enabled = !isLoading) { Text("Cancel") }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsScreen(
+    state: SettingsUiState,
+    onDraftChanged: (ProviderCredentialId, String) -> Unit,
+    onSaveCredential: (ProviderCredentialId) -> Unit,
+    onDeleteCredential: (ProviderCredentialId) -> Unit,
+    onDismissMessage: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Provider settings", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Credentials are stored locally through Android Keystore encrypted storage. They are not exported, logged, or committed.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            "Do not paste service account JSON. Android v2 accepts only single-line restricted keys until brokered auth is designed.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        state.message?.let {
+            MessageCard(message = it, onDismiss = onDismissMessage)
+        }
+
+        state.credentialStatuses.forEach { status ->
+            ProviderCredentialCard(
+                status = status,
+                draft = state.drafts[status.id].orEmpty(),
+                onDraftChanged = { onDraftChanged(status.id, it) },
+                onSave = { onSaveCredential(status.id) },
+                onDelete = { onDeleteCredential(status.id) },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProviderCredentialCard(
+    status: ProviderCredentialStatus,
+    draft: String,
+    onDraftChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Text(status.id.displayName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                AssistChip(
+                    onClick = { },
+                    label = { Text(if (status.isConfigured) "Configured" else "Missing") },
+                )
+            }
+            Text(status.id.usage, style = MaterialTheme.typography.bodySmall)
+            Text("Provider ID: ${status.id.wireId}", style = MaterialTheme.typography.bodySmall)
+            Text("Stored value: ${status.maskedValue ?: "Not configured"}", style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                value = draft,
+                onValueChange = onDraftChanged,
+                label = { Text("New single-line credential") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = onSave) { Text("Save credential") }
+                OutlinedButton(onClick = onDelete, enabled = status.isConfigured) { Text("Delete credential") }
             }
         }
     }

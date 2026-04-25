@@ -7,6 +7,8 @@ import com.sindromradiospb.ttsprototypev2.data.db.AppDatabase
 import com.sindromradiospb.ttsprototypev2.data.export.LibraryZipExportRepository
 import com.sindromradiospb.ttsprototypev2.data.provider.tts.createAndroidTtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.data.repository.RoomLibraryRepository
+import com.sindromradiospb.ttsprototypev2.data.settings.AndroidKeystoreSecureKeyValueStore
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsRepository
 
 class TtsPrototypeApplication : Application() {
     val database: AppDatabase by lazy {
@@ -19,6 +21,12 @@ class TtsPrototypeApplication : Application() {
 
     val libraryRepository: RoomLibraryRepository by lazy {
         RoomLibraryRepository(database)
+    }
+
+    val providerSettingsRepository: ProviderSettingsRepository by lazy {
+        ProviderSettingsRepository(
+            AndroidKeystoreSecureKeyValueStore(this),
+        )
     }
 
     val ttsProviderRegistry by lazy {

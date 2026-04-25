@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.Surface
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeViewModel
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryViewModel
+import com.sindromradiospb.ttsprototypev2.feature.settings.SettingsViewModel
 import com.sindromradiospb.ttsprototypev2.ui.AppRoot
 import com.sindromradiospb.ttsprototypev2.ui.theme.TtsPrototypeTheme
 
@@ -21,6 +22,11 @@ class MainActivity : ComponentActivity() {
             (application as TtsPrototypeApplication).libraryRepository,
         )
     }
+    private val settingsViewModel: SettingsViewModel by viewModels {
+        SettingsViewModel.Factory(
+            (application as TtsPrototypeApplication).providerSettingsRepository,
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,6 +36,7 @@ class MainActivity : ComponentActivity() {
                     AppRoot(
                         classicModeViewModel = classicModeViewModel,
                         libraryViewModel = libraryViewModel,
+                        settingsViewModel = settingsViewModel,
                     )
                 }
             }

@@ -153,10 +153,28 @@ M7 does not yet include Compose screenshot tests or device manual evidence.
 
 M8 does not include Compose screenshot tests, drag-and-drop tests, or device manual evidence. Explicit button reorder is the supported UI for this milestone.
 
+## Current M9 Coverage
+
+`ProviderSettingsRepositoryTest` covers:
+
+- saving a provider credential and exposing only masked status;
+- deleting a provider credential;
+- rejecting raw service account JSON/private-key material;
+- rejecting multiline credentials.
+
+`SettingsViewModelTest` covers:
+
+- draft update and save flow;
+- status refresh after save/delete;
+- validation message when unsafe credential material is rejected.
+
+M9 tests do not instantiate Android Keystore directly and do not use real provider credentials. Device/emulator evidence is still required to verify actual Android Keystore persistence and Settings screen layout before release.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.
 - CI uses fake providers.
+- CI must not require Android Keystore hardware-backed storage; production Keystore behavior is covered by manual/device validation.
 - Release readiness requires a clean lint report or documented accepted warnings.
 
 ## Related Docs
