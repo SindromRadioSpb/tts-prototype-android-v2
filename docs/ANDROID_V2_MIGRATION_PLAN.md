@@ -12,7 +12,7 @@ M4 TTS/audio provider contracts are implemented in commit `79d5b57 feat(audio): 
 M5 audio storage and playback layer is implemented in commit `c82a734`.
 M6 export ZIP with audio is implemented in commit `4ac57c9`.
 M7 library UI and saved text lifecycle is implemented in commit `4396158`.
-M8 editing/reorder/reset behavior is being implemented in patch P010.
+M8 editing/reorder/reset behavior is implemented in commit `e17cd9e`.
 
 Completed:
 
@@ -26,7 +26,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Current implementation milestone is M8: Editing/reorder/reset behavior.
+- Next implementation milestone after M8 is M9: API key/settings/security.
 
 ## Dependency Graph
 
@@ -59,7 +59,7 @@ M13 -> M14
 | M5 - Audio storage and playback | High | Store row/text audio files, play them, mark stale/missing states. | Audio repository tests, manual playback evidence. | Retain metadata but hide playback controls if playback fails. | Completed in `c82a734`; manual playback evidence remains a release hardening item. |
 | M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | Completed in `4ac57c9`; SAF/share UI evidence remains future work. |
 | M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, and save/update library texts. | Repository tests and Compose UI tests. | Keep library screen behind navigation item until stable. | Completed in `4396158`; manual UI evidence remains future work. |
-| M8 - Editing/reorder/reset behavior | Medium | Edit row fields, reset, reorder, delete, add rows while preserving metadata. | `LibraryViewModelTest`, repository regression tests, UI evidence later. | Disable row mutation actions if persistence invariant breaks. | In progress: `feat(library): add row editing workflow`. |
+| M8 - Editing/reorder/reset behavior | Medium | Edit row fields, reset, reorder, delete, add rows while preserving metadata. | `LibraryViewModelTest`, repository regression tests, UI evidence later. | Disable row mutation actions if persistence invariant breaks. | Completed in `e17cd9e`; manual UI evidence remains future work. |
 | M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows. | Security tests, no-secret export/log tests. | Keep real providers disabled until key storage is correct. | `feat(settings): add secure provider configuration`. |
 | M10 - IDE Mode experimental integration | Medium | Keep IDE Mode separate and experimental with shared models only. | Navigation tests, no Classic dependency regression. | Hide IDE entry if it destabilizes Classic. | `feat(ide): define experimental workspace shell`. |
 | M11 - Import/compatibility layer | Medium | Import Android ZIP and compatible old web JSON where possible. | Import fixture tests and partial import tests. | Import remains read-only preview until safe. | `feat(import): add library compatibility import`. |
@@ -265,7 +265,7 @@ Still out of scope for M7:
 
 ## M8 Implementation Status
 
-Implemented in patch P010, pending commit hash:
+Implemented in patch P010, commit `e17cd9e`:
 
 - `LibraryViewModel` exposes row draft state for editing and adding rows.
 - Library tab row cards expose explicit `Edit`, `Reset`, `Up`, `Down`, `Add after`, and `Delete row` actions.
