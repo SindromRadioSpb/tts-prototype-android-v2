@@ -1,5 +1,7 @@
 package com.sindromradiospb.ttsprototypev2.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,6 +58,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -145,6 +148,8 @@ fun AppRoot(
                     state = settingsState,
                     onDraftChanged = settingsViewModel::onCredentialDraftChanged,
                     onSaveCredential = settingsViewModel::saveCredential,
+                    onAttachJsonCredential = settingsViewModel::attachJsonCredential,
+                    onValidateCredential = settingsViewModel::validateCredential,
                     onDeleteCredential = settingsViewModel::deleteCredential,
                     onDismissMessage = settingsViewModel::clearMessage,
                     modifier = Modifier.padding(innerPadding),
@@ -980,6 +985,8 @@ fun SettingsScreen(
     state: SettingsUiState,
     onDraftChanged: (ProviderCredentialId, String) -> Unit,
     onSaveCredential: (ProviderCredentialId) -> Unit,
+    onAttachJsonCredential: (ProviderCredentialId, String) -> Unit,
+    onValidateCredential: (ProviderCredentialId) -> Unit,
     onDeleteCredential: (ProviderCredentialId) -> Unit,
     onDismissMessage: () -> Unit,
     modifier: Modifier = Modifier,
@@ -1011,6 +1018,8 @@ fun SettingsScreen(
                 draft = state.drafts[status.id].orEmpty(),
                 onDraftChanged = { onDraftChanged(status.id, it) },
                 onSave = { onSaveCredential(status.id) },
+                onAttachJson = { onAttachJsonCredential(status.id, it) },
+                onValidate = { onValidateCredential(status.id) },
                 onDelete = { onDeleteCredential(status.id) },
             )
         }
@@ -1024,8 +1033,23 @@ private fun ProviderCredentialCard(
     draft: String,
     onDraftChanged: (String) -> Unit,
     onSave: () -> Unit,
+    onAttachJson: (String) -> Unit,
+    onValidate: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val jsonPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val text = runCatching {
+                context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader(Charsets.UTF_8)
+                    ?.use { it.readText() }
+                    .orEmpty()
+            }.getOrElse { "" }
+            onAttachJson(text)
+        }
+    }
+
     SurfaceCard {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Text(status.id.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -1035,8 +1059,8 @@ private fun ProviderCredentialCard(
         Text("Provider ID: ${status.id.wireId}", style = MaterialTheme.typography.bodySmall)
         Text("Stored value: ${status.maskedValue ?: "Not configured"}", style = MaterialTheme.typography.bodySmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryActionButton("Прикрепить JSON", onClick = {}, enabled = false)
-            SecondaryActionButton("Проверить", onClick = {}, enabled = false)
+            SecondaryActionButton("Прикрепить JSON", onClick = { jsonPicker.launch(arrayOf("application/json", "text/*")) })
+            SecondaryActionButton("Проверить", onClick = onValidate, enabled = status.isConfigured)
             SecondaryActionButton("Удалить ключ", onDelete, enabled = status.isConfigured)
         }
         OutlinedTextField(

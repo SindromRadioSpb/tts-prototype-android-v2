@@ -625,7 +625,7 @@ data class CredentialFileUiState(
   - Library v3 is implemented as a Classic-owned modal/screen with header actions, filters, dropdowns, tag chips, list cards, stacked actions, delete confirmation, and metadata editor.
   - The metadata editor persists `TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, and `TEMA` through Room schema version 2.
   - `Открыть` and `Продолжить` load saved rows back into Classic Mode and mark the text opened.
-  - Settings shows target JSON credential actions as disabled future controls while keeping interim single-line key input for smoke tests.
+  - Settings enables target JSON credential actions while keeping interim single-line key input for legacy smoke tests.
   - Manual screenshots, keyboard evidence, actual SAF JSON attachment, export/import header flows, source clipboard copy, and Compose UI tests remain required follow-up evidence/work.
 
 - Screenshots are copied into `docs/ui/v4`.

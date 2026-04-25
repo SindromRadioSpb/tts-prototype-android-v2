@@ -121,7 +121,7 @@ M9 behavior:
 
 - Settings is a separate top-level tab.
 - Provider credentials show configured/missing status and masked values only.
-- Credential input is single-line and rejects raw service account JSON/private-key material.
+- Provider credentials can be attached as JSON through SAF and validated locally; manual single-line credential input remains only as a legacy smoke path.
 - Classic provider selection uses configured credentials for `gcp_translate`, `gemini_legacy`, and `google_online_tts`; missing credentials still surface without silent fallback.
 
 P013 v4 UI spec decision:
@@ -136,7 +136,7 @@ P014 behavior:
 - Library v3 renders the v4 filter stack, tag chips, saved text cards, stacked card actions, delete confirmation, and text-level metadata editor.
 - Saved text `Открыть` and `Продолжить` load rows back into Classic Mode and update `last_opened_at`.
 - Text-level metadata edits persist `TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, and `TEMA` into Room schema version 2.
-- Settings shows target JSON credential controls as disabled future actions while the interim single-line smoke path remains available.
+- Settings enables target JSON credential controls while the interim single-line smoke path remains available.
 - Manual screenshot, landscape, IME, accessibility, and narrow-phone action evidence remain pending in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
 - The previous M8 row-level edit/reset/reorder repository and ViewModel behavior remains tested, but the final UI access path must be reconciled with the v4 Classic-owned Library flow before release hardening.
 

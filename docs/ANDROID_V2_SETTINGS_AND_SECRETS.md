@@ -30,18 +30,18 @@ UI may store/show:
 
 UI must not show full key, full service account JSON, or full credential file path.
 
-Current M9 status values:
+Current P015 status values:
 
-- `gcp_translate`: currently configurable as a single-line restricted key and used by the keyed adapter. Target UI must change to JSON attachment/validation.
-- `gemini_legacy`: currently configurable as a single-line API key and used by the keyed adapter. Target UI must change to provider-specific JSON wrapper unless an ADR supersedes it.
-- `google_online_tts`: currently configurable as a single-line credential and used by the keyed adapter. Target UI must change to JSON attachment/validation; raw service account JSON/private keys still must not be embedded in the APK.
+- `gcp_translate`: accepts service-account JSON through SAF and uses OAuth JWT bearer calls to Google Translation; the legacy single-line key path remains available for restricted-key smoke only.
+- `gemini_legacy`: accepts provider-specific JSON wrapper `{ "provider": "gemini_legacy", "api_key": "..." }`; the legacy single-line API key path remains available for smoke only.
+- `google_online_tts`: accepts service-account JSON through SAF and uses OAuth JWT bearer calls to Google Cloud Text-to-Speech; the legacy single-line key path remains available for restricted-key smoke only.
 
-P014 UI status:
+P015 UI status:
 
 - Settings shows the target controls `Прикрепить JSON`, `Проверить`, and `Удалить ключ` for each provider.
-- `Прикрепить JSON` and `Проверить` are currently disabled with visible pending wording; they must not imply that SAF credential validation is already implemented.
-- The single-line credential field remains available only as an interim smoke-check path for restricted keys.
-- Future JSON attachment implementation must replace or demote the interim field and update this document, provider docs, error handling, traceability, risk register, and UI evidence.
+- `Прикрепить JSON` opens Android Storage Access Framework and reads only the selected JSON contents; the external file path is discarded.
+- `Проверить` performs offline schema validation against the selected provider and updates masked status. Real network validation occurs when the provider is used.
+- The single-line credential field remains available only as a legacy smoke-check path for restricted keys and is no longer the target UX.
 
 ## Target JSON Credential Attachment Flow
 
@@ -90,17 +90,23 @@ Proposed Gemini wrapper until source parity or ADR says otherwise:
 ## Key Operations
 
 - Add/update key: overwrite encrypted value and update masked status.
-- Attach JSON: read through SAF, validate, extract/store secret fields, and discard external path.
+- Attach JSON: read through SAF, validate provider-specific schema, store the JSON in encrypted app-private preferences, and discard external path.
 - Delete key: remove encrypted value and provider status.
-- Validate key: run provider-specific lightweight check with timeout.
+- Validate key: run provider-specific offline schema validation with timeout-free local parsing; endpoint failures are surfaced during real provider calls.
 - Export: always exclude keys and credential status unless status is needed as non-secret diagnostic metadata.
 
-M9 validation rules:
+Legacy single-line validation rules:
 
 - blank values are rejected;
 - multiline values are rejected;
 - values longer than 4096 characters are rejected;
 - strings shaped like Google service account private-key JSON or PEM private-key material are rejected.
+
+JSON attachment validation rules:
+
+- GCP Translate and Google Online TTS require `type=service_account`, `project_id`, `private_key`, and `client_email`.
+- Gemini requires `api_key` and, when present, `provider=gemini_legacy`.
+- malformed JSON, wrong provider wrappers, blank files, and missing fields are rejected before storage.
 
 ## Debug and Release
 
@@ -114,8 +120,10 @@ M9 validation rules:
 - [x] Unit test: add key and verify masked status only.
 - [x] Unit test: delete key and verify provider becomes unconfigured.
 - [x] Unit test: reject raw service account JSON/private key material.
+- [x] Unit test: attach service-account JSON through repository/ViewModel path and verify masked status.
+- [x] Unit test: attach Gemini JSON wrapper and reject wrong-provider wrapper.
 - [ ] Trigger invalid-key provider error and verify no fallback.
-- [ ] Attach JSON credential through SAF and verify status changes without exposing path or secret.
+- [ ] Attach JSON credential through SAF on emulator/device and verify status changes without exposing path or secret.
 - [ ] Export library and inspect JSON for absence of key material.
 - [ ] Run secret scan before commit.
 

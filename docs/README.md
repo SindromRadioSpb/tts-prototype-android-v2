@@ -30,10 +30,10 @@ This directory is the living control plane for the Android v2 migration. Future 
 
 ## Current Checkpoint
 
-- M0-M9 plus keyed provider smoke adapters are complete and pushed.
+- M0-M9 plus keyed provider smoke adapters and P015 JSON credential/provider auth are complete locally.
 - Classic Mode, Room library, provider layers, audio storage/export repository work, Library row editing, and settings storage have implementation checkpoints.
 - The first v4 screenshot-based Classic Mode / Library v3 mobile parity code pass is implemented in P014: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards, metadata editor, and Room schema v2 text metadata.
-- The next recommended milestone is M12/M13 UI evidence hardening plus JSON credential SAF implementation before further IDE Mode expansion.
+- The next recommended milestone is M12/M13 UI evidence hardening plus real attached-key smoke before further IDE Mode expansion.
 - Product code must not depend on Railway, cloud app storage, Node as required runtime, localhost sidecars, Python sidecars, browser APIs, Web/WASM assumptions, or desktop-only workflows.
 - Runtime providers are allowlisted only: `google_translate_free`, `gcp_translate`, `gemini_legacy`, `google_online_tts`, `system_or_browser_fallback_low_quality`.
 

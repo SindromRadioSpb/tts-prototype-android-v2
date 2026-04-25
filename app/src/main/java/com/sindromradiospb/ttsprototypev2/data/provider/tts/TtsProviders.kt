@@ -13,6 +13,10 @@ import com.sindromradiospb.ttsprototypev2.core.provider.TtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TtsRequest
 import com.sindromradiospb.ttsprototypev2.core.provider.TtsResponse
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
+import com.sindromradiospb.ttsprototypev2.data.provider.google.GoogleAccessTokenProvider
+import com.sindromradiospb.ttsprototypev2.data.provider.google.JwtGoogleAccessTokenProvider
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderCredentialMaterial
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderCredentialParser
 import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsRepository
 import java.io.File
 import java.io.IOException
@@ -118,6 +122,7 @@ class MissingConfigurationTtsProvider(
 class GoogleOnlineTtsProvider(
     private val settingsRepository: ProviderSettingsRepository,
     private val httpClient: TtsHttpClient = UrlConnectionTtsHttpClient(),
+    private val accessTokenProvider: GoogleAccessTokenProvider = JwtGoogleAccessTokenProvider(),
     private val outputDirectory: File,
     private val clock: () -> String = { Instant.now().toString() },
     private val json: Json = Json { ignoreUnknownKeys = true },
@@ -130,15 +135,27 @@ class GoogleOnlineTtsProvider(
                 "Request profile ${request.profile.providerId.wireId} does not match ${id.wireId}"
             }
             val credential = settingsRepository.getCredentialForProvider(ProviderCredentialId.GoogleOnlineTts)
+                ?.let { ProviderCredentialParser.parseStored(ProviderCredentialId.GoogleOnlineTts, it) }
                 ?: throw ProviderException(
                     category = ProviderErrorCategory.MissingConfiguration,
                     providerId = id.wireId,
                     userMessage = "${id.wireId} is not configured in Settings.",
                 )
-            val uri = URI("https://texttospeech.googleapis.com/v1/text:synthesize?key=${urlEncode(credential)}")
+            val uri = when (credential) {
+                is ProviderCredentialMaterial.ApiKey ->
+                    URI("https://texttospeech.googleapis.com/v1/text:synthesize?key=${urlEncode(credential.value)}")
+                is ProviderCredentialMaterial.GoogleServiceAccount ->
+                    URI("https://texttospeech.googleapis.com/v1/text:synthesize")
+            }
             val body = json.encodeToString(request.toGoogleTtsBody())
+            val headers = when (credential) {
+                is ProviderCredentialMaterial.ApiKey -> emptyMap()
+                is ProviderCredentialMaterial.GoogleServiceAccount -> mapOf(
+                    "Authorization" to "Bearer ${accessTokenProvider.accessToken(credential, GoogleCloudScope, id.wireId)}",
+                )
+            }
             val response = withTimeout(45_000) {
-                httpClient.postJson(uri, body)
+                httpClient.postJson(uri, body, headers)
             }
             if (response.statusCode !in 200..299) {
                 throw httpFailure(response.statusCode)
@@ -216,6 +233,10 @@ class GoogleOnlineTtsProvider(
             providerId = id.wireId,
             userMessage = "Google Online TTS failed with HTTP $statusCode.",
         )
+    }
+
+    private companion object {
+        const val GoogleCloudScope = "https://www.googleapis.com/auth/cloud-platform"
     }
 }
 
@@ -392,11 +413,19 @@ data class TtsHttpResponse(
 )
 
 interface TtsHttpClient {
-    suspend fun postJson(uri: URI, body: String): TtsHttpResponse
+    suspend fun postJson(
+        uri: URI,
+        body: String,
+        headers: Map<String, String> = emptyMap(),
+    ): TtsHttpResponse
 }
 
 class UrlConnectionTtsHttpClient : TtsHttpClient {
-    override suspend fun postJson(uri: URI, body: String): TtsHttpResponse =
+    override suspend fun postJson(
+        uri: URI,
+        body: String,
+        headers: Map<String, String>,
+    ): TtsHttpResponse =
         withContext(Dispatchers.IO) {
             val connection = uri.toURL().openConnection() as HttpURLConnection
             connection.connectTimeout = 20_000
@@ -404,6 +433,7 @@ class UrlConnectionTtsHttpClient : TtsHttpClient {
             connection.requestMethod = "POST"
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
             try {
                 connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
                 val status = connection.responseCode

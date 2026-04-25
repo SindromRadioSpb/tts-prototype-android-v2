@@ -7,6 +7,8 @@ import com.sindromradiospb.ttsprototypev2.core.provider.ProviderException
 import com.sindromradiospb.ttsprototypev2.core.provider.TtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TtsRequest
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
+import com.sindromradiospb.ttsprototypev2.data.provider.google.GoogleAccessTokenProvider
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderCredentialMaterial
 import com.sindromradiospb.ttsprototypev2.data.settings.InMemorySecureKeyValueStore
 import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsRepository
 import java.net.URI
@@ -101,6 +103,25 @@ class TtsProvidersTest {
     }
 
     @Test
+    fun googleOnlineTtsUsesServiceAccountBearerTokenWhenJsonCredentialIsAttached() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.attachJsonCredential(ProviderCredentialId.GoogleOnlineTts, serviceAccountJson())
+        val audio = Base64.getEncoder().encodeToString("mp3-bytes".toByteArray(Charsets.UTF_8))
+        val httpClient = StaticTtsHttpClient(TtsHttpResponse(statusCode = 200, body = """{"audioContent":"$audio"}"""))
+        val provider = GoogleOnlineTtsProvider(
+            settingsRepository = settings,
+            httpClient = httpClient,
+            accessTokenProvider = FakeGoogleAccessTokenProvider("tts-token"),
+            outputDirectory = temporaryFolder.newFolder("tts-json"),
+        )
+
+        provider.synthesize(sampleRequest(TtsProviderId.GoogleOnlineTts)).getOrThrow()
+
+        assertEquals("https://texttospeech.googleapis.com/v1/text:synthesize", httpClient.lastUri.toString())
+        assertEquals("Bearer tts-token", httpClient.lastHeaders["Authorization"])
+    }
+
+    @Test
     fun googleOnlineTtsMissingCredentialDoesNotFallback() = runTest {
         val provider = GoogleOnlineTtsProvider(
             settingsRepository = ProviderSettingsRepository(InMemorySecureKeyValueStore()),
@@ -143,5 +164,36 @@ class TtsProvidersTest {
 private class StaticTtsHttpClient(
     private val response: TtsHttpResponse,
 ) : TtsHttpClient {
-    override suspend fun postJson(uri: URI, body: String): TtsHttpResponse = response
+    lateinit var lastUri: URI
+    var lastHeaders: Map<String, String> = emptyMap()
+
+    override suspend fun postJson(
+        uri: URI,
+        body: String,
+        headers: Map<String, String>,
+    ): TtsHttpResponse {
+        lastUri = uri
+        lastHeaders = headers
+        return response
+    }
 }
+
+private class FakeGoogleAccessTokenProvider(
+    private val token: String,
+) : GoogleAccessTokenProvider {
+    override suspend fun accessToken(
+        serviceAccount: ProviderCredentialMaterial.GoogleServiceAccount,
+        scope: String,
+        providerId: String,
+    ): String = token
+}
+
+private fun serviceAccountJson(): String =
+    """
+    {
+      "type": "service_account",
+      "project_id": "tts-project",
+      "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
+      "client_email": "tts@example.iam.gserviceaccount.com"
+    }
+    """.trimIndent()

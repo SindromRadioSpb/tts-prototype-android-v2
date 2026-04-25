@@ -60,11 +60,12 @@ Settings must distinguish:
 
 Secret values and external file paths must not appear in user-facing error details, logs, crash reports, exports, or screenshots intended for documentation.
 
-P014 UI status:
+P015 credential UI status:
 
-- Settings shows disabled `Прикрепить JSON` and `Проверить` controls until the SAF credential flow is implemented.
-- Disabled target controls must show a visible pending/coming-later state, not fail silently.
-- The interim single-line credential path still uses existing validation errors for blank, multiline, oversized, or private-key/service-account-shaped values.
+- Settings enables `Прикрепить JSON` through Android Storage Access Framework and `Проверить` for offline provider-specific schema validation.
+- GCP Translate and Google Online TTS service-account JSON must contain `type=service_account`, `project_id`, `private_key`, and `client_email`.
+- Gemini JSON wrapper must contain `api_key` and, if present, `provider=gemini_legacy`.
+- The legacy single-line credential path still uses existing validation errors for blank, multiline, oversized, or private-key/service-account-shaped values.
 
 ## Related Docs
 

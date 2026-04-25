@@ -6,6 +6,8 @@ import com.sindromradiospb.ttsprototypev2.core.provider.ProviderException
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationRequest
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
+import com.sindromradiospb.ttsprototypev2.data.provider.google.GoogleAccessTokenProvider
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderCredentialMaterial
 import com.sindromradiospb.ttsprototypev2.data.settings.InMemorySecureKeyValueStore
 import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsRepository
 import java.io.IOException
@@ -130,6 +132,31 @@ class TranslationProvidersTest {
     }
 
     @Test
+    fun gcpTranslateUsesServiceAccountBearerTokenWhenJsonCredentialIsAttached() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.attachJsonCredential(ProviderCredentialId.GcpTranslate, serviceAccountJson())
+        val httpClient = StaticHttpClient(
+            TranslationHttpResponse(
+                statusCode = 200,
+                body = """{"data":{"translations":[{"translatedText":"Привет"}]}}""",
+            ),
+        )
+        val provider = GcpTranslateProvider(
+            settingsRepository = settings,
+            httpClient = httpClient,
+            accessTokenProvider = FakeGoogleAccessTokenProvider("access-token"),
+            clock = { "2026-04-25T03:00:00Z" },
+        )
+
+        provider.translate(
+            TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GcpTranslate),
+        ).getOrThrow()
+
+        assertEquals("https://translation.googleapis.com/v3/projects/proj-123/locations/global:translateText", httpClient.lastUri.toString())
+        assertEquals("Bearer access-token", httpClient.lastHeaders["Authorization"])
+    }
+
+    @Test
     fun gcpTranslateMissingCredentialDoesNotFallback() = runTest {
         val provider = GcpTranslateProvider(
             settingsRepository = ProviderSettingsRepository(InMemorySecureKeyValueStore()),
@@ -167,6 +194,31 @@ class TranslationProvidersTest {
         assertEquals("gemini-2.0-flash", response.provenance.model)
     }
 
+    @Test
+    fun geminiLegacyAcceptsJsonWrapperCredential() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.attachJsonCredential(
+            ProviderCredentialId.GeminiLegacy,
+            """{"provider":"gemini_legacy","api_key":"gemini-json-key"}""",
+        )
+        val httpClient = StaticHttpClient(
+            TranslationHttpResponse(
+                statusCode = 200,
+                body = """{"candidates":[{"content":{"parts":[{"text":"Здравствуйте"}]}}]}""",
+            ),
+        )
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = httpClient,
+        )
+
+        provider.translate(
+            TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GeminiLegacy),
+        ).getOrThrow()
+
+        assertTrue(httpClient.lastUri.toString().contains("key=gemini-json-key"))
+    }
+
     private fun assertProviderException(block: () -> Unit): ProviderException {
         try {
             block()
@@ -180,8 +232,19 @@ class TranslationProvidersTest {
 private class StaticHttpClient(
     private val response: TranslationHttpResponse,
 ) : TranslationHttpClient {
+    lateinit var lastUri: URI
+    var lastHeaders: Map<String, String> = emptyMap()
+
     override suspend fun get(uri: URI): TranslationHttpResponse = response
-    override suspend fun postJson(uri: URI, body: String): TranslationHttpResponse = response
+    override suspend fun postJson(
+        uri: URI,
+        body: String,
+        headers: Map<String, String>,
+    ): TranslationHttpResponse {
+        lastUri = uri
+        lastHeaders = headers
+        return response
+    }
 }
 
 private class FailingHttpClient(
@@ -191,7 +254,31 @@ private class FailingHttpClient(
         throw error
     }
 
-    override suspend fun postJson(uri: URI, body: String): TranslationHttpResponse {
+    override suspend fun postJson(
+        uri: URI,
+        body: String,
+        headers: Map<String, String>,
+    ): TranslationHttpResponse {
         throw error
     }
 }
+
+private class FakeGoogleAccessTokenProvider(
+    private val token: String,
+) : GoogleAccessTokenProvider {
+    override suspend fun accessToken(
+        serviceAccount: ProviderCredentialMaterial.GoogleServiceAccount,
+        scope: String,
+        providerId: String,
+    ): String = token
+}
+
+private fun serviceAccountJson(): String =
+    """
+    {
+      "type": "service_account",
+      "project_id": "proj-123",
+      "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
+      "client_email": "svc@example.iam.gserviceaccount.com"
+    }
+    """.trimIndent()

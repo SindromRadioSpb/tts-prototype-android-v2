@@ -73,17 +73,19 @@ Providers must map failures to:
 Quota, billing, invalid-key, and unauthorized errors must not silently fallback.
 Missing configuration must not silently fallback either; the UI must ask the user to configure the provider or choose a different provider manually.
 
-For TTS, `google_online_tts` may use only secure credentials stored through Settings. Raw Google service account JSON/private keys must not be embedded in the APK, copied into source/resources, logged, stored in Room, or exported.
+For TTS, `google_online_tts` may use only secure credentials stored through Settings. Google service-account JSON/private keys may enter the app only through the SAF attachment flow, must be stored in encrypted app-private storage, and must not be embedded in the APK, copied into source/resources, logged, stored in Room, or exported.
 
-M9 provider security status:
+P015 provider security status:
 
 - secure credential storage exists for `gcp_translate`, `gemini_legacy`, and `google_online_tts`;
 - UI shows only configured/missing status and masked values;
-- raw service account JSON/private-key material is rejected;
-- real keyed provider adapters exist for `gcp_translate`, `gemini_legacy`, and `google_online_tts`;
+- raw service account JSON/private-key material is rejected from manual single-line entry;
+- SAF JSON attachment and offline provider-specific validation are enabled;
+- `gcp_translate` and `google_online_tts` support Google service-account OAuth JWT bearer auth;
+- `gemini_legacy` supports a provider-specific JSON API-key wrapper;
 - keyed adapters read credentials only from the secure settings repository;
 - missing credentials, invalid responses, and HTTP failures are surfaced without silent fallback;
-- real network smoke evidence with restricted keys is still required before release.
+- real network smoke evidence with attached JSON keys is still required before release.
 
 P013 credential UI target:
 
@@ -93,11 +95,12 @@ P013 credential UI target:
 - manual single-line key entry is an interim implementation and must be replaced or demoted;
 - provider docs and tests must cover wrong-provider JSON, malformed JSON, missing fields, and no secret logging.
 
-P014 UI status:
+P015 UI status:
 
 - Settings now displays `Прикрепить JSON`, `Проверить`, and `Удалить ключ` controls for provider credentials.
-- `Прикрепить JSON` and `Проверить` are disabled until SAF parsing/validation is implemented; they are visible target-state controls, not completed behavior.
-- The interim single-line credential field still exists for restricted-key smoke checks and must not be documented or treated as the final production UX.
+- `Прикрепить JSON` launches SAF and discards the external file path after reading.
+- `Проверить` validates provider-specific JSON/schema locally.
+- The interim single-line credential field still exists for restricted-key smoke checks and must not be treated as the final production UX.
 
 ## Security Requirements
 

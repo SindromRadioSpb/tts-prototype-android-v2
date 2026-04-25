@@ -63,6 +63,7 @@ enum class ProviderErrorCategory {
     QuotaExceeded,
     BillingRequired,
     InvalidApiKey,
+    InvalidCredentialFile,
     ProviderUnavailable,
     InvalidResponse,
     UnsupportedLanguage,

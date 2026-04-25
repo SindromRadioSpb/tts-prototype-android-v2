@@ -14,7 +14,8 @@ M6 export ZIP with audio is implemented in commit `4ac57c9`.
 M7 library UI and saved text lifecycle is implemented in commit `4396158`.
 M8 editing/reorder/reset behavior is implemented in commit `e17cd9e`.
 M9 API key/settings/security is implemented in commit `7e3a082`.
-M9 follow-up keyed provider smoke adapters are implemented in commit `0f3990c`: stored single-line credentials now feed GCP Translate, Gemini, and Google Online TTS HTTP adapters, while raw service account JSON remains blocked.
+M9 follow-up keyed provider smoke adapters are implemented in commit `0f3990c`: stored single-line credentials now feed GCP Translate, Gemini, and Google Online TTS HTTP adapters.
+P015 implements real JSON credential attachment and provider auth: Settings can attach/validate JSON through Android SAF, `gcp_translate` and `google_online_tts` support service-account OAuth JWT bearer calls, and `gemini_legacy` supports the provider-specific JSON API-key wrapper.
 Classic Mode / Library v3 mobile parity based on v4 screenshots is now specified in `docs/ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md`.
 P014 implements the first native v4 parity pass in commit `844239b`: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards without clipping, text-level metadata editor, and Room schema version 2 metadata fields.
 
@@ -30,7 +31,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Next recommended implementation milestone is M12/M13 UI evidence hardening: capture emulator/device screenshots for Classic portrait, Library v3 filters/dropdowns/cards, metadata editor with keyboard, and then continue with JSON credential file attachment and audio playback UI wiring.
+- Next recommended implementation milestone is M12/M13 real-device evidence hardening: capture emulator/device screenshots for Classic portrait, Library v3 filters/dropdowns/cards, metadata editor with keyboard, Settings JSON attachment, real GCP/Gemini/Google TTS smoke, and audio playback UI wiring.
 
 ## Dependency Graph
 
@@ -65,7 +66,7 @@ M13 -> M14
 | M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | Completed in `4ac57c9`; SAF/share UI evidence remains future work. |
 | M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, save/update library texts, and converge on Library v3 modal/screen parity. | Repository tests, Compose UI tests, v4 screenshot evidence. | Keep current Library tab usable while implementing Classic-owned Library v3 entry. | Completed in `4396158`; P014 replaces the rough separate Library tab with Classic-owned Library v3 modal behavior. |
 | M8 - Editing/reorder/reset behavior | Medium | Edit row fields plus text-level metadata editor parity where scoped. | `LibraryViewModelTest`, repository regression tests, metadata editor UI evidence. | Disable mutation actions if persistence invariant breaks. | Completed in `e17cd9e`; P014 adds text-level metadata editor parity for title/level/tags/source/topic. |
-| M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows, keyed providers, and migrate target UX to JSON credential attachment/validation. | Settings repository/ViewModel tests, no-secret export/log tests, keyed adapter contract tests, SAF credential UI tests. | Disable only failing keyed provider while preserving visible errors and no silent fallback. | Completed in `7e3a082`; keyed adapter follow-up complete; JSON credential attachment remains future UI work. |
+| M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows, keyed providers, and migrate target UX to JSON credential attachment/validation. | Settings repository/ViewModel tests, no-secret export/log tests, keyed adapter contract tests, SAF credential UI tests. | Disable only failing keyed provider while preserving visible errors and no silent fallback. | Completed in `7e3a082`; keyed adapter follow-up complete; P015 adds JSON attachment/validation and service-account bearer auth. |
 | M10 - IDE Mode experimental integration | Medium | Keep IDE Mode separate and experimental with shared models only. | Navigation tests, no Classic dependency regression. | Hide IDE entry if it destabilizes Classic. | `feat(ide): define experimental workspace shell`. |
 | M11 - Import/compatibility layer | Medium | Import Android ZIP and compatible old web JSON where possible. | Import fixture tests and partial import tests. | Import remains read-only preview until safe. | `feat(import): add library compatibility import`. |
 | M12 - Premium UI/UX polish | Medium | Implement and verify v4 screenshot-based Classic/Library mobile parity, accessibility, RTL, insets, long text, no clipped actions. | UI DoD evidence, screenshot/manual smoke, accessibility smoke tests. | Keep functional UI if visual polish causes regressions. | P014 implements the first code pass; manual evidence and Compose UI tests remain required. |
@@ -341,7 +342,7 @@ Implementation required after P013:
 - Capture emulator/device evidence for the Classic-owned Library v3 modal/screen.
 - Move Library v3 filtering/sorting from UI-local derived state into repository/query layer if the list grows beyond current in-memory summary scale.
 - Verify text-level metadata editor with IME open and mixed Hebrew/Russian/Latin values.
-- Add JSON credential attach/validate/delete UI and update provider settings implementation accordingly.
+- Add JSON credential attach/validate/delete UI and update provider settings implementation accordingly. Implemented in P015; manual SAF evidence remains pending.
 
 ## P014 Classic Mobile v4 UI Implementation Status
 
@@ -362,11 +363,28 @@ Implemented in this patch:
 Still out of scope after P014:
 
 - Manual emulator/device screenshots for Classic portrait, Library v3 filters/dropdowns/cards, metadata editor with keyboard, and Settings JSON credential target controls.
-- Actual SAF JSON file picker, parser, provider-specific JSON validation, and health-check buttons.
+- Manual SAF JSON attachment evidence with real provider keys.
 - Real SAF export/import UI wiring for Library header buttons.
 - ClipboardManager integration for the source copy button.
 - Compose UI tests for dropdown expansion, action-card clipping, and metadata validation.
 - Reconciliation of the previous M8 row-level edit controls with the v4 Classic-owned Library flow; repository/ViewModel row editing remains covered, but UI evidence must confirm the final access path.
+
+## P015 JSON Credential Provider Status
+
+Implemented in this patch:
+
+- Settings `Прикрепить JSON` opens Android Storage Access Framework for provider credential files and discards the external file path after reading.
+- `ProviderSettingsRepository` validates and stores provider JSON in encrypted app-private settings.
+- `gcp_translate` and `google_online_tts` accept Google service-account JSON and use OAuth JWT bearer requests for real Google API calls.
+- `gemini_legacy` accepts the provider wrapper `{ "provider": "gemini_legacy", "api_key": "..." }`.
+- Legacy single-line key input remains available only for smoke/backward compatibility.
+- Unit tests cover JSON parser/repository/ViewModel behavior and provider bearer-header wiring.
+
+Still out of scope after P015:
+
+- Real endpoint smoke with the user's actual attached JSON keys on emulator/device.
+- Network health-check button that calls each provider without generating user content.
+- Playback/adoption UI for the Classic source-level TTS result.
 
 ## Blocking Questions
 

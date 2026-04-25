@@ -48,6 +48,42 @@ class ProviderSettingsRepositoryTest {
     }
 
     @Test
+    fun attachJsonCredentialAcceptsServiceAccountWithoutExposingSecret() {
+        val status = repository.attachJsonCredential(
+            ProviderCredentialId.GcpTranslate,
+            serviceAccountJson(),
+        )
+
+        assertTrue(status.isConfigured)
+        assertEquals("sa:svc...oj-123", status.maskedValue)
+        assertFalse(repository.getStatuses().single { it.id == ProviderCredentialId.GcpTranslate }.maskedValue!!.contains("private"))
+        assertTrue(repository.getCredentialForProvider(ProviderCredentialId.GcpTranslate)!!.contains("service_account"))
+    }
+
+    @Test
+    fun attachJsonCredentialAcceptsGeminiWrapper() {
+        val status = repository.attachJsonCredential(
+            ProviderCredentialId.GeminiLegacy,
+            """{"provider":"gemini_legacy","api_key":"gemini-json-key-123456"}""",
+        )
+
+        assertTrue(status.isConfigured)
+        assertEquals("gemi...3456", status.maskedValue)
+    }
+
+    @Test
+    fun attachJsonCredentialRejectsWrongProviderWrapper() {
+        val error = assertFailsWithMessage("provider") {
+            repository.attachJsonCredential(
+                ProviderCredentialId.GeminiLegacy,
+                """{"provider":"gcp_translate","api_key":"gemini-json-key-123456"}""",
+            )
+        }
+
+        assertTrue(error.message!!.contains("provider"))
+    }
+
+    @Test
     fun multilineCredentialIsRejected() {
         val error = assertFailsWithMessage("single-line") {
             repository.updateCredential(ProviderCredentialId.GcpTranslate, "first\nsecond")
@@ -59,6 +95,16 @@ class ProviderSettingsRepositoryTest {
 
 private fun serviceAccountLikeValue(): String =
     """{"client_${"email"}":"service@example.com","private_${"key"}":"BEGIN ${"PRIVATE KEY"}"}"""
+
+private fun serviceAccountJson(): String =
+    """
+    {
+      "type": "service_account",
+      "project_id": "proj-123",
+      "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
+      "client_email": "svc@example.iam.gserviceaccount.com"
+    }
+    """.trimIndent()
 
 class InMemorySecureKeyValueStore : SecureKeyValueStore {
     private val values = mutableMapOf<String, String>()

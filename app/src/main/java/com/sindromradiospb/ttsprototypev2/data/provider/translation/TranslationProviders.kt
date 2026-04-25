@@ -10,6 +10,10 @@ import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegis
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationRequest
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationResponse
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
+import com.sindromradiospb.ttsprototypev2.data.provider.google.GoogleAccessTokenProvider
+import com.sindromradiospb.ttsprototypev2.data.provider.google.JwtGoogleAccessTokenProvider
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderCredentialMaterial
+import com.sindromradiospb.ttsprototypev2.data.settings.ProviderCredentialParser
 import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsRepository
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -21,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.add
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -209,6 +214,7 @@ class GoogleTranslateFreeProvider(
 class GcpTranslateProvider(
     private val settingsRepository: ProviderSettingsRepository,
     private val httpClient: TranslationHttpClient = UrlConnectionTranslationHttpClient(),
+    private val accessTokenProvider: GoogleAccessTokenProvider = JwtGoogleAccessTokenProvider(),
     private val clock: () -> String = { Instant.now().toString() },
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) : TranslationProvider {
@@ -219,9 +225,9 @@ class GcpTranslateProvider(
             require(request.providerId == id) {
                 "Request provider ${request.providerId.wireId} does not match ${id.wireId}"
             }
-            val apiKey = requireCredential(ProviderCredentialId.GcpTranslate)
+            val credential = requireCredential(ProviderCredentialId.GcpTranslate)
             val rows = splitSource(request.sourceText).mapIndexed { index, segment ->
-                val translated = translateSegment(segment, request.sourceLanguage, request.targetLanguage, apiKey)
+                val translated = translateSegment(segment, request.sourceLanguage, request.targetLanguage, credential)
                 GeneratedRow(
                     segmentIndex = index,
                     hebrewPlain = segment,
@@ -246,19 +252,23 @@ class GcpTranslateProvider(
         segment: String,
         sourceLanguage: String,
         targetLanguage: String,
-        apiKey: String,
+        credential: ProviderCredentialMaterial,
     ): String {
-        val uri = URI("https://translation.googleapis.com/language/translate/v2?key=${urlEncode(apiKey)}")
-        val body = json.encodeToString(
-            buildJsonObject {
-                put("q", segment)
-                put("source", sourceLanguage)
-                put("target", targetLanguage)
-                put("format", "text")
-            },
-        )
+        val uri = when (credential) {
+            is ProviderCredentialMaterial.ApiKey ->
+                URI("https://translation.googleapis.com/language/translate/v2?key=${urlEncode(credential.value)}")
+            is ProviderCredentialMaterial.GoogleServiceAccount ->
+                URI("https://translation.googleapis.com/v3/projects/${credential.projectId}/locations/global:translateText")
+        }
+        val body = json.encodeToString(credential.toTranslateBody(segment, sourceLanguage, targetLanguage))
+        val headers = when (credential) {
+            is ProviderCredentialMaterial.ApiKey -> emptyMap()
+            is ProviderCredentialMaterial.GoogleServiceAccount -> mapOf(
+                "Authorization" to "Bearer ${accessTokenProvider.accessToken(credential, GcpTranslateScope, id.wireId)}",
+            )
+        }
         val response = withTimeout(20_000) {
-            httpClient.postJson(uri, body)
+            httpClient.postJson(uri, body, headers)
         }
         if (response.statusCode !in 200..299) {
             throw httpFailure(id.wireId, response.statusCode, "GCP Translate")
@@ -267,11 +277,12 @@ class GcpTranslateProvider(
     }
 
     internal fun parseGcpTranslation(body: String): String {
-        val translations = json.parseToJsonElement(body)
-            .jsonObject["data"]
+        val root = json.parseToJsonElement(body).jsonObject
+        val translations = root["data"]
             ?.jsonObject
             ?.get("translations")
             ?.jsonArray
+            ?: root["translations"]?.jsonArray
             ?: throw invalidEnvelope(id.wireId, "GCP Translate")
         val translated = translations.firstOrNull()
             ?.jsonObject
@@ -283,13 +294,37 @@ class GcpTranslateProvider(
         return translated
     }
 
-    private fun requireCredential(id: ProviderCredentialId): String =
+    private fun ProviderCredentialMaterial.toTranslateBody(
+        segment: String,
+        sourceLanguage: String,
+        targetLanguage: String,
+    ) = when (this) {
+        is ProviderCredentialMaterial.ApiKey -> buildJsonObject {
+            put("q", segment)
+            put("source", sourceLanguage)
+            put("target", targetLanguage)
+            put("format", "text")
+        }
+        is ProviderCredentialMaterial.GoogleServiceAccount -> buildJsonObject {
+            put("contents", buildJsonArray { add(segment) })
+            put("mimeType", "text/plain")
+            put("sourceLanguageCode", sourceLanguage)
+            put("targetLanguageCode", targetLanguage)
+        }
+    }
+
+    private fun requireCredential(id: ProviderCredentialId): ProviderCredentialMaterial =
         settingsRepository.getCredentialForProvider(id)
+            ?.let { ProviderCredentialParser.parseStored(id, it) }
             ?: throw ProviderException(
                 category = ProviderErrorCategory.MissingConfiguration,
                 providerId = this.id.wireId,
                 userMessage = "${this.id.wireId} is not configured in Settings.",
             )
+
+    private companion object {
+        const val GcpTranslateScope = "https://www.googleapis.com/auth/cloud-translation"
+    }
 }
 
 class GeminiLegacyTranslationProvider(
@@ -306,7 +341,7 @@ class GeminiLegacyTranslationProvider(
             require(request.providerId == id) {
                 "Request provider ${request.providerId.wireId} does not match ${id.wireId}"
             }
-            val apiKey = requireCredential()
+            val apiKey = requireCredential().value
             val rows = splitSource(request.sourceText).mapIndexed { index, segment ->
                 val translated = translateSegment(segment, request.targetLanguage, apiKey)
                 GeneratedRow(
@@ -388,8 +423,9 @@ class GeminiLegacyTranslationProvider(
         return text
     }
 
-    private fun requireCredential(): String =
+    private fun requireCredential(): ProviderCredentialMaterial.ApiKey =
         settingsRepository.getCredentialForProvider(ProviderCredentialId.GeminiLegacy)
+            ?.let { ProviderCredentialParser.parseStored(ProviderCredentialId.GeminiLegacy, it) as? ProviderCredentialMaterial.ApiKey }
             ?: throw ProviderException(
                 category = ProviderErrorCategory.MissingConfiguration,
                 providerId = id.wireId,
@@ -404,22 +440,36 @@ data class TranslationHttpResponse(
 
 interface TranslationHttpClient {
     suspend fun get(uri: URI): TranslationHttpResponse
-    suspend fun postJson(uri: URI, body: String): TranslationHttpResponse
+    suspend fun postJson(
+        uri: URI,
+        body: String,
+        headers: Map<String, String> = emptyMap(),
+    ): TranslationHttpResponse
 }
 
 class UrlConnectionTranslationHttpClient : TranslationHttpClient {
     override suspend fun get(uri: URI): TranslationHttpResponse =
         request(uri = uri, method = "GET", body = null)
 
-    override suspend fun postJson(uri: URI, body: String): TranslationHttpResponse =
-        request(uri = uri, method = "POST", body = body)
+    override suspend fun postJson(
+        uri: URI,
+        body: String,
+        headers: Map<String, String>,
+    ): TranslationHttpResponse =
+        request(uri = uri, method = "POST", body = body, headers = headers)
 
-    private suspend fun request(uri: URI, method: String, body: String?): TranslationHttpResponse =
+    private suspend fun request(
+        uri: URI,
+        method: String,
+        body: String?,
+        headers: Map<String, String> = emptyMap(),
+    ): TranslationHttpResponse =
         withContext(Dispatchers.IO) {
             val connection = uri.toURL().openConnection() as HttpURLConnection
             connection.connectTimeout = 20_000
             connection.readTimeout = 20_000
             connection.requestMethod = method
+            headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
             if (body != null) {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")

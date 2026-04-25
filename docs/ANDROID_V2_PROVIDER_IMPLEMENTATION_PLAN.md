@@ -27,13 +27,13 @@ M4 implementation status:
 - `AndroidPlatformTtsProvider` wraps native Android `TextToSpeech` for `system_or_browser_fallback_low_quality`.
 - `google_online_tts` has a keyed Google Cloud Text-to-Speech adapter that reads the M9 secure credential store, writes synthesized MP3 output to app cache, and returns domain metadata without persisting secrets.
 
-M9 keyed adapter follow-up status:
+P015 credential/provider status:
 
-- `gcp_translate` is implemented as a Google Cloud Translation Basic v2 JSON POST adapter using a stored single-line API key.
-- `gemini_legacy` is implemented as a Gemini `gemini-2.0-flash` JSON POST adapter using a stored single-line API key.
-- `google_online_tts` is implemented as a Google Cloud Text-to-Speech `text:synthesize` JSON POST adapter using a stored single-line API key.
+- `gcp_translate` is implemented as a Google Cloud Translation adapter: legacy single-line keys use Basic v2 JSON POST, while attached service-account JSON uses Cloud Translation v3 REST with OAuth JWT bearer auth.
+- `gemini_legacy` is implemented as a Gemini `gemini-2.0-flash` JSON POST adapter using either a legacy stored single-line key or a provider-specific JSON wrapper.
+- `google_online_tts` is implemented as a Google Cloud Text-to-Speech `text:synthesize` JSON POST adapter using either a legacy stored single-line key or an attached service-account JSON credential with OAuth JWT bearer auth.
 - Missing credentials still produce `MissingConfiguration` and do not fallback automatically.
-- Raw service account JSON and private-key material remain blocked by Settings validation and must not be embedded in the APK.
+- Raw service account JSON/private-key material remains blocked from manual single-line entry, but the SAF JSON attachment path validates and stores provider credentials in encrypted app-private storage.
 
 P013 credential UI target:
 
@@ -42,12 +42,12 @@ P013 credential UI target:
 - provider adapters should continue to receive sanitized credential values from `ProviderSettingsRepository`, not file paths or raw UI state;
 - validation should reject malformed JSON, wrong provider type, missing required fields, and private-key material that would be unsafe on-device.
 
-P014 UI status:
+P015 UI status:
 
 - Settings exposes the target JSON credential controls (`Прикрепить JSON`, `Проверить`, `Удалить ключ`) beside provider status.
-- JSON attachment and health-check buttons are visibly disabled/pending; no provider adapter reads external file paths or raw JSON UI state.
-- The existing adapters still receive sanitized values from `ProviderSettingsRepository`.
-- The next provider/settings patch must add SAF file picking, provider-specific JSON parser tests, validation error mapping, and health-check wiring before enabling those buttons.
+- `Прикрепить JSON` is enabled through Android Storage Access Framework and stores no external file path.
+- `Проверить` performs local provider-specific schema validation; real network health is still verified by using the selected provider.
+- Provider adapters receive credential material only from `ProviderSettingsRepository`.
 
 ## Allowed Translation Providers
 
@@ -60,8 +60,8 @@ P014 UI status:
 Current runtime wiring:
 
 - `google_translate_free`: implemented as best-effort HTTP adapter using `translate.googleapis.com/translate_a/single`.
-- `gcp_translate`: implemented as keyed Google Cloud Translation Basic v2 adapter. It requires a stored restricted API key and maps HTTP failures into provider categories without fallback.
-- `gemini_legacy`: implemented as keyed Gemini adapter for Hebrew-to-Russian translation. It requires a stored Gemini API key and maps HTTP failures into provider categories without fallback.
+- `gcp_translate`: implemented as Google Cloud Translation adapter. It supports v3 service-account JSON bearer auth and legacy v2 restricted API keys, and maps HTTP failures into provider categories without fallback.
+- `gemini_legacy`: implemented as keyed Gemini adapter for Hebrew-to-Russian translation. It supports the JSON wrapper and legacy single-line API keys, and maps HTTP failures into provider categories without fallback.
 
 ## Allowed TTS Providers
 
@@ -72,7 +72,7 @@ Current runtime wiring:
 
 Current runtime wiring:
 
-- `google_online_tts`: implemented as keyed Google Cloud Text-to-Speech adapter. It requires a stored restricted API key, decodes returned MP3 bytes, and writes them to app cache before returning `TtsResponse`.
+- `google_online_tts`: implemented as Google Cloud Text-to-Speech adapter. It supports service-account JSON bearer auth and legacy restricted API keys, decodes returned MP3 bytes, and writes them to app cache before returning `TtsResponse`.
 - `system_or_browser_fallback_low_quality`: implemented as Android platform `TextToSpeech.synthesizeToFile` adapter writing a temporary WAV under app cache.
 
 ## Disallowed Providers
@@ -122,18 +122,18 @@ Persist for every generated row or audio asset:
 
 1. Fake providers and contract tests. Completed for translation in M3.
 2. `google_translate_free` behind policy allowlist. Completed in M3 as best-effort HTTP adapter.
-3. `gcp_translate` with secure key status checks. Keyed network adapter is implemented; manual real-key smoke remains required.
+3. `gcp_translate` with secure key status checks. JSON/service-account adapter is implemented; manual real-key smoke remains required.
 4. `system_or_browser_fallback_low_quality`. Completed in M4 as Android platform adapter; device smoke still required.
-5. `google_online_tts`. Keyed network adapter is implemented; service account JSON remains blocked and manual real-key smoke remains required.
-6. `gemini_legacy`. Keyed network adapter is implemented; cost-warning UX remains a release-hardening item.
+5. `google_online_tts`. JSON/service-account network adapter is implemented; manual real-key smoke remains required.
+6. `gemini_legacy`. JSON-wrapper keyed network adapter is implemented; cost-warning UX remains a release-hardening item.
 
 ## Open Decisions
 
 | Decision | Current default | Owner / next action |
 |----------|-----------------|---------------------|
-| GCP credential JSON on device | Target UX attaches provider JSON through SAF, validates it, and stores extracted safe fields encrypted. Service-account private keys remain blocked unless a future ADR approves brokered auth. | Define final JSON schema and implement attachment/validation UI. |
-| Gemini key handling | Target UX uses provider-specific JSON wrapper, for example `{ "provider": "gemini_legacy", "api_key": "..." }`, unless an ADR supersedes it. | Add wrapper validation and cost-warning UX before release. |
-| Google Online TTS credentials | Target UX attaches provider JSON through SAF; embedding service-account JSON in APK remains blocked. | Verify API-key TTS viability or design brokered auth before release. |
+| GCP credential JSON on device | Implemented through SAF, encrypted storage, and OAuth JWT bearer auth. | Collect emulator/device evidence with the user's real service account. |
+| Gemini key handling | Implemented with provider-specific JSON wrapper, for example `{ "provider": "gemini_legacy", "api_key": "..." }`. | Add cost-warning UX before release. |
+| Google Online TTS credentials | Implemented through SAF, encrypted storage, and OAuth JWT bearer auth. | Collect emulator/device evidence with the user's real service account. |
 | niqqud provider strategy | Store niqqud as optional/degraded; do not depend on desktop sidecar. | Decide in M3 after Android-safe options review. |
 | Google Free production stability | Treat as best-effort with visible degraded/unofficial label. | Validate with provider tests and UX copy in M3. |
 

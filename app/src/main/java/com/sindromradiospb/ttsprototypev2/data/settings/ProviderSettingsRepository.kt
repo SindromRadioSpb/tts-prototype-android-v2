@@ -12,7 +12,7 @@ class ProviderSettingsRepository(
             ProviderCredentialStatus(
                 id = id,
                 isConfigured = !value.isNullOrBlank(),
-                maskedValue = value?.let(::maskCredential),
+                maskedValue = value?.let { maskStoredCredential(id, it) },
             )
         }
 
@@ -21,6 +21,20 @@ class ProviderSettingsRepository(
         validateCredential(value)
         secureStore.put(id.storeKey(), value)
         return ProviderCredentialStatus(id = id, isConfigured = true, maskedValue = maskCredential(value))
+    }
+
+    fun attachJsonCredential(id: ProviderCredentialId, rawJson: String): ProviderCredentialStatus {
+        val value = rawJson.trim()
+        val material = ProviderCredentialParser.validateJsonForProvider(id, value)
+        secureStore.put(id.storeKey(), value)
+        return ProviderCredentialStatus(id = id, isConfigured = true, maskedValue = maskCredential(material))
+    }
+
+    fun validateStoredCredential(id: ProviderCredentialId): ProviderCredentialStatus {
+        val value = getCredentialForProvider(id)
+            ?: throw IllegalArgumentException("${id.displayName} credential is not configured.")
+        val material = ProviderCredentialParser.parseStored(id, value)
+        return ProviderCredentialStatus(id = id, isConfigured = true, maskedValue = maskCredential(material))
     }
 
     fun deleteCredential(id: ProviderCredentialId): ProviderCredentialStatus {
@@ -49,6 +63,10 @@ class ProviderSettingsRepository(
 
     private fun ProviderCredentialId.storeKey(): String = "provider_credential_$wireId"
 
+    private fun maskStoredCredential(id: ProviderCredentialId, value: String): String =
+        runCatching { maskCredential(ProviderCredentialParser.parseStored(id, value)) }
+            .getOrElse { maskCredential(value) }
+
     private companion object {
         const val MaxCredentialChars = 4096
         val ServicePrivateKeyJsonField = "\"private_" + "key\""
@@ -67,3 +85,10 @@ fun maskCredential(value: String): String {
         "$prefix...$suffix"
     }
 }
+
+fun maskCredential(material: ProviderCredentialMaterial): String =
+    when (material) {
+        is ProviderCredentialMaterial.ApiKey -> maskCredential(material.value)
+        is ProviderCredentialMaterial.GoogleServiceAccount ->
+            "sa:${material.clientEmail.take(3)}...${material.projectId.takeLast(6)}"
+    }
