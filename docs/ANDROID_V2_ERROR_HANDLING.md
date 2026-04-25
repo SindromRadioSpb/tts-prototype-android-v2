@@ -6,6 +6,7 @@ Date: 2026-04-25
 
 | Category | User-visible meaning | Retry |
 |----------|----------------------|-------|
+| `MissingConfiguration` | Provider is allowed but cannot run because required secure settings are absent. | No, configure provider or choose another manually. |
 | `NetworkUnavailable` | Device is offline or cannot reach provider. | Yes, after network returns. |
 | `Timeout` | Provider did not respond in time. | Yes, one manual retry. |
 | `Unauthorized` | Provider rejected credentials or access. | No, fix settings. |
@@ -31,6 +32,7 @@ Date: 2026-04-25
 ## User-Facing Message Examples
 
 - Invalid key: "Google Cloud key is invalid. Update the key in Settings. No fallback was used."
+- Missing configuration: "GCP Translate is not configured. Add credentials in Settings or choose another provider. No fallback was used."
 - Quota: "GCP quota is exhausted. Try later or switch provider manually."
 - Missing audio: "Audio file is missing. The row text is safe; regenerate audio to restore playback."
 - Partial export: "Export completed with 2 missing audio files. See missing_audio.json in the ZIP."

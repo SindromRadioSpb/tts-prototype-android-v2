@@ -74,6 +74,21 @@ git status --short --branch
 
 M2 does not yet include Compose UI tests or emulator evidence. Those become mandatory when row editing, playback, SAF export, IME/insets, or accessibility behavior changes.
 
+## Current M3 Coverage
+
+`TranslationProvidersTest` covers:
+
+- deterministic fake translation provider rows;
+- registry missing-provider behavior;
+- missing-configuration provider without fallback;
+- `google_translate_free` nested response parsing;
+- HTTP quota mapping to `QuotaExceeded`;
+- IO failure mapping to `NetworkUnavailable`.
+
+`ClassicModeViewModelTest` now covers provider-backed generation and visible `MissingConfiguration` failure handling.
+
+M3 tests do not call real network endpoints and do not require real provider credentials.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.

@@ -4,6 +4,9 @@ import com.sindromradiospb.ttsprototypev2.MainDispatcherRule
 import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
+import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegistry
+import com.sindromradiospb.ttsprototypev2.data.provider.translation.FakeTranslationProvider
+import com.sindromradiospb.ttsprototypev2.data.provider.translation.MissingConfigurationTranslationProvider
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.SaveGeneratedTextRequest
@@ -38,7 +41,7 @@ class ClassicModeViewModelTest {
     }
 
     @Test
-    fun generateCreatesFakeRowsAndPreservesSelectedProviders() = runTest(mainDispatcherRule.testDispatcher) {
+    fun generateUsesTranslationProviderAndPreservesSelectedProviders() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = viewModel()
 
         viewModel.onTranslationProviderChanged(TranslationProviderId.GeminiLegacy)
@@ -51,10 +54,36 @@ class ClassicModeViewModelTest {
         assertFalse(state.isGenerating)
         assertEquals(2, state.rows.size)
         assertEquals("שלום עולם", state.rows.first().hebrewPlain)
-        assertEquals("m2-fake-sbl-1", state.rows.first().translit)
+        assertEquals("m3-fake-sbl-1", state.rows.first().translit)
         assertEquals(TranslationProviderId.GeminiLegacy, state.translationProvider)
         assertEquals(TtsProviderId.SystemFallbackLowQuality, state.ttsProvider)
-        assertTrue(state.message.orEmpty().contains("M2 fake generation"))
+        assertEquals("Translation: gemini_legacy", state.generationLabel)
+        assertEquals("Translation complete via gemini_legacy.", state.message)
+    }
+
+    @Test
+    fun missingConfiguredProviderShowsVisibleErrorWithoutFallback() = runTest(mainDispatcherRule.testDispatcher) {
+        val registry = TranslationProviderRegistry(
+            listOf(
+                FakeTranslationProvider(id = TranslationProviderId.GoogleTranslateFree),
+                MissingConfigurationTranslationProvider(
+                    id = TranslationProviderId.GcpTranslate,
+                    message = "gcp_translate is not configured.",
+                ),
+                FakeTranslationProvider(id = TranslationProviderId.GeminiLegacy),
+            ),
+        )
+        val viewModel = viewModel(translationProviders = registry)
+
+        viewModel.onTranslationProviderChanged(TranslationProviderId.GcpTranslate)
+        viewModel.onSourceTextChanged("שלום עולם")
+        viewModel.generateTable()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.rows.isEmpty())
+        assertEquals("Translation failed", state.generationLabel)
+        assertTrue(state.message.orEmpty().contains("MissingConfiguration"))
     }
 
     @Test
@@ -93,9 +122,19 @@ class ClassicModeViewModelTest {
         assertEquals("This generated text is already saved in the local library.", viewModel.uiState.value.message)
     }
 
-    private fun viewModel(repository: LibraryRepository = FakeLibraryRepository()): ClassicModeViewModel =
+    private fun viewModel(
+        repository: LibraryRepository = FakeLibraryRepository(),
+        translationProviders: TranslationProviderRegistry = TranslationProviderRegistry(
+            listOf(
+                FakeTranslationProvider(id = TranslationProviderId.GoogleTranslateFree),
+                FakeTranslationProvider(id = TranslationProviderId.GcpTranslate),
+                FakeTranslationProvider(id = TranslationProviderId.GeminiLegacy),
+            ),
+        ),
+    ): ClassicModeViewModel =
         ClassicModeViewModel(
             repository = repository,
+            translationProviders = translationProviders,
             clock = { "2026-04-25T02:00:00Z" },
         )
 }

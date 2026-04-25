@@ -7,6 +7,7 @@ Date: 2026-04-25
 M0 foundation is complete and pushed to `origin/main`.
 M1 local Room library storage is implemented at repository level in commit `60dd079 feat(library): add local room storage`.
 M2 Classic Mode functional flow is implemented in commit `479d50f feat(classic): wire generation workflow shell`.
+M3 translation provider layer is in progress in patch P005.
 
 Completed:
 
@@ -20,7 +21,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Next implementation milestone after M2 is M3: Translation providers.
+- Next implementation milestone after M3 is M4: TTS/audio providers.
 
 ## Dependency Graph
 
@@ -48,7 +49,7 @@ M13 -> M14
 | M0 - Foundation checkpoint | Low | Keep buildable native shell and initial contracts. | Existing Gradle test/build/lint. | Revert foundation commits only if skeleton is unusable. | Completed: `3800af6`, `fd819de`. |
 | M1 - Local Room library storage | High | Implement Room entities, DAOs, repository transactions for texts/rows/audio metadata. | Unit tests plus Room repository tests for save/load/update/reorder/reset. | Keep UI using in-memory sample state until repository is stable. | Completed: `60dd079 feat(library): add local room storage`. |
 | M2 - Classic Mode functional flow | High | Wire Classic ViewModel to generated rows, save state, errors, and loading. | ViewModel tests; Compose smoke tests still pending. | Route back to M0 shell by reverting `feature/classic` and `AppRoot` wiring. | Completed: `479d50f feat(classic): wire generation workflow shell`. |
-| M3 - Translation providers | High | Implement allowlisted translation providers and fake providers. | Provider contract tests, timeout/error mapping tests. | Disable real provider in settings, keep fake provider tests. | `feat(provider): add allowed translation providers`. |
+| M3 - Translation providers | High | Implement allowlisted translation providers and fake providers. | Provider contract tests, timeout/error mapping tests. | Keep provider registry but disable failing provider in UI/settings; fake tests remain. | In progress: `feat(provider): add allowed translation providers`. |
 | M4 - TTS/audio providers | High | Implement `google_online_tts` and Android TextToSpeech fallback contracts. | Fake TTS tests, platform TTS smoke on emulator/device. | Keep playback disabled with visible unsupported state. | `feat(audio): add tts provider contracts`. |
 | M5 - Audio storage and playback | High | Store row/text audio files, play them, mark stale/missing states. | Audio repository tests, manual playback evidence. | Retain metadata but hide playback controls if playback fails. | `feat(audio): add local playback and asset storage`. |
 | M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | `feat(export): add audio-aware zip export`. |
@@ -117,7 +118,7 @@ Docs required:
 Implemented in commit `479d50f`:
 
 - `ClassicModeViewModel` owns source text, selected allowlisted providers, generated row state, saving state, and user-visible messages.
-- `ClassicGenerationShell` creates clearly labeled M2 fake rows. It does not call translation, niqqud, transliteration, or TTS providers.
+- Initial generation used a clearly labeled M2 fake shell; M3 replaces this path with the translation provider registry.
 - `MainActivity` uses manual DI through `TtsPrototypeApplication`; no Hilt is introduced.
 - Classic UI now generates rows, shows fake/degraded state, saves generated rows into the local Room library, and displays saved summary count.
 - `LibraryRepository` port was added so ViewModel tests use deterministic fake storage while runtime still uses `RoomLibraryRepository`.
@@ -138,6 +139,34 @@ Docs required:
 - [Requirements Traceability](ANDROID_V2_REQUIREMENTS_TRACEABILITY.md)
 - [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md)
 - [Patch Register](ANDROID_V2_PATCH_REGISTER.md)
+- [Risk and Gap Register](ANDROID_V2_RISK_AND_GAP_REGISTER.md)
+
+## M3 Implementation Status
+
+Implemented in patch P005:
+
+- `TranslationProviderRegistry` enforces the Android v2 allowlist before runtime provider lookup.
+- `FakeTranslationProvider` provides deterministic CI-safe rows for tests and ViewModel injection.
+- `GoogleTranslateFreeProvider` implements the no-key best-effort HTTP path with timeout, response parsing, provenance, and error mapping.
+- `MissingConfigurationTranslationProvider` makes `gcp_translate` and `gemini_legacy` visible as allowed but blocked until M9 secure settings.
+- Classic Mode now calls the selected translation provider and surfaces provider failures without silent fallback.
+
+Still out of scope for M3:
+
+- Secure key storage and validation UI for GCP/Gemini.
+- Service account JSON loading on device.
+- Gemini network adapter.
+- niqqud generation.
+- SBL Academic and Russian phonetic transliteration parity.
+- TTS/audio generation and playback.
+
+Docs required:
+
+- [Provider Implementation Plan](ANDROID_V2_PROVIDER_IMPLEMENTATION_PLAN.md)
+- [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)
+- [Error Handling](ANDROID_V2_ERROR_HANDLING.md)
+- [QA Test Strategy](ANDROID_V2_QA_TEST_STRATEGY.md)
+- [Requirements Traceability](ANDROID_V2_REQUIREMENTS_TRACEABILITY.md)
 - [Risk and Gap Register](ANDROID_V2_RISK_AND_GAP_REGISTER.md)
 
 ## Blocking Questions

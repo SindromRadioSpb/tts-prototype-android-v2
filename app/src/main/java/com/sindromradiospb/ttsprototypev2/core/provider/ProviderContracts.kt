@@ -50,6 +50,7 @@ data class ProviderProvenance(
 )
 
 enum class ProviderErrorCategory {
+    MissingConfiguration,
     NetworkUnavailable,
     Timeout,
     Unauthorized,
@@ -66,6 +67,13 @@ interface TranslationProvider {
     val id: TranslationProviderId
     suspend fun translate(request: TranslationRequest): Result<TranslationResponse>
 }
+
+class ProviderException(
+    val category: ProviderErrorCategory,
+    val providerId: String,
+    val userMessage: String,
+    cause: Throwable? = null,
+) : RuntimeException(userMessage, cause)
 
 interface TtsProvider {
     val id: TtsProviderId

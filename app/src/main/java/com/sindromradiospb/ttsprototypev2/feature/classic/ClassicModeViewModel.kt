@@ -8,11 +8,16 @@ import com.sindromradiospb.ttsprototypev2.core.model.TableModelMeta
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProfile
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
+import com.sindromradiospb.ttsprototypev2.core.provider.ProviderException
+import com.sindromradiospb.ttsprototypev2.core.provider.ProviderProvenance
+import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegistry
+import com.sindromradiospb.ttsprototypev2.core.provider.TranslationRequest
 import com.sindromradiospb.ttsprototypev2.data.repository.GeneratedLibraryRowInput
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
 import com.sindromradiospb.ttsprototypev2.data.repository.SaveGeneratedTextRequest
 import com.sindromradiospb.ttsprototypev2.data.repository.SaveTextResult
+import com.sindromradiospb.ttsprototypev2.data.provider.translation.createAndroidTranslationProviderRegistry
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,12 +46,14 @@ data class ClassicModeUiState(
     val isSaving: Boolean = false,
     val savedTextId: String? = null,
     val generatedAt: String? = null,
+    val generationLabel: String = "Generation: not started",
+    val provenance: ProviderProvenance? = null,
     val message: String? = null,
 )
 
 class ClassicModeViewModel(
     private val repository: LibraryRepository,
-    private val generator: ClassicGenerationShell = ClassicGenerationShell(),
+    private val translationProviders: TranslationProviderRegistry = createAndroidTranslationProviderRegistry(),
     private val clock: () -> String = { Instant.now().toString() },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ClassicModeUiState())
@@ -87,19 +94,58 @@ class ClassicModeViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isGenerating = true, message = null) }
-            val generatedAt = clock()
-            val rows = generator.generate(current.sourceText)
-            _uiState.update {
-                it.copy(
-                    rows = rows,
-                    isGenerating = false,
-                    savedTextId = null,
-                    generatedAt = generatedAt,
-                    message = "M2 fake generation complete. Real providers are scheduled for M3/M4.",
-                )
-            }
+            val provider = translationProviders.get(current.translationProvider)
+            val result = provider.translate(
+                TranslationRequest(
+                    sourceText = current.sourceText,
+                    providerId = current.translationProvider,
+                ),
+            )
+            result.fold(
+                onSuccess = { response ->
+                    val rows = response.rows.map {
+                        ClassicGeneratedRowUi(
+                            orderIndex = it.segmentIndex,
+                            hebrewPlain = it.hebrewPlain,
+                            hebrewNiqqud = it.hebrewNiqqud,
+                            translit = it.translit,
+                            translitRu = it.translitRu,
+                            russian = it.russian,
+                        )
+                    }
+                    _uiState.update {
+                        it.copy(
+                            rows = rows,
+                            isGenerating = false,
+                            savedTextId = null,
+                            generatedAt = response.provenance.generatedAt,
+                            generationLabel = "Translation: ${response.provenance.actualProviderId}",
+                            provenance = response.provenance,
+                            message = "Translation complete via ${response.provenance.actualProviderId}.",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    val providerError = error as? ProviderException
+                    val message = if (providerError != null) {
+                        "Translation failed (${providerError.category}): ${providerError.userMessage}"
+                    } else {
+                        "Translation failed: ${error.message.orEmpty().ifBlank { "Unknown provider error." }}"
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isGenerating = false,
+                            generationLabel = "Translation failed",
+                            message = message,
+                        )
+                    }
+                },
+            )
         }
     }
+
+    private fun providerIdFromWireId(wireId: String?): TranslationProviderId? =
+        TranslationProviderId.entries.firstOrNull { it.wireId == wireId }
 
     fun saveCurrent() {
         val current = uiState.value
@@ -148,15 +194,15 @@ class ClassicModeViewModel(
                 ?.ifBlank { "Classic Mode text" }
                 ?: "Classic Mode text",
             level = null,
-            tags = listOf("classic-mode", "m2-fake-generation"),
+            tags = listOf("classic-mode", "m3-translation-provider"),
             sourceText = sourceText,
-            sourceMeta = SourceMeta(origin = "classic_mode_m2_fake_generation", importedAt = now),
+            sourceMeta = SourceMeta(origin = "classic_mode_m3_translation_provider", importedAt = now),
             tableModelMeta = TableModelMeta(
                 provider = translationProvider,
-                actualProvider = translationProvider,
-                model = "m2_fake_classic_generator",
+                actualProvider = providerIdFromWireId(provenance?.actualProviderId) ?: translationProvider,
+                model = provenance?.model,
                 fromCache = false,
-                niqqudProvider = "not_implemented_m2",
+                niqqudProvider = "not_implemented_m3",
                 niqqudDegraded = true,
                 generatedAt = generatedAt ?: now,
             ),
@@ -187,25 +233,4 @@ class ClassicModeViewModel(
             return ClassicModeViewModel(repository) as T
         }
     }
-}
-
-class ClassicGenerationShell {
-    fun generate(sourceText: String): List<ClassicGeneratedRowUi> =
-        splitSource(sourceText).mapIndexed { index, segment ->
-            ClassicGeneratedRowUi(
-                orderIndex = index,
-                hebrewPlain = segment,
-                hebrewNiqqud = "",
-                translit = "m2-fake-sbl-${index + 1}",
-                translitRu = "м2-фейк-${index + 1}",
-                russian = "[M2 fake translation ${index + 1}] ${segment.take(48)}",
-            )
-        }
-
-    private fun splitSource(sourceText: String): List<String> =
-        sourceText
-            .split('\n', '.', '!', '?', '׃', '׀')
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .ifEmpty { listOf(sourceText.trim()) }
 }

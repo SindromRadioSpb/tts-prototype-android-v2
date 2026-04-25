@@ -132,7 +132,11 @@ fun ClassicModeScreen(
             MessageCard(message = it, onDismiss = onDismissMessage)
         }
 
-        ResultPreviewCard(rows = state.rows, generatedAt = state.generatedAt)
+        ResultPreviewCard(
+            rows = state.rows,
+            generatedAt = state.generatedAt,
+            generationLabel = state.generationLabel,
+        )
         LibraryActionCard(
             summaries = state.libraryTexts,
             savedTextId = state.savedTextId,
@@ -215,11 +219,15 @@ private fun MessageCard(message: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun ResultPreviewCard(rows: List<ClassicGeneratedRowUi>, generatedAt: String?) {
+private fun ResultPreviewCard(
+    rows: List<ClassicGeneratedRowUi>,
+    generatedAt: String?,
+    generationLabel: String,
+) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = { }, label = { Text("Generation: M2 fake") })
+                AssistChip(onClick = { }, label = { Text(generationLabel) })
                 AssistChip(onClick = { }, label = { Text("Audio: missing") })
             }
             Text("Generated result", style = MaterialTheme.typography.titleMedium)

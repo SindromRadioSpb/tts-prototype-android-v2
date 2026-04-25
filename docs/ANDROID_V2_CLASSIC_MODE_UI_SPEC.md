@@ -48,10 +48,12 @@ Each row card displays:
 - TTS controls and stale/missing audio indicator.
 - Edit/reset/reorder actions.
 
-M2 implementation status:
+M3 implementation status:
 
-- Generated row cards are wired to `ClassicModeViewModel` and display fake rows from `ClassicGenerationShell`.
-- The row card explicitly labels generation as `M2 fake`; niqqud is shown as not generated in M2.
+- Generated row cards are wired to `ClassicModeViewModel` and the translation provider registry.
+- The row card labels the actual translation provider, for example `Translation: google_translate_free`.
+- `gcp_translate` and `gemini_legacy` currently show visible missing-configuration errors until M9 secure settings.
+- Niqqud is shown as not generated in M3.
 - Play/edit buttons remain disabled until M4/M5 and M8.
 - Saved summary count is shown from the local Room-backed repository.
 
@@ -79,13 +81,14 @@ M2 implementation status:
 - Database error: keep current visible table and show retry.
 - Export partial: show missing audio count and export location/status.
 
-Current M2 behavior:
+Current M3 behavior:
 
 - Empty Hebrew input shows a validation message and does not generate rows.
-- Generate button shows `Generating...` while fake generation is running.
+- Generate button shows `Generating...` while translation provider work is running.
 - Save button is disabled until rows exist.
 - Speak, row play, edit, and export actions are visibly disabled because their milestones are not implemented.
 - Duplicate save returns a visible local-library conflict message and does not overwrite silently.
+- Provider missing configuration and mapped provider errors are shown without silent fallback.
 
 ## Accessibility and Insets
 

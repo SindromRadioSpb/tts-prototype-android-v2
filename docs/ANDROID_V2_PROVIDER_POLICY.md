@@ -58,6 +58,7 @@ Every provider response persisted or shown in UI must include:
 
 Providers must map failures to:
 
+- `MissingConfiguration`
 - `NetworkUnavailable`
 - `Timeout`
 - `Unauthorized`
@@ -70,6 +71,7 @@ Providers must map failures to:
 - `Unknown`
 
 Quota, billing, invalid-key, and unauthorized errors must not silently fallback.
+Missing configuration must not silently fallback either; the UI must ask the user to configure the provider or choose a different provider manually.
 
 ## Security Requirements
 
