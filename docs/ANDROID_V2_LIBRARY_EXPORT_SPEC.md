@@ -121,6 +121,25 @@ Missing audio sets `partial_backup=true`. It does not fail export unless the use
 
 Interrupted export leaves no completed manifest in the destination. UI reports interrupted export and allows retry.
 
+## M6 Implementation Status
+
+M6 implements repository-level ZIP export through `LibraryZipExportRepository`.
+
+Implemented:
+
+- writes `manifest.json`;
+- writes `library/library.json`;
+- writes `metadata/missing_audio.json`;
+- copies available row/text audio entries under their app-owned relative `audio/...` paths;
+- writes `export_history` with text, row, audio, missing-audio, partial-backup, schema, status, and error metadata;
+- rejects unsafe audio export paths before writing ZIP entries.
+
+Current limits:
+
+- SAF destination creation and share sheet UI are not wired yet;
+- import remains future work;
+- provider event export is still deferred until provider call logging is populated.
+
 ## Android Storage Behavior
 
 - Use Android Storage Access Framework for user-selected destination.

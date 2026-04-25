@@ -10,6 +10,7 @@ M2 Classic Mode functional flow is implemented in commit `479d50f feat(classic):
 M3 translation provider layer is implemented in commit `bfa8613 feat(provider): add allowed translation providers`.
 M4 TTS/audio provider contracts are implemented in commit `79d5b57 feat(audio): add tts provider contracts`.
 M5 audio storage and playback layer is implemented in commit `c82a734`.
+M6 export ZIP with audio is in progress in patch P008.
 
 Completed:
 
@@ -23,7 +24,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Next implementation milestone after M5 is M6: Export ZIP with audio.
+- Next implementation milestone after M6 is M7: Library UI and saved text lifecycle.
 
 ## Dependency Graph
 
@@ -54,7 +55,7 @@ M13 -> M14
 | M3 - Translation providers | High | Implement allowlisted translation providers and fake providers. | Provider contract tests, timeout/error mapping tests. | Keep provider registry but disable failing provider in UI/settings; fake tests remain. | Completed: `bfa8613 feat(provider): add allowed translation providers`. |
 | M4 - TTS/audio providers | High | Implement `google_online_tts` and Android TextToSpeech fallback contracts. | Fake TTS tests; platform TTS smoke still pending on emulator/device. | Keep playback disabled with visible unsupported state. | Completed: `79d5b57 feat(audio): add tts provider contracts`. |
 | M5 - Audio storage and playback | High | Store row/text audio files, play them, mark stale/missing states. | Audio repository tests, manual playback evidence. | Retain metadata but hide playback controls if playback fails. | Completed in `c82a734`; manual playback evidence remains a release hardening item. |
-| M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | `feat(export): add audio-aware zip export`. |
+| M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | In progress: `feat(export): add audio-aware zip export`. |
 | M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, and save/update library texts. | Repository tests and Compose UI tests. | Keep library screen behind navigation item until stable. | `feat(library): add saved text lifecycle ui`. |
 | M8 - Editing/reorder/reset behavior | Medium | Edit row fields, reset, reorder, delete, add rows while preserving metadata. | Regression tests from source behavior and UI evidence. | Disable row mutation actions if persistence invariant breaks. | `feat(library): add row editing workflow`. |
 | M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows. | Security tests, no-secret export/log tests. | Keep real providers disabled until key storage is correct. | `feat(settings): add secure provider configuration`. |
@@ -227,6 +228,22 @@ Docs required:
 - [Requirements Traceability](ANDROID_V2_REQUIREMENTS_TRACEABILITY.md)
 - [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md)
 - [Risk and Gap Register](ANDROID_V2_RISK_AND_GAP_REGISTER.md)
+
+## M6 Implementation Status
+
+Implemented in patch P008:
+
+- `LibraryZipExportRepository` writes ZIP files with `manifest.json`, `library/library.json`, `metadata/missing_audio.json`, and available audio files.
+- Export reads an immutable Room snapshot, then copies audio files outside the DB read transaction.
+- Missing or unsafe audio files create `partial_backup=true` and `metadata/missing_audio.json` entries instead of failing the whole export.
+- ZIP audio paths are validated to reject absolute paths, backslashes, drive prefixes, empty segments, `.` segments, and `..` segments.
+- `export_history` records successful and failed export attempts without storing secrets.
+
+Still out of scope for M6:
+
+- Storage Access Framework UI and share sheet wiring.
+- Android device manual evidence for interrupted SAF writes.
+- Import implementation.
 
 ## Blocking Questions
 

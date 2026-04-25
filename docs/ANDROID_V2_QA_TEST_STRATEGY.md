@@ -114,6 +114,18 @@ M4 unit tests do not instantiate Android platform `TextToSpeech` and do not use 
 
 M5 tests do not play real audio on a device. Manual emulator/device playback evidence is still required before release.
 
+## Current M6 Coverage
+
+`LibraryZipExportRepositoryTest` covers:
+
+- writing `manifest.json`, `library/library.json`, `metadata/missing_audio.json`, and available audio files into ZIP;
+- `contains_secrets=false`;
+- successful export history recording;
+- missing audio producing `partial_backup=true` instead of export failure;
+- unsafe audio relative paths being reported as missing and not written to ZIP.
+
+M6 tests do not cover SAF/share-sheet UI because that UI is not implemented yet.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.

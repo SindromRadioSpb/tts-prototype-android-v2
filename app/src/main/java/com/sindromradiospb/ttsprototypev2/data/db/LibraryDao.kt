@@ -92,4 +92,25 @@ interface LibraryDao {
 
     @Query("SELECT * FROM row_audio WHERE row_id = :rowId AND is_default = 1")
     suspend fun getDefaultRowAudio(rowId: String): RowAudioEntity?
+
+    @Query("SELECT * FROM library_texts ORDER BY updated_at DESC, text_id ASC")
+    suspend fun getTextsForExport(): List<LibraryTextEntity>
+
+    @Query("SELECT * FROM library_rows ORDER BY text_id ASC, order_index ASC")
+    suspend fun getRowsForExport(): List<LibraryRowEntity>
+
+    @Query("SELECT * FROM audio_assets ORDER BY asset_key ASC")
+    suspend fun getAudioAssetsForExport(): List<AudioAssetEntity>
+
+    @Query("SELECT * FROM row_audio WHERE is_default = 1 ORDER BY row_id ASC, asset_key ASC")
+    suspend fun getDefaultRowAudioForExport(): List<RowAudioEntity>
+
+    @Query("SELECT * FROM text_audio WHERE is_default = 1 ORDER BY text_id ASC, asset_key ASC")
+    suspend fun getDefaultTextAudioForExport(): List<TextAudioEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExportHistory(exportHistory: ExportHistoryEntity)
+
+    @Query("SELECT * FROM export_history ORDER BY created_at DESC")
+    suspend fun getExportHistory(): List<ExportHistoryEntity>
 }
