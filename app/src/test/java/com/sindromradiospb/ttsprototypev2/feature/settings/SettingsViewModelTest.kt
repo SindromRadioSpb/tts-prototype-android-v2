@@ -71,7 +71,7 @@ class SettingsViewModelTest {
 
         viewModel.validateCredential(ProviderCredentialId.GeminiLegacy)
 
-        assertEquals("Validated Gemini Legacy credential.", viewModel.uiState.value.message)
+        assertEquals("Validated Gemini Legacy credential format.", viewModel.uiState.value.message)
     }
 
 

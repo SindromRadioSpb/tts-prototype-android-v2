@@ -20,7 +20,8 @@ P016 implements legacy source-prototype Library JSON import: Android v2 can impo
 P017 implements the source-prototype Classic main-screen controls: separate voice and translation/table settings panels, metadata-backed `Обновить`, audible row TTS playback with row audio cache adoption, and Room `sentence_notes` for row notes.
 P018 implements the source-prototype table display block from `docs/ui/v4/9. ТАБЛИЦА ОТОБРАЖЕНИЕ И СЦЕНАРИИ.PNG`: column visibility checkboxes, adjustable table column widths, selected-row state, and auto-next row playback from the selected row.
 P019 fixes parity regressions found during user smoke: Google Translate Free now uses the prototype-compatible `gtx` batch request, Gemini uses API-key paste plus strict JSON table generation, TTS row playback invalidates stale cache when settings change, imported rows can show Russian phonetic fallback, the final table column can be resized, and Classic blocks are collapsible.
-P020 fixes follow-up Classic smoke regressions: translation-provider changes rebuild the existing table, Gemini uses stable `gemini-2.0-flash`, System fallback TTS hides unsupported profile controls and reports missing Android TTS engines explicitly, transliteration fallback is fixture-tested against the source prototype, and table cells support touch/mouse text selection.
+P020 fixes follow-up Classic smoke regressions: translation-provider changes rebuild the existing table, System fallback TTS hides unsupported profile controls and reports missing Android TTS engines explicitly, transliteration fallback is fixture-tested against the source prototype, and table cells support touch/mouse text selection.
+P021 fixes Gemini HTTP 400 handling: Android now uses the source-compatible `gemini-flash-latest` model alias, requests JSON output explicitly, maps HTTP 400 by Google's error body instead of treating every 400 as an invalid API key, and clarifies that Settings validation is local format validation.
 Classic Mode / Library v3 mobile parity based on v4 screenshots is now specified in `docs/ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md`.
 P014 implements the first native v4 parity pass in commit `844239b`: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards without clipping, text-level metadata editor, and Room schema version 2 metadata fields.
 
@@ -319,7 +320,7 @@ Implemented in patch P012:
 
 - `createAndroidTranslationProviderRegistry` now receives `ProviderSettingsRepository` from `TtsPrototypeApplication`.
 - `gcp_translate` reads the stored `gcp_translate` credential and calls Google Cloud Translation Basic v2 with JSON POST.
-- `gemini_legacy` reads the stored `gemini_legacy` credential and calls Gemini `gemini-2.0-flash` for Hebrew-to-Russian translation.
+- `gemini_legacy` reads the stored `gemini_legacy` credential and calls Gemini `gemini-flash-latest` for Hebrew-to-Russian table generation.
 - `google_online_tts` reads the stored `google_online_tts` credential, calls Google Cloud Text-to-Speech `text:synthesize`, decodes returned MP3 bytes, and writes them under app cache for smoke validation.
 - Classic Mode `Speak` now invokes the selected TTS provider for source-level Hebrew synthesis and shows either the generated local file name or the mapped provider error.
 - Unit tests cover credential usage, missing-credential no-fallback behavior, GCP/Gemini parsing, and Google TTS audio-file creation.

@@ -87,7 +87,7 @@ class SettingsViewModel(
                 _uiState.update {
                     it.copy(
                         credentialStatuses = statuses,
-                        message = "Validated ${id.displayName} credential.",
+                        message = "Validated ${id.displayName} credential format.",
                     )
                 }
             },

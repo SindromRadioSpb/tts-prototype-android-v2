@@ -30,7 +30,7 @@ M4 implementation status:
 P019 credential/provider status:
 
 - `gcp_translate` is implemented as a Google Cloud Translation adapter: legacy single-line keys use Basic v2 JSON POST, while attached service-account JSON uses Cloud Translation v3 REST with OAuth JWT bearer auth.
-- `gemini_legacy` is implemented as a Gemini `gemini-2.0-flash` JSON POST adapter using a pasted single-line API key as the primary credential path, with the older provider-specific JSON wrapper still accepted for compatibility.
+- `gemini_legacy` is implemented as a Gemini `gemini-flash-latest` JSON POST adapter using a pasted single-line API key as the primary credential path, with the older provider-specific JSON wrapper still accepted for compatibility.
 - `google_online_tts` is implemented as a Google Cloud Text-to-Speech `text:synthesize` JSON POST adapter using either a legacy stored single-line key or an attached service-account JSON credential with OAuth JWT bearer auth.
 - Missing credentials still produce `MissingConfiguration` and do not fallback automatically.
 - Raw service account JSON/private-key material remains blocked from manual single-line entry, but the SAF JSON attachment path validates and stores provider credentials in encrypted app-private storage.
@@ -61,7 +61,7 @@ Current runtime wiring:
 
 - `google_translate_free`: implemented as a source-prototype-compatible best-effort adapter using `translate.googleapis.com/translate_a/single`, `client=gtx`, legacy Hebrew source code `sl=iw`, browser User-Agent, and a newline batch request before individual fallback.
 - `gcp_translate`: implemented as Google Cloud Translation adapter. It supports v3 service-account JSON bearer auth and legacy v2 restricted API keys, and maps HTTP failures into provider categories without fallback.
-- `gemini_legacy`: implemented as keyed Gemini adapter for full Classic table generation. It asks Gemini for strict JSON with segments, Hebrew, niqqud, SBL transliteration, and Russian translation, then maps rows into the Android table model without hidden fallback.
+- `gemini_legacy`: implemented as keyed Gemini adapter for full Classic table generation. It asks Gemini for strict JSON with segments, Hebrew, niqqud, SBL transliteration, and Russian translation, sets JSON response mode, then maps rows into the Android table model without hidden fallback.
 
 ## Allowed TTS Providers
 

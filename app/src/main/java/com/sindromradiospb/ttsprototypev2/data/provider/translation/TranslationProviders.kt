@@ -363,7 +363,7 @@ class GeminiLegacyTranslationProvider(
     private val httpClient: TranslationHttpClient = UrlConnectionTranslationHttpClient(),
     private val clock: () -> String = { Instant.now().toString() },
     private val json: Json = Json { ignoreUnknownKeys = true },
-    private val model: String = "gemini-2.0-flash",
+    private val model: String = "gemini-flash-latest",
 ) : TranslationProvider {
     override val id: TranslationProviderId = TranslationProviderId.GeminiLegacy
 
@@ -410,6 +410,7 @@ class GeminiLegacyTranslationProvider(
                     buildJsonObject {
                         put("temperature", 0.1)
                         put("maxOutputTokens", 4096)
+                        put("responseMimeType", "application/json")
                     },
                 )
             },
@@ -418,7 +419,7 @@ class GeminiLegacyTranslationProvider(
             httpClient.postJson(uri, body)
         }
         if (response.statusCode !in 200..299) {
-            throw httpFailure(id.wireId, response.statusCode, "Gemini")
+            throw httpFailure(id.wireId, response.statusCode, "Gemini", response.body)
         }
         return parseGeminiTableResponse(response.body)
     }
@@ -617,9 +618,19 @@ private fun <T> Result<T>.mapFailureToProviderException(providerId: String): Res
         }
     }
 
-private fun httpFailure(providerId: String, statusCode: Int, label: String): ProviderException {
+private fun httpFailure(
+    providerId: String,
+    statusCode: Int,
+    label: String,
+    body: String = "",
+): ProviderException {
+    val googleMessage = extractGoogleErrorMessage(body)
     val category = when (statusCode) {
-        400 -> ProviderErrorCategory.InvalidApiKey
+        400 -> when {
+            googleMessage.contains("api key", ignoreCase = true) ||
+                googleMessage.contains("API_KEY_INVALID", ignoreCase = true) -> ProviderErrorCategory.InvalidApiKey
+            else -> ProviderErrorCategory.InvalidResponse
+        }
         401 -> ProviderErrorCategory.Unauthorized
         403 -> ProviderErrorCategory.BillingRequired
         408 -> ProviderErrorCategory.Timeout
@@ -627,12 +638,26 @@ private fun httpFailure(providerId: String, statusCode: Int, label: String): Pro
         in 500..599 -> ProviderErrorCategory.ProviderUnavailable
         else -> ProviderErrorCategory.InvalidResponse
     }
+    val details = googleMessage.takeIf { it.isNotBlank() }?.let { ": ${it.take(220)}" }.orEmpty()
     return ProviderException(
         category = category,
         providerId = providerId,
-        userMessage = "$label failed with HTTP $statusCode.",
+        userMessage = "$label failed with HTTP $statusCode$details.",
     )
 }
+
+private fun extractGoogleErrorMessage(body: String): String =
+    runCatching {
+        Json.parseToJsonElement(body)
+            .jsonObject["error"]
+            ?.jsonObject
+            ?.get("message")
+            ?.jsonPrimitive
+            ?.contentOrNull
+            .orEmpty()
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }.getOrDefault("")
 
 private fun invalidEnvelope(providerId: String, label: String): ProviderException =
     ProviderException(

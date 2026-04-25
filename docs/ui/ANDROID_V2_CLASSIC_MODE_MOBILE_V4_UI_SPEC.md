@@ -710,10 +710,15 @@ P019 implementation status:
 P020 implementation status:
 
 - Changing the translation provider after table generation now rebuilds the table from the current source text and clears saved-card identity.
-- Gemini legacy uses pasted API keys with strict JSON table generation through `gemini-2.0-flash`.
+- Gemini legacy uses pasted API keys with strict JSON table generation through source-compatible `gemini-flash-latest`.
 - System fallback TTS hides unsupported voice/rate/pitch controls and reports missing Android `TextToSpeech` engine/language data explicitly.
 - SBL Academic and Russian phonetic fallback transliteration are covered by source-prototype fixtures.
 - Non-action table cells are selectable by touch or mouse for copy workflows.
+
+P021 implementation status:
+
+- Gemini table generation uses `gemini-flash-latest`, explicit JSON response mode, and HTTP 400 body-aware error mapping.
+- Settings credential validation copy now says format validation to avoid implying a completed Gemini network health check.
 
 ## UI DoD Evidence Checklist
 

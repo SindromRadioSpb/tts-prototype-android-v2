@@ -41,6 +41,7 @@ P019 UI status:
 
 - Settings shows `Прикрепить JSON`, `Проверить`, and `Удалить ключ` for service-account providers.
 - Settings shows `Gemini API Key`, `Сохранить API Key`, `Проверить`, and `Удалить ключ` for `gemini_legacy`.
+- `Проверить` validates stored credential format locally. Real Gemini API-key validity is confirmed only during a provider request or future explicit network health check.
 - `Прикрепить JSON` opens Android Storage Access Framework and reads only the selected JSON contents; the external file path is discarded.
 - `Проверить` performs offline schema validation against the selected provider and updates masked status. Real network validation occurs when the provider is used.
 - The single-line credential field remains available for restricted key smoke where supported, and is the primary Gemini credential path.

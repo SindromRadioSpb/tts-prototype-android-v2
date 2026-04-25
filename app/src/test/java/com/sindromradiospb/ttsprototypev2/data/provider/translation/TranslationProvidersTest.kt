@@ -200,14 +200,15 @@ class TranslationProvidersTest {
     fun geminiLegacyUsesStoredCredentialAndParsesResponse() = runTest {
         val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
         settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val httpClient = StaticHttpClient(
+            TranslationHttpResponse(
+                statusCode = 200,
+                body = geminiTableResponse(),
+            ),
+        )
         val provider = GeminiLegacyTranslationProvider(
             settingsRepository = settings,
-            httpClient = StaticHttpClient(
-                TranslationHttpResponse(
-                    statusCode = 200,
-                    body = geminiTableResponse(),
-                ),
-            ),
+            httpClient = httpClient,
             clock = { "2026-04-25T03:00:00Z" },
         )
 
@@ -218,7 +219,8 @@ class TranslationProvidersTest {
         assertEquals("שָׁלוֹם", response.rows.single().hebrewNiqqud)
         assertEquals("shalom", response.rows.single().translit)
         assertEquals("Здравствуйте", response.rows.single().russian)
-        assertEquals("gemini-2.0-flash", response.provenance.model)
+        assertEquals("gemini-flash-latest", response.provenance.model)
+        assertTrue(httpClient.lastBody.contains("responseMimeType"))
     }
 
     @Test
@@ -246,7 +248,64 @@ class TranslationProvidersTest {
         assertTrue(httpClient.lastUri.toString().contains("key=gemini-json-key"))
     }
 
+    @Test
+    fun geminiLegacyMapsBadRequestByErrorBody() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 400,
+                    body = """{"error":{"message":"Invalid JSON payload received. Unknown name response_mime_type."}}""",
+                ),
+            ),
+        )
+
+        val error = assertSuspendProviderException {
+            provider.translate(
+                TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GeminiLegacy),
+            ).getOrThrow()
+        }
+
+        assertEquals(ProviderErrorCategory.InvalidResponse, error.category)
+        assertTrue(error.userMessage.contains("Invalid JSON payload"))
+    }
+
+    @Test
+    fun geminiLegacyStillMapsApiKeyBadRequestToInvalidApiKey() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 400,
+                    body = """{"error":{"message":"API key not valid. Please pass a valid API key."}}""",
+                ),
+            ),
+        )
+
+        val error = assertSuspendProviderException {
+            provider.translate(
+                TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GeminiLegacy),
+            ).getOrThrow()
+        }
+
+        assertEquals(ProviderErrorCategory.InvalidApiKey, error.category)
+        assertTrue(error.userMessage.contains("API key not valid"))
+    }
+
     private fun assertProviderException(block: () -> Unit): ProviderException {
+        try {
+            block()
+        } catch (error: ProviderException) {
+            return error
+        }
+        throw AssertionError("Expected ProviderException")
+    }
+
+    private suspend fun assertSuspendProviderException(block: suspend () -> Unit): ProviderException {
         try {
             block()
         } catch (error: ProviderException) {
@@ -261,6 +320,7 @@ private class StaticHttpClient(
 ) : TranslationHttpClient {
     lateinit var lastUri: URI
     var lastHeaders: Map<String, String> = emptyMap()
+    var lastBody: String = ""
 
     override suspend fun get(uri: URI, headers: Map<String, String>): TranslationHttpResponse {
         lastUri = uri
@@ -275,6 +335,7 @@ private class StaticHttpClient(
     ): TranslationHttpResponse {
         lastUri = uri
         lastHeaders = headers
+        lastBody = body
         return response
     }
 }

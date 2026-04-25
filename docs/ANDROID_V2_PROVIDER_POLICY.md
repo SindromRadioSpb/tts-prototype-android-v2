@@ -110,7 +110,7 @@ P019 provider policy update:
 
 P020 provider policy update:
 
-- `gemini_legacy` uses stable model `gemini-2.0-flash` unless a later ADR changes the model.
+- `gemini_legacy` uses source-compatible model alias `gemini-flash-latest` unless a later ADR changes the model.
 - `system_or_browser_fallback_low_quality` is a low-quality Android framework fallback and must not expose Google Online TTS-style voice/rate/pitch choices when the framework engine owns those settings.
 
 ## Security Requirements

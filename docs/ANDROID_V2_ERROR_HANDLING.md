@@ -74,12 +74,18 @@ P019 provider error status:
 - Google Free network failures remain `NetworkUnavailable`; batch fallback must not convert offline failures into blank rows.
 - Gemini malformed, fenced, or prose-only responses that do not contain strict JSON table rows are `InvalidResponse`.
 - Gemini credential errors use the single-line API-key validation path, while malformed JSON errors apply only to the optional backward-compatible wrapper.
+- Gemini HTTP 400 must be mapped by Google's error body: messages mentioning invalid API key remain `InvalidApiKey`; malformed payload/model/request messages are `InvalidResponse` and should include the sanitized Google error message.
 
 P020 provider error status:
 
 - `system_or_browser_fallback_low_quality` `ProviderUnavailable` means Android framework `TextToSpeech` failed to initialize on the current emulator/device. Treat this as a device capability/setup problem, not as hidden fallback to another provider.
 - System fallback `UnsupportedLanguage` means the installed Android TTS engine does not support the selected source language data.
 - Translation-provider changes after generation intentionally clear saved-text identity and rebuild the table; failures from the newly selected provider remain visible and do not fall back to the previous provider.
+
+P021 provider error status:
+
+- Settings `Проверить` is local format validation, not a Gemini network health check.
+- Gemini runtime failures include the sanitized Google error body so the UI can distinguish invalid keys from request/model/payload errors.
 
 ## Related Docs
 
