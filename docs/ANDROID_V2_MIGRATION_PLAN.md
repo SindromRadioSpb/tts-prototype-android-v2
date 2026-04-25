@@ -5,7 +5,7 @@ Date: 2026-04-25
 ## Current Checkpoint
 
 M0 foundation is complete and pushed to `origin/main`.
-M1 local Room library storage is implemented at repository level and awaiting final commit/push for this patch.
+M1 local Room library storage is implemented at repository level in commit `60dd079 feat(library): add local room storage`.
 
 Completed:
 
@@ -45,7 +45,7 @@ M13 -> M14
 | Milestone | Risk | Goal | Validation | Rollback | Commit expectation |
 |-----------|------|------|------------|----------|--------------------|
 | M0 - Foundation checkpoint | Low | Keep buildable native shell and initial contracts. | Existing Gradle test/build/lint. | Revert foundation commits only if skeleton is unusable. | Completed: `3800af6`, `fd819de`. |
-| M1 - Local Room library storage | High | Implement Room entities, DAOs, repository transactions for texts/rows/audio metadata. | Unit tests plus Room repository tests for save/load/update/reorder/reset. | Keep UI using in-memory sample state until repository is stable. | In progress: `feat(library): add local room storage`. |
+| M1 - Local Room library storage | High | Implement Room entities, DAOs, repository transactions for texts/rows/audio metadata. | Unit tests plus Room repository tests for save/load/update/reorder/reset. | Keep UI using in-memory sample state until repository is stable. | Completed: `60dd079 feat(library): add local room storage`. |
 | M2 - Classic Mode functional flow | High | Wire Classic ViewModel to generated rows, save state, errors, and loading. | ViewModel tests and Compose smoke tests. | Feature flag or route back to M0 shell. | `feat(classic): wire generation workflow shell`. |
 | M3 - Translation providers | High | Implement allowlisted translation providers and fake providers. | Provider contract tests, timeout/error mapping tests. | Disable real provider in settings, keep fake provider tests. | `feat(provider): add allowed translation providers`. |
 | M4 - TTS/audio providers | High | Implement `google_online_tts` and Android TextToSpeech fallback contracts. | Fake TTS tests, platform TTS smoke on emulator/device. | Keep playback disabled with visible unsupported state. | `feat(audio): add tts provider contracts`. |
