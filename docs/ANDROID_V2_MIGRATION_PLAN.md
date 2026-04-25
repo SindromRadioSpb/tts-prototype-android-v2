@@ -6,7 +6,7 @@ Date: 2026-04-25
 
 M0 foundation is complete and pushed to `origin/main`.
 M1 local Room library storage is implemented at repository level in commit `60dd079 feat(library): add local room storage`.
-M2 Classic Mode functional flow is in progress in patch P004.
+M2 Classic Mode functional flow is implemented in commit `479d50f feat(classic): wire generation workflow shell`.
 
 Completed:
 
@@ -47,7 +47,7 @@ M13 -> M14
 |-----------|------|------|------------|----------|--------------------|
 | M0 - Foundation checkpoint | Low | Keep buildable native shell and initial contracts. | Existing Gradle test/build/lint. | Revert foundation commits only if skeleton is unusable. | Completed: `3800af6`, `fd819de`. |
 | M1 - Local Room library storage | High | Implement Room entities, DAOs, repository transactions for texts/rows/audio metadata. | Unit tests plus Room repository tests for save/load/update/reorder/reset. | Keep UI using in-memory sample state until repository is stable. | Completed: `60dd079 feat(library): add local room storage`. |
-| M2 - Classic Mode functional flow | High | Wire Classic ViewModel to generated rows, save state, errors, and loading. | ViewModel tests and Compose smoke tests. | Route back to M0 shell by reverting `feature/classic` and `AppRoot` wiring. | In progress: `feat(classic): wire generation workflow shell`. |
+| M2 - Classic Mode functional flow | High | Wire Classic ViewModel to generated rows, save state, errors, and loading. | ViewModel tests; Compose smoke tests still pending. | Route back to M0 shell by reverting `feature/classic` and `AppRoot` wiring. | Completed: `479d50f feat(classic): wire generation workflow shell`. |
 | M3 - Translation providers | High | Implement allowlisted translation providers and fake providers. | Provider contract tests, timeout/error mapping tests. | Disable real provider in settings, keep fake provider tests. | `feat(provider): add allowed translation providers`. |
 | M4 - TTS/audio providers | High | Implement `google_online_tts` and Android TextToSpeech fallback contracts. | Fake TTS tests, platform TTS smoke on emulator/device. | Keep playback disabled with visible unsupported state. | `feat(audio): add tts provider contracts`. |
 | M5 - Audio storage and playback | High | Store row/text audio files, play them, mark stale/missing states. | Audio repository tests, manual playback evidence. | Retain metadata but hide playback controls if playback fails. | `feat(audio): add local playback and asset storage`. |
@@ -114,7 +114,7 @@ Docs required:
 
 ## M2 Implementation Status
 
-Implemented in patch P004:
+Implemented in commit `479d50f`:
 
 - `ClassicModeViewModel` owns source text, selected allowlisted providers, generated row state, saving state, and user-visible messages.
 - `ClassicGenerationShell` creates clearly labeled M2 fake rows. It does not call translation, niqqud, transliteration, or TTS providers.
