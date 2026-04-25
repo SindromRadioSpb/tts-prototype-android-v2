@@ -15,6 +15,7 @@ Implemented:
 - Update flow preserves existing row IDs and row audio links for rows kept by order.
 - Loaded `LibraryText.rows` include default row audio asset keys when linked.
 - Default row audio stale marking when Hebrew or niqqud fields change.
+- Per-row notes in `sentence_notes`, including save/delete semantics compatible with the source prototype.
 - Robolectric Room tests for M1 behavior.
 
 Still pending outside M1:
@@ -37,6 +38,12 @@ P014 update:
 - Metadata editor saves `TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, and `TEMA` without regenerating rows.
 - Final UI access for row-level edit/reset/reorder must be reconciled with the new Classic-owned Library v3 modal before release hardening.
 
+P017 update:
+
+- Classic Mode `Обновить` opens metadata capture and saves/updates the current generated text card.
+- Row action controls can play row TTS, show whether row audio is linked in cache, and open a persisted note editor.
+- `RoomLibraryRepository.saveRowNote` trims note text, enforces the 16000 character prototype limit, upserts one note per text/row, and treats blank text as delete.
+
 ## Repository Interfaces
 
 Target repository surface:
@@ -54,6 +61,8 @@ Target repository surface:
 - `addRow(textId: String, afterRowId: String?, fields: EditableRowFields): LibraryRow`
 - `archiveText(textId: String, archived: Boolean): Unit`
 - `markOpened(textId: String, openedAt: Instant): Unit`
+- `saveRowNote(textId: String, rowId: String, note: String): LibraryRow`
+- `deleteRowNote(textId: String, rowId: String): LibraryRow`
 
 Current code exposes the `LibraryRepository` port used by Classic Mode and the broader `RoomLibraryRepository` surface used by Library ViewModel:
 
@@ -63,6 +72,8 @@ Current code exposes the `LibraryRepository` port used by Classic Mode and the b
 - `archiveText(textId: String, archived: Boolean)`
 - `deleteText(textId: String)`
 - `markOpened(textId: String, openedAt: String)`
+- `saveRowNote(textId: String, rowId: String, note: String)`
+- `deleteRowNote(textId: String, rowId: String)`
 - `updateTextMetadata(textId: String, input: TextMetadataUpdate)` on `RoomLibraryRepository`
 
 `RoomLibraryRepository` implements this port and also keeps the broader M1/M8 row mutation methods.
@@ -106,6 +117,7 @@ Update uses the same transaction but preserves row IDs where existing rows can b
 - Row mutations keep the current table visible while operation is in progress.
 - Conflict UI must offer update existing or cancel; it must not silently overwrite.
 - Stale audio indicator appears immediately after Hebrew/niqqud edit.
+- Row notes remain attached to stable row IDs and load with `LibraryText.rows`.
 
 M7 Library tab behavior:
 
@@ -133,6 +145,13 @@ P014 Library v3 text metadata behavior:
 - Source and topic are nullable fields; empty UI fields clear the stored value.
 - Saving metadata refreshes summaries and selected text state.
 
+P017 row notes behavior:
+
+- The row note editor is available from the Classic table action rail after the text card has been saved.
+- Unsaved generated rows cannot persist notes; UI asks the user to use `Обновить` first.
+- Blank note save deletes the existing note.
+- Notes are row-level study metadata and do not regenerate row text or translation.
+
 ## Testing Plan
 
 - Save/load round trip with Hebrew, niqqud, transliteration, Russian, tags.
@@ -147,7 +166,9 @@ P014 Library v3 text metadata behavior:
 - Archive hides text by default but keeps data.
 - App restart safety: close/reopen DB and read saved text.
 - Schema migration 1 to 2 adds nullable `source_label` and `topic` without losing existing rows.
+- Schema migration 2 to 3 adds `sentence_notes` without losing existing rows.
 - Text metadata update persists title, level, tags, source, and topic without regenerating rows.
+- Row note save/load/delete preserves markdown/plain text and survives `getText` reload.
 
 Implemented test file:
 

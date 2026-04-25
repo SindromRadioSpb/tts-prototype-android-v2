@@ -108,6 +108,21 @@ class RoomLibraryRepositoryTest {
     }
 
     @Test
+    fun saveRowNoteUsesPrototypeSentenceNoteSemantics() = runTest {
+        val saved = (repository.saveGeneratedText(sampleRequest()) as SaveTextResult.Saved).text
+        val rowId = saved.rows.first().id
+
+        val withNote = repository.saveRowNote(saved.id, rowId, "  **важно**\n- повторить  ")
+        val loaded = repository.getText(saved.id)
+
+        assertEquals("**важно**\n- повторить", withNote.note)
+        assertEquals("**важно**\n- повторить", loaded.rows.first().note)
+
+        repository.saveRowNote(saved.id, rowId, "   ")
+        assertEquals(null, repository.getText(saved.id).rows.first().note)
+    }
+
+    @Test
     fun patchRowStoresOriginalValueAndMarksDefaultAudioStale() = runTest {
         val saved = (repository.saveGeneratedText(sampleRequest(rows = listOf(row("שלום")))) as SaveTextResult.Saved).text
         val rowId = saved.rows.single().id

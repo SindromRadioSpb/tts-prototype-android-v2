@@ -49,6 +49,18 @@ interface LibraryDao {
     @Query("SELECT * FROM library_rows WHERE row_id = :rowId AND text_id = :textId")
     suspend fun getRow(textId: String, rowId: String): LibraryRowEntity?
 
+    @Query("SELECT * FROM sentence_notes WHERE text_id = :textId ORDER BY updated_at DESC")
+    suspend fun getNotesForText(textId: String): List<SentenceNoteEntity>
+
+    @Query("SELECT * FROM sentence_notes WHERE text_id = :textId AND sentence_id = :rowId")
+    suspend fun getNote(textId: String, rowId: String): SentenceNoteEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertNote(note: SentenceNoteEntity)
+
+    @Query("DELETE FROM sentence_notes WHERE text_id = :textId AND sentence_id = :rowId")
+    suspend fun deleteNote(textId: String, rowId: String)
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertText(text: LibraryTextEntity)
 

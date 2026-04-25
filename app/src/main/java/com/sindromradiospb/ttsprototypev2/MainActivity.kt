@@ -18,6 +18,8 @@ class MainActivity : ComponentActivity() {
             repository = app.libraryRepository,
             translationProviders = app.translationProviderRegistry,
             ttsProviders = app.ttsProviderRegistry,
+            audioStorageRepository = app.audioStorageRepository,
+            audioPlaybackController = app.audioPlaybackController,
         )
     }
     private val libraryViewModel: LibraryViewModel by viewModels {
@@ -44,5 +46,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        (application as TtsPrototypeApplication).audioPlaybackController.release()
+        super.onDestroy()
     }
 }

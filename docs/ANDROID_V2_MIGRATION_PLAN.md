@@ -17,6 +17,7 @@ M9 API key/settings/security is implemented in commit `7e3a082`.
 M9 follow-up keyed provider smoke adapters are implemented in commit `0f3990c`: stored single-line credentials now feed GCP Translate, Gemini, and Google Online TTS HTTP adapters.
 P015 implements real JSON credential attachment and provider auth: Settings can attach/validate JSON through Android SAF, `gcp_translate` and `google_online_tts` support service-account OAuth JWT bearer calls, and `gemini_legacy` supports the provider-specific JSON API-key wrapper.
 P016 implements legacy source-prototype Library JSON import: Android v2 can import `exportType=linguist-pro-library` files from `E:\projects\tts-prototype-android`, map text cards and rows into Room, skip duplicate `text_key` values, and preserve legacy audio references as missing placeholders for later export reporting.
+P017 implements the source-prototype Classic main-screen controls: separate voice and translation/table settings panels, metadata-backed `Обновить`, audible row TTS playback with row audio cache adoption, and Room `sentence_notes` for row notes.
 Classic Mode / Library v3 mobile parity based on v4 screenshots is now specified in `docs/ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md`.
 P014 implements the first native v4 parity pass in commit `844239b`: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards without clipping, text-level metadata editor, and Room schema version 2 metadata fields.
 
@@ -385,7 +386,26 @@ Still out of scope after P015:
 
 - Real endpoint smoke with the user's actual attached JSON keys on emulator/device.
 - Network health-check button that calls each provider without generating user content.
-- Playback/adoption UI for the Classic source-level TTS result.
+
+## P017 Classic Main Screen and Row Actions Status
+
+Implemented in this patch:
+
+- Classic Mode now mirrors the source screenshot settings split:
+  - `Настройки озвучки`: source language, TTS provider, voice, speaking rate, pitch, and provider-key shortcut.
+  - `Настройки перевода и таблицы`: translation provider, transliteration profile, Hebrew table font, and provider-key shortcut.
+- The `Результат` action is now `Обновить`: after table generation it opens the text metadata dialog (`TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, `TEMA`) and saves or updates the current Library card.
+- Generated/saved rows now expose the prototype action-column semantics in Android card form: audio cache marker, row play button, and notes button.
+- Row play uses the selected real TTS provider, plays the generated file through `MediaPlayer`, and adopts row audio into `audio_assets`/`row_audio` when the row belongs to a saved Library card.
+- Room schema version 3 adds `sentence_notes` with one note per `(text_id, sentence_id)`, matching the source prototype note model.
+- Notes are edited through a full mobile dialog with row context, Markdown helper buttons, 16K limit, save/delete semantics, and persisted row state.
+
+Still out of scope after P017:
+
+- Manual emulator/device proof that Google Online TTS audio plays with the user's attached JSON key.
+- Android ZIP export of `sentence_notes`; currently notes are persisted locally and loaded in Classic, but export contract expansion remains a follow-up.
+- Pixel-level table clone: Android keeps the card adaptation to avoid the source web action-column clipping on narrow screens.
+- Library adoption of full source-text audio remains future; P017 focuses adoption on row audio.
 
 ## Blocking Questions
 

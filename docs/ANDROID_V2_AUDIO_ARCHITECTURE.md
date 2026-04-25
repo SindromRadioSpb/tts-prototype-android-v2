@@ -53,6 +53,8 @@ Stale audio remains playable if file exists, but UI labels it stale and offers r
 - Only one audio item plays at a time.
 - Playback state belongs to audio layer/ViewModel state, not Compose rows.
 - Missing file produces `MissingAudio` error state and clears default link only after repository confirms the file is absent.
+- Classic Mode row playback first tries the saved default `row_audio` asset. If no playable file exists, it synthesizes through the selected TTS provider, adopts the provider output into app-owned row audio storage when the table row is saved, then plays the adopted file.
+- Unsaved generated rows may be played from a provider temporary file, but they are not adopted into library metadata until the text card is saved through `Обновить`.
 
 ## Provider Output Handling
 
@@ -75,6 +77,13 @@ M5 implementation status:
 - Replacing row default audio first clears the previous `row_audio.is_default` flag for that row.
 - Missing playback files are marked with `audio_assets.is_missing=true` only after `resolvePlayableAudio` checks the file path.
 - `AndroidAudioPlaybackController` owns foreground playback via Android `MediaPlayer`; only one item is played by one controller instance at a time.
+
+P017 Classic Mode status:
+
+- Source-level `🔊 Озвучить` synthesizes through the selected TTS provider and plays the returned local file when available.
+- Generated row cards expose the source prototype action pattern: play row, row audio cache marker, and row notes.
+- Saved row playback adopts generated audio through `AudioStorageRepository.adoptRowAudio` and refreshes the row cache marker after persistence.
+- Manual emulator/device evidence for actual audible playback is still required before release sign-off.
 
 ## Metadata
 

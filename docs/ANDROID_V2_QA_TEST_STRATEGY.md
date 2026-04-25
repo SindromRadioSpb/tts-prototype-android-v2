@@ -42,6 +42,7 @@ git status --short --branch
 - Editing Hebrew marks audio stale.
 - Reorder preserves exactly one order position per row.
 - App restart preserves library state.
+- Row notes save, trim, render after reload, and delete on blank note.
 
 ## Current M1 Coverage
 
@@ -233,6 +234,24 @@ These tests use stub HTTP clients and fake stores. They intentionally do not cal
 - exporting `source_label` and `topic` in `library/library.json`.
 
 P014 does not include Compose UI tests or emulator screenshots. Manual evidence remains required for the Classic main screen, Library v3 dropdowns, action-card clipping, metadata editor with IME open, and Settings JSON credential target controls.
+
+## Current P017 Classic Main Screen and Row Actions Coverage
+
+`ClassicModeViewModelTest` covers:
+
+- metadata-first save through `Обновить`;
+- updating the current saved card instead of creating duplicate rows;
+- row note editor gating for unsaved rows and repository save/delete behavior through fakes.
+
+`RoomLibraryRepositoryTest` covers:
+
+- source-prototype `sentence_notes` semantics: trimmed markdown note, one note per text/row, note returned with loaded rows, blank note deletes.
+
+`AppDatabaseMigrationTest` covers:
+
+- Room schema version 3 migration creating `sentence_notes` with the unique `text_id, sentence_id` index.
+
+P017 still requires manual emulator/device evidence for audible row playback, cache marker transitions, note editor keyboard behavior, and real-key provider synthesis.
 
 ## CI Expectations
 

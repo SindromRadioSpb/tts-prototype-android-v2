@@ -92,6 +92,42 @@ data class LibraryRowEntity(
 )
 
 @Entity(
+    tableName = "sentence_notes",
+    foreignKeys = [
+        ForeignKey(
+            entity = LibraryTextEntity::class,
+            parentColumns = ["text_id"],
+            childColumns = ["text_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = LibraryRowEntity::class,
+            parentColumns = ["row_id"],
+            childColumns = ["sentence_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [
+        Index(value = ["sentence_id"]),
+        Index(value = ["text_id", "sentence_id"], unique = true),
+    ],
+)
+data class SentenceNoteEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "note_id")
+    val noteId: String,
+    @ColumnInfo(name = "text_id")
+    val textId: String,
+    @ColumnInfo(name = "sentence_id")
+    val sentenceId: String,
+    val note: String,
+    @ColumnInfo(name = "created_at")
+    val createdAt: String,
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: String,
+)
+
+@Entity(
     tableName = "audio_assets",
     indices = [
         Index(value = ["provider_id", "created_at"]),

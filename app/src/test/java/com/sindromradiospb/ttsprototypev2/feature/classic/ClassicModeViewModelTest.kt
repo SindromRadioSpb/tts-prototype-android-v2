@@ -1,6 +1,7 @@
 package com.sindromradiospb.ttsprototypev2.feature.classic
 
 import com.sindromradiospb.ttsprototypev2.MainDispatcherRule
+import com.sindromradiospb.ttsprototypev2.core.model.LibraryRow
 import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
@@ -21,6 +22,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -98,18 +100,19 @@ class ClassicModeViewModelTest {
         viewModel.generateTable()
         advanceUntilIdle()
         viewModel.saveCurrent()
+        viewModel.commitSaveMetadata()
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertFalse(state.isSaving)
         assertEquals(1, repository.savedRequests.size)
         assertEquals("saved-1", state.savedTextId)
-        assertEquals("Saved to local Room library.", state.message)
+        assertEquals("Карточка текста сохранена в Library.", state.message)
         assertEquals(1, state.libraryTexts.size)
     }
 
     @Test
-    fun duplicateSaveShowsConflictWithoutCreatingSecondText() = runTest(mainDispatcherRule.testDispatcher) {
+    fun secondSaveUpdatesCurrentCardWithoutCreatingSecondText() = runTest(mainDispatcherRule.testDispatcher) {
         val repository = FakeLibraryRepository()
         val viewModel = viewModel(repository)
 
@@ -117,12 +120,14 @@ class ClassicModeViewModelTest {
         viewModel.generateTable()
         advanceUntilIdle()
         viewModel.saveCurrent()
+        viewModel.commitSaveMetadata()
         advanceUntilIdle()
         viewModel.saveCurrent()
+        viewModel.commitSaveMetadata()
         advanceUntilIdle()
 
         assertEquals(1, repository.savedRequests.size)
-        assertEquals("This generated text is already saved in the local library.", viewModel.uiState.value.message)
+        assertEquals("Карточка текста сохранена в Library.", viewModel.uiState.value.message)
     }
 
     @Test
@@ -134,6 +139,7 @@ class ClassicModeViewModelTest {
         viewModel.generateTable()
         advanceUntilIdle()
         viewModel.saveCurrent()
+        viewModel.commitSaveMetadata()
         advanceUntilIdle()
         viewModel.onSourceTextChanged("אחר")
         viewModel.openLibraryText("saved-1", resume = true)
@@ -192,6 +198,39 @@ class ClassicModeViewModelTest {
         assertTrue(state.message.orEmpty().contains("google tts missing"))
     }
 
+    @Test
+    fun rowNoteRequiresSavedCardThenPersistsAndDeletes() = runTest(mainDispatcherRule.testDispatcher) {
+        val repository = FakeLibraryRepository()
+        val viewModel = viewModel(repository)
+
+        viewModel.onSourceTextChanged("שלום עולם")
+        viewModel.generateTable()
+        advanceUntilIdle()
+        viewModel.openRowNote(orderIndex = 0)
+
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("Сначала нажмите"))
+
+        viewModel.saveCurrent()
+        viewModel.commitSaveMetadata()
+        advanceUntilIdle()
+        viewModel.openRowNote(orderIndex = 0)
+        viewModel.updateRowNoteDraft("  **важно**\n- повторить  ")
+        viewModel.saveRowNote()
+        advanceUntilIdle()
+
+        var state = viewModel.uiState.value
+        assertEquals("Заметка сохранена.", state.message)
+        assertEquals("**важно**\n- повторить", state.rows.first().note)
+
+        viewModel.openRowNote(orderIndex = 0)
+        viewModel.deleteRowNote()
+        advanceUntilIdle()
+
+        state = viewModel.uiState.value
+        assertEquals("Заметка удалена.", state.message)
+        assertNull(state.rows.first().note)
+    }
+
     private fun viewModel(
         repository: LibraryRepository = FakeLibraryRepository(),
         translationProviders: TranslationProviderRegistry = TranslationProviderRegistry(
@@ -238,7 +277,18 @@ private class FakeLibraryRepository : LibraryRepository {
             sourceMeta = input.sourceMeta,
             ttsProfile = input.ttsProfile,
             tableModelMeta = input.tableModelMeta,
-            rows = emptyList(),
+            rows = input.rows.mapIndexed { index, row ->
+                LibraryRow(
+                    id = "row-$index",
+                    textId = "saved-1",
+                    orderIndex = index,
+                    hebrewPlain = row.hebrewPlain,
+                    hebrewNiqqud = row.hebrewNiqqud,
+                    translit = row.translit,
+                    translitRu = row.translitRu,
+                    russian = row.russian,
+                )
+            },
             createdAt = "2026-04-25T02:00:00Z",
             updatedAt = "2026-04-25T02:00:00Z",
         )
@@ -260,6 +310,46 @@ private class FakeLibraryRepository : LibraryRepository {
         )
         return SaveTextResult.Saved(saved)
     }
+
+    override suspend fun updateGeneratedText(textId: String, input: SaveGeneratedTextRequest): SaveTextResult {
+        val current = requireNotNull(lastSavedText?.takeIf { it.id == textId }) { "Library text not found: $textId" }
+        val updated = current.copy(
+            title = input.title,
+            tags = input.tags,
+            sourceText = input.sourceText,
+            sourceMeta = input.sourceMeta,
+            ttsProfile = input.ttsProfile,
+            tableModelMeta = input.tableModelMeta,
+            rows = input.rows.mapIndexed { index, row ->
+                LibraryRow(
+                    id = current.rows.getOrNull(index)?.id ?: "row-$index",
+                    textId = textId,
+                    orderIndex = index,
+                    hebrewPlain = row.hebrewPlain,
+                    hebrewNiqqud = row.hebrewNiqqud,
+                    translit = row.translit,
+                    translitRu = row.translitRu,
+                    russian = row.russian,
+                    note = current.rows.getOrNull(index)?.note,
+                )
+            },
+            updatedAt = "2026-04-25T02:00:00Z",
+        )
+        lastSavedText = updated
+        return SaveTextResult.Saved(updated)
+    }
+
+    override suspend fun saveRowNote(textId: String, rowId: String, note: String): LibraryRow {
+        val text = requireNotNull(lastSavedText?.takeIf { it.id == textId }) { "Library text not found: $textId" }
+        val trimmed = note.trim()
+        val updatedRow = requireNotNull(text.rows.firstOrNull { it.id == rowId }) { "Library row not found: $rowId" }
+            .copy(note = trimmed.takeIf { it.isNotBlank() })
+        lastSavedText = text.copy(rows = text.rows.map { if (it.id == rowId) updatedRow else it })
+        return updatedRow
+    }
+
+    override suspend fun deleteRowNote(textId: String, rowId: String): LibraryRow =
+        saveRowNote(textId, rowId, "")
 
     private var lastSavedText: LibraryText? = null
 }

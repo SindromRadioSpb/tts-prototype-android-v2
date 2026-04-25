@@ -14,12 +14,17 @@ import com.sindromradiospb.ttsprototypev2.core.provider.TtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TtsRequest
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationProviderRegistry
 import com.sindromradiospb.ttsprototypev2.core.provider.TranslationRequest
+import com.sindromradiospb.ttsprototypev2.data.audio.AudioPlaybackController
+import com.sindromradiospb.ttsprototypev2.data.audio.AudioPlaybackResult
+import com.sindromradiospb.ttsprototypev2.data.audio.AudioStorageRepository
+import com.sindromradiospb.ttsprototypev2.data.audio.PlayableAudioResult
 import com.sindromradiospb.ttsprototypev2.data.repository.GeneratedLibraryRowInput
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
 import com.sindromradiospb.ttsprototypev2.data.repository.SaveGeneratedTextRequest
 import com.sindromradiospb.ttsprototypev2.data.repository.SaveTextResult
 import com.sindromradiospb.ttsprototypev2.data.provider.translation.createAndroidTranslationProviderRegistry
+import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,24 +35,67 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ClassicGeneratedRowUi(
+    val rowId: String? = null,
     val orderIndex: Int,
     val hebrewPlain: String,
     val hebrewNiqqud: String,
     val translit: String,
     val translitRu: String,
     val russian: String,
+    val audioAssetKey: String? = null,
+    val note: String? = null,
+)
+
+enum class ClassicSourceLanguage(val code: String, val label: String) {
+    Hebrew("he-IL", "🇮🇱 Иврит"),
+    Russian("ru-RU", "🇷🇺 Русский"),
+    English("en-US", "🇺🇸 Английский"),
+}
+
+enum class ClassicTranslitProfile(val wireId: String, val label: String) {
+    Sbl("sbl", "Транслит: SBL Academic"),
+    RuPhonetic("ru-phonetic", "Транслит: Русская фонетика"),
+}
+
+enum class ClassicHebrewTableFont(val wireId: String, val label: String) {
+    Frank("frank", "Frank Ruhl Libre (рекомендуется)"),
+    Assistant("assistant", "Assistant"),
+    System("system", "Системный"),
+}
+
+data class ClassicSaveMetadataDraft(
+    val title: String = "",
+    val level: String = "",
+    val tagsCsv: String = "classic-mode",
+    val source: String = "classic_mode",
+    val topic: String = "",
+)
+
+data class ClassicNoteEditorState(
+    val row: ClassicGeneratedRowUi,
+    val draft: String,
+    val isSaving: Boolean = false,
 )
 
 data class ClassicModeUiState(
     val sourceText: String = "שלום, זהו אבטיפוס פשוט של המערכת",
+    val sourceLanguage: ClassicSourceLanguage = ClassicSourceLanguage.Hebrew,
     val translationProvider: TranslationProviderId = TranslationProviderId.GoogleTranslateFree,
     val ttsProvider: TtsProviderId = TtsProviderId.GoogleOnlineTts,
+    val ttsVoiceName: String? = null,
+    val speakingRate: Double = 1.0,
+    val pitch: Double = 0.0,
+    val translitProfile: ClassicTranslitProfile = ClassicTranslitProfile.Sbl,
+    val hebrewTableFont: ClassicHebrewTableFont = ClassicHebrewTableFont.Frank,
     val rows: List<ClassicGeneratedRowUi> = emptyList(),
     val libraryTexts: List<LibraryTextSummary> = emptyList(),
     val isGenerating: Boolean = false,
     val isSaving: Boolean = false,
     val isSpeaking: Boolean = false,
+    val playingRowIndex: Int? = null,
     val savedTextId: String? = null,
+    val saveMetadataDraft: ClassicSaveMetadataDraft? = null,
+    val noteEditor: ClassicNoteEditorState? = null,
     val generatedAt: String? = null,
     val generationLabel: String = "Generation: not started",
     val provenance: ProviderProvenance? = null,
@@ -58,6 +106,8 @@ class ClassicModeViewModel(
     private val repository: LibraryRepository,
     private val translationProviders: TranslationProviderRegistry = createAndroidTranslationProviderRegistry(),
     private val ttsProviders: TtsProviderRegistry? = null,
+    private val audioStorageRepository: AudioStorageRepository? = null,
+    private val audioPlaybackController: AudioPlaybackController? = null,
     private val clock: () -> String = { Instant.now().toString() },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ClassicModeUiState())
@@ -89,6 +139,30 @@ class ClassicModeViewModel(
         _uiState.update { it.copy(ttsProvider = providerId, savedTextId = null, message = null) }
     }
 
+    fun onSourceLanguageChanged(language: ClassicSourceLanguage) {
+        _uiState.update { it.copy(sourceLanguage = language, savedTextId = null, message = null) }
+    }
+
+    fun onTtsVoiceNameChanged(voiceName: String?) {
+        _uiState.update { it.copy(ttsVoiceName = voiceName?.takeIf { value -> value.isNotBlank() }, savedTextId = null, message = null) }
+    }
+
+    fun onSpeakingRateChanged(value: Double) {
+        _uiState.update { it.copy(speakingRate = value.coerceIn(0.5, 2.0), savedTextId = null, message = null) }
+    }
+
+    fun onPitchChanged(value: Double) {
+        _uiState.update { it.copy(pitch = value.coerceIn(-5.0, 5.0), savedTextId = null, message = null) }
+    }
+
+    fun onTranslitProfileChanged(profile: ClassicTranslitProfile) {
+        _uiState.update { it.copy(translitProfile = profile, message = null) }
+    }
+
+    fun onHebrewTableFontChanged(font: ClassicHebrewTableFont) {
+        _uiState.update { it.copy(hebrewTableFont = font, message = null) }
+    }
+
     fun generateTable() {
         val current = uiState.value
         if (current.sourceText.isBlank()) {
@@ -102,6 +176,7 @@ class ClassicModeViewModel(
             val result = provider.translate(
                 TranslationRequest(
                     sourceText = current.sourceText,
+                    sourceLanguage = current.sourceLanguage.code,
                     providerId = current.translationProvider,
                 ),
             )
@@ -109,6 +184,7 @@ class ClassicModeViewModel(
                 onSuccess = { response ->
                     val rows = response.rows.map {
                         ClassicGeneratedRowUi(
+                            rowId = null,
                             orderIndex = it.segmentIndex,
                             hebrewPlain = it.hebrewPlain,
                             hebrewNiqqud = it.hebrewNiqqud,
@@ -160,17 +236,67 @@ class ClassicModeViewModel(
             _uiState.update { it.copy(message = "Сначала сгенерируйте строки.") }
             return
         }
+        _uiState.update {
+            it.copy(
+                saveMetadataDraft = current.saveMetadataDraft ?: current.defaultMetadataDraft(),
+                message = null,
+            )
+        }
+    }
+
+    fun updateSaveMetadataDraft(draft: ClassicSaveMetadataDraft) {
+        _uiState.update { it.copy(saveMetadataDraft = draft, message = null) }
+    }
+
+    fun cancelSaveMetadata() {
+        _uiState.update { it.copy(saveMetadataDraft = null, message = null) }
+    }
+
+    fun commitSaveMetadata() {
+        val current = uiState.value
+        val draft = current.saveMetadataDraft ?: current.defaultMetadataDraft()
+        if (current.isSaving || current.isGenerating) {
+            return
+        }
+        if (current.rows.isEmpty()) {
+            _uiState.update { it.copy(message = "Сначала сгенерируйте строки.") }
+            return
+        }
+        if (draft.title.isBlank()) {
+            _uiState.update { it.copy(message = "TITLE обязателен для карточки текста.") }
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, message = null) }
-            val request = current.toSaveRequest(clock())
-            when (val result = repository.saveGeneratedText(request)) {
+            val request = current.toSaveRequest(clock(), draft)
+            val result = if (current.savedTextId == null) {
+                repository.saveGeneratedText(request)
+            } else {
+                repository.updateGeneratedText(current.savedTextId, request)
+            }
+            when (result) {
                 is SaveTextResult.Saved -> {
+                    val saved = result.text
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            savedTextId = result.text.id,
-                            message = "Saved to local Room library.",
+                            rows = saved.rows.sortedBy { row -> row.orderIndex }.map { row ->
+                                ClassicGeneratedRowUi(
+                                    rowId = row.id,
+                                    orderIndex = row.orderIndex,
+                                    hebrewPlain = row.hebrewPlain,
+                                    hebrewNiqqud = row.hebrewNiqqud,
+                                    translit = row.translit,
+                                    translitRu = row.translitRu,
+                                    russian = row.russian,
+                                    audioAssetKey = row.audioAssetKey,
+                                    note = row.note,
+                                )
+                            },
+                            savedTextId = saved.id,
+                            saveMetadataDraft = null,
+                            message = "Карточка текста сохранена в Library.",
                         )
                     }
                 }
@@ -179,7 +305,8 @@ class ClassicModeViewModel(
                         it.copy(
                             isSaving = false,
                             savedTextId = result.existingTextId,
-                            message = "This generated text is already saved in the local library.",
+                            saveMetadataDraft = null,
+                            message = "Такая карточка уже есть в локальной библиотеке.",
                         )
                     }
                 }
@@ -202,14 +329,22 @@ class ClassicModeViewModel(
                             sourceText = text.sourceText,
                             translationProvider = provider,
                             ttsProvider = text.ttsProfile?.providerId ?: it.ttsProvider,
+                            sourceLanguage = ClassicSourceLanguage.entries.firstOrNull { lang -> lang.code == text.ttsProfile?.language }
+                                ?: it.sourceLanguage,
+                            ttsVoiceName = text.ttsProfile?.voiceName,
+                            speakingRate = text.ttsProfile?.speakingRate ?: it.speakingRate,
+                            pitch = text.ttsProfile?.pitch ?: it.pitch,
                             rows = text.rows.sortedBy { row -> row.orderIndex }.map { row ->
                                 ClassicGeneratedRowUi(
+                                    rowId = row.id,
                                     orderIndex = row.orderIndex,
                                     hebrewPlain = row.hebrewPlain,
                                     hebrewNiqqud = row.hebrewNiqqud,
                                     translit = row.translit,
                                     translitRu = row.translitRu,
                                     russian = row.russian,
+                                    audioAssetKey = row.audioAssetKey,
+                                    note = row.note,
                                 )
                             },
                             isGenerating = false,
@@ -251,11 +386,7 @@ class ClassicModeViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSpeaking = true, message = null) }
-            val profile = TtsProfile(
-                providerId = current.ttsProvider,
-                language = "he-IL",
-                voiceName = null,
-            )
+            val profile = current.toTtsProfile()
             val provider = registry.get(current.ttsProvider)
             val result = provider.synthesize(
                 TtsRequest(
@@ -265,10 +396,14 @@ class ClassicModeViewModel(
             )
             result.fold(
                 onSuccess = { response ->
+                    val playbackMessage = response.localFilePath
+                        ?.let { playFile(File(it)) }
+                        ?.let { " Playback: $it" }
+                        .orEmpty()
                     _uiState.update {
                         it.copy(
                             isSpeaking = false,
-                            message = "TTS complete via ${response.provenance.actualProviderId}: ${response.localFileName.orEmpty()}",
+                            message = "TTS complete via ${response.provenance.actualProviderId}: ${response.localFileName.orEmpty()}.$playbackMessage",
                         )
                     }
                 },
@@ -285,36 +420,219 @@ class ClassicModeViewModel(
         }
     }
 
+    fun playRow(orderIndex: Int) {
+        val current = uiState.value
+        val row = current.rows.firstOrNull { it.orderIndex == orderIndex }
+        if (row == null) {
+            _uiState.update { it.copy(message = "Строка не найдена.") }
+            return
+        }
+        val registry = ttsProviders
+        if (registry == null) {
+            _uiState.update { it.copy(message = "TTS registry is not available in this build path.") }
+            return
+        }
+        val textForTts = row.hebrewNiqqud.ifBlank { row.hebrewPlain }.trim()
+        if (textForTts.isBlank()) {
+            _uiState.update { it.copy(message = "В строке нет текста для озвучки.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(playingRowIndex = orderIndex, message = null) }
+
+            val existingAssetKey = row.audioAssetKey?.takeIf { it.isNotBlank() }
+            val storage = audioStorageRepository
+            if (storage != null && existingAssetKey != null) {
+                when (val cached = storage.resolvePlayableAudio(existingAssetKey)) {
+                    is PlayableAudioResult.Available -> {
+                        val playback = playFile(cached.absoluteFile)
+                        _uiState.update {
+                            it.copy(
+                                playingRowIndex = null,
+                                message = "Row audio from cache: $playback",
+                            )
+                        }
+                        return@launch
+                    }
+                    is PlayableAudioResult.Missing -> Unit
+                }
+            }
+
+            val profile = current.toTtsProfile()
+            val result = registry.get(current.ttsProvider).synthesize(
+                TtsRequest(
+                    text = textForTts,
+                    profile = profile,
+                    libraryTextId = current.savedTextId,
+                    libraryRowId = row.rowId,
+                ),
+            )
+
+            result.fold(
+                onSuccess = { response ->
+                    val adoptedFile = if (
+                        storage != null &&
+                        current.savedTextId != null &&
+                        row.rowId != null &&
+                        response.localFilePath != null &&
+                        response.audioAssetKey != null
+                    ) {
+                        runCatching {
+                            storage.adoptRowAudio(current.savedTextId, row.rowId, response).absoluteFile
+                        }.getOrNull()
+                    } else {
+                        response.localFilePath?.let(::File)
+                    }
+                    val playback = adoptedFile?.let { playFile(it) } ?: "audio file unavailable"
+                    val refreshedRows = if (current.savedTextId != null) {
+                        runCatching { repository.getText(current.savedTextId) }
+                            .getOrNull()
+                            ?.rows
+                            ?.sortedBy { libraryRow -> libraryRow.orderIndex }
+                            ?.map { libraryRow ->
+                                ClassicGeneratedRowUi(
+                                    rowId = libraryRow.id,
+                                    orderIndex = libraryRow.orderIndex,
+                                    hebrewPlain = libraryRow.hebrewPlain,
+                                    hebrewNiqqud = libraryRow.hebrewNiqqud,
+                                    translit = libraryRow.translit,
+                                    translitRu = libraryRow.translitRu,
+                                    russian = libraryRow.russian,
+                                    audioAssetKey = libraryRow.audioAssetKey,
+                                    note = libraryRow.note,
+                                )
+                            }
+                    } else {
+                        null
+                    }
+                    _uiState.update {
+                        it.copy(
+                            rows = refreshedRows ?: it.rows,
+                            playingRowIndex = null,
+                            message = "Row TTS via ${response.provenance.actualProviderId}: $playback",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    val providerError = error as? ProviderException
+                    val message = if (providerError != null) {
+                        "Row TTS failed (${providerError.category}): ${providerError.userMessage}"
+                    } else {
+                        "Row TTS failed: ${error.message.orEmpty().ifBlank { "Unknown provider error." }}"
+                    }
+                    _uiState.update { it.copy(playingRowIndex = null, message = message) }
+                },
+            )
+        }
+    }
+
+    fun openRowNote(orderIndex: Int) {
+        val current = uiState.value
+        val row = current.rows.firstOrNull { it.orderIndex == orderIndex }
+        if (row == null) {
+            _uiState.update { it.copy(message = "Строка не найдена.") }
+            return
+        }
+        if (current.savedTextId == null || row.rowId == null) {
+            _uiState.update { it.copy(message = "Сначала нажмите «Обновить» и сохраните карточку текста, затем добавьте заметку к строке.") }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                noteEditor = ClassicNoteEditorState(row = row, draft = row.note.orEmpty()),
+                message = null,
+            )
+        }
+    }
+
+    fun updateRowNoteDraft(value: String) {
+        _uiState.update { current ->
+            current.copy(noteEditor = current.noteEditor?.copy(draft = value.take(16_000)))
+        }
+    }
+
+    fun closeRowNote() {
+        _uiState.update { it.copy(noteEditor = null, message = null) }
+    }
+
+    fun saveRowNote() {
+        val current = uiState.value
+        val editor = current.noteEditor ?: return
+        val textId = current.savedTextId
+        val rowId = editor.row.rowId
+        if (textId == null || rowId == null) {
+            _uiState.update { it.copy(message = "Сначала сохраните карточку текста.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(noteEditor = editor.copy(isSaving = true), message = null) }
+            runCatching {
+                repository.saveRowNote(textId, rowId, editor.draft)
+                repository.getText(textId)
+            }.fold(
+                onSuccess = { text ->
+                    _uiState.update {
+                        it.copy(
+                            rows = text.rows.sortedBy { row -> row.orderIndex }.map { row ->
+                                ClassicGeneratedRowUi(
+                                    rowId = row.id,
+                                    orderIndex = row.orderIndex,
+                                    hebrewPlain = row.hebrewPlain,
+                                    hebrewNiqqud = row.hebrewNiqqud,
+                                    translit = row.translit,
+                                    translitRu = row.translitRu,
+                                    russian = row.russian,
+                                    audioAssetKey = row.audioAssetKey,
+                                    note = row.note,
+                                )
+                            },
+                            noteEditor = null,
+                            message = if (editor.draft.isBlank()) "Заметка удалена." else "Заметка сохранена.",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            noteEditor = editor.copy(isSaving = false),
+                            message = "Не удалось сохранить заметку: ${error.message.orEmpty()}",
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    fun deleteRowNote() {
+        val editor = uiState.value.noteEditor ?: return
+        _uiState.update { it.copy(noteEditor = editor.copy(draft = "")) }
+        saveRowNote()
+    }
+
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
     }
 
-    private fun ClassicModeUiState.toSaveRequest(now: String): SaveGeneratedTextRequest =
+    private fun ClassicModeUiState.toSaveRequest(now: String, draft: ClassicSaveMetadataDraft): SaveGeneratedTextRequest =
         SaveGeneratedTextRequest(
-            title = sourceText.trim().lineSequence().firstOrNull()
-                ?.take(48)
-                ?.ifBlank { "Classic Mode text" }
-                ?: "Classic Mode text",
-            level = null,
-            tags = listOf("classic-mode", "m3-translation-provider"),
-            sourceLabel = "classic_mode",
-            topic = null,
+            title = draft.title.trim(),
+            level = draft.level.trim().takeIf { it.isNotEmpty() },
+            tags = draft.tagsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+            sourceLabel = draft.source.trim().takeIf { it.isNotEmpty() },
+            topic = draft.topic.trim().takeIf { it.isNotEmpty() },
             sourceText = sourceText,
-            sourceMeta = SourceMeta(origin = "classic_mode_m3_translation_provider", importedAt = now),
+            sourceMeta = SourceMeta(origin = "classic_mode_v4_mobile", importedAt = now),
             tableModelMeta = TableModelMeta(
                 provider = translationProvider,
                 actualProvider = providerIdFromWireId(provenance?.actualProviderId) ?: translationProvider,
                 model = provenance?.model,
                 fromCache = false,
-                niqqudProvider = "not_implemented_m3",
+                niqqudProvider = "not_implemented_v4",
                 niqqudDegraded = true,
                 generatedAt = generatedAt ?: now,
             ),
-            ttsProfile = TtsProfile(
-                providerId = ttsProvider,
-                language = "he",
-                voiceName = null,
-            ),
+            ttsProfile = toTtsProfile(),
             rows = rows.map {
                 GeneratedLibraryRowInput(
                     hebrewPlain = it.hebrewPlain,
@@ -326,10 +644,40 @@ class ClassicModeViewModel(
             },
         )
 
+    private fun ClassicModeUiState.defaultMetadataDraft(): ClassicSaveMetadataDraft =
+        ClassicSaveMetadataDraft(
+            title = sourceText.trim().lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }
+                ?.take(80)
+                ?: "Classic Mode text",
+            level = "",
+            tagsCsv = "classic-mode",
+            source = "classic_mode",
+            topic = "",
+        )
+
+    private fun ClassicModeUiState.toTtsProfile(): TtsProfile =
+        TtsProfile(
+            providerId = ttsProvider,
+            language = sourceLanguage.code,
+            voiceName = ttsVoiceName,
+            speakingRate = speakingRate,
+            pitch = pitch,
+        )
+
+    private fun playFile(file: File): String {
+        val controller = audioPlaybackController ?: return "playback controller unavailable"
+        return when (val result = controller.play(file)) {
+            AudioPlaybackResult.Started -> "started"
+            is AudioPlaybackResult.Failed -> result.message
+        }
+    }
+
     class Factory(
         private val repository: LibraryRepository,
         private val translationProviders: TranslationProviderRegistry = createAndroidTranslationProviderRegistry(),
         private val ttsProviders: TtsProviderRegistry? = null,
+        private val audioStorageRepository: AudioStorageRepository? = null,
+        private val audioPlaybackController: AudioPlaybackController? = null,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -340,6 +688,8 @@ class ClassicModeViewModel(
                 repository = repository,
                 translationProviders = translationProviders,
                 ttsProviders = ttsProviders,
+                audioStorageRepository = audioStorageRepository,
+                audioPlaybackController = audioPlaybackController,
             ) as T
         }
     }

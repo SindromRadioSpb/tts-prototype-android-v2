@@ -73,7 +73,15 @@ P012 behavior:
 - `google_online_tts` reads the secure Settings credential and writes the returned MP3 under app cache for smoke validation.
 - `system_or_browser_fallback_low_quality` routes through the Android platform TTS adapter.
 - The `Speak` button shows `Speaking...` while synthesis is active and reports either the local file name or a mapped provider error.
-- The `Speak` result is not yet adopted into `audio_assets`, `row_audio`, or `text_audio`, and it does not start audible playback automatically.
+- P017 starts audible playback for the generated source-level file when a playback controller is available; full text-level Library adoption remains future.
+
+P017 row audio behavior:
+
+- Generated row cards expose the source prototype action-column semantics as Android-safe card actions: cache marker, `▶` row play, and `📝` row notes.
+- If a saved row has a playable default `audioAssetKey`, `▶` plays it from app-owned storage.
+- If no playable row cache exists, `▶` synthesizes with the selected TTS provider and current language/voice/rate/pitch.
+- When the row belongs to a saved Library card, the synthesized file is adopted into app storage and linked as the row default audio.
+- If the table is not saved yet, row playback can still synthesize/play a temporary provider output, but row cache metadata is not adopted until `Обновить` saves the card.
 
 ## Editing
 
@@ -139,6 +147,15 @@ P014 behavior:
 - Settings enables target JSON credential controls while the interim single-line smoke path remains available.
 - Manual screenshot, landscape, IME, accessibility, and narrow-phone action evidence remain pending in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
 - The previous M8 row-level edit/reset/reorder repository and ViewModel behavior remains tested, but the final UI access path must be reconciled with the v4 Classic-owned Library flow before release hardening.
+
+P017 behavior:
+
+- The generic provider settings card is split into the source prototype panels:
+  - `Настройки озвучки`: source language, TTS provider, voice, speech rate, pitch, provider key shortcut.
+  - `Настройки перевода и таблицы`: translation provider, transliteration profile, Hebrew table font, provider key shortcut.
+- `Результат` uses `Обновить` after generation. It opens the metadata editor and saves or updates the current Library card instead of silently writing default metadata.
+- Room schema version 3 adds `sentence_notes`; notes are one per saved row and are deleted when the note is saved empty.
+- The row notes dialog shows row context, Markdown helper actions, 16K validation, save/delete controls, and keyboard-safe scrolling.
 
 ## Accessibility and Insets
 

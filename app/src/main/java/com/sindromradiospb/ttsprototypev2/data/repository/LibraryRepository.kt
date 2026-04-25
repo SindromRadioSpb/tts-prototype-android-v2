@@ -12,6 +12,7 @@ import com.sindromradiospb.ttsprototypev2.data.db.AudioAssetEntity
 import com.sindromradiospb.ttsprototypev2.data.db.LibraryRowEntity
 import com.sindromradiospb.ttsprototypev2.data.db.LibraryTextEntity
 import com.sindromradiospb.ttsprototypev2.data.db.RowAudioEntity
+import com.sindromradiospb.ttsprototypev2.data.db.SentenceNoteEntity
 import com.sindromradiospb.ttsprototypev2.data.db.TextAudioEntity
 import java.security.MessageDigest
 import java.time.Instant
@@ -128,6 +129,9 @@ interface LibraryRepository {
     suspend fun getText(textId: String): LibraryText
     suspend fun markOpened(textId: String, openedAt: String)
     suspend fun saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult
+    suspend fun updateGeneratedText(textId: String, input: SaveGeneratedTextRequest): SaveTextResult
+    suspend fun saveRowNote(textId: String, rowId: String, note: String): LibraryRow
+    suspend fun deleteRowNote(textId: String, rowId: String): LibraryRow
 }
 
 class RoomLibraryRepository(
@@ -178,7 +182,44 @@ class RoomLibraryRepository(
             SaveTextResult.Saved(requireText(textId))
         }
 
-    suspend fun updateGeneratedText(textId: String, input: SaveGeneratedTextRequest): SaveTextResult =
+    override suspend fun saveRowNote(textId: String, rowId: String, note: String): LibraryRow =
+        database.withTransaction {
+            requireRow(textId, rowId)
+            val trimmed = note.trim()
+            if (trimmed.isBlank()) {
+                dao.deleteNote(textId, rowId)
+            } else {
+                require(trimmed.length <= 16_000) { "Note is too long" }
+                val existing = dao.getNote(textId, rowId)
+                val now = clock()
+                dao.upsertNote(
+                    SentenceNoteEntity(
+                        noteId = existing?.noteId ?: idFactory(),
+                        textId = textId,
+                        sentenceId = rowId,
+                        note = trimmed,
+                        createdAt = existing?.createdAt ?: now,
+                        updatedAt = now,
+                    ),
+                )
+            }
+            requireRow(textId, rowId).toDomain(
+                defaultAudioAssetKey = dao.getDefaultRowAudio(rowId)?.assetKey,
+                note = dao.getNote(textId, rowId)?.note,
+            )
+        }
+
+    override suspend fun deleteRowNote(textId: String, rowId: String): LibraryRow =
+        database.withTransaction {
+            requireRow(textId, rowId)
+            dao.deleteNote(textId, rowId)
+            requireRow(textId, rowId).toDomain(
+                defaultAudioAssetKey = dao.getDefaultRowAudio(rowId)?.assetKey,
+                note = null,
+            )
+        }
+
+    override suspend fun updateGeneratedText(textId: String, input: SaveGeneratedTextRequest): SaveTextResult =
         database.withTransaction {
             val current = dao.getText(textId) ?: error("Library text not found: $textId")
             val now = clock()
@@ -561,8 +602,12 @@ class RoomLibraryRepository(
     private suspend fun requireText(textId: String): LibraryText {
         val text = dao.getText(textId) ?: error("Library text not found: $textId")
         val rows = dao.getRows(textId)
+        val notes = dao.getNotesForText(textId).associateBy { it.sentenceId }
         val rowDomains = rows.map { row ->
-            row.toDomain(defaultAudioAssetKey = dao.getDefaultRowAudio(row.rowId)?.assetKey)
+            row.toDomain(
+                defaultAudioAssetKey = dao.getDefaultRowAudio(row.rowId)?.assetKey,
+                note = notes[row.rowId]?.note,
+            )
         }
         return text.toDomain(rowDomains)
     }
@@ -646,7 +691,7 @@ class RoomLibraryRepository(
             schemaVersion = schemaVersion,
         )
 
-    private fun LibraryRowEntity.toDomain(defaultAudioAssetKey: String?): LibraryRow =
+    private fun LibraryRowEntity.toDomain(defaultAudioAssetKey: String?, note: String? = null): LibraryRow =
         LibraryRow(
             id = rowId,
             textId = textId,
@@ -659,6 +704,7 @@ class RoomLibraryRepository(
             rowHash = rowHash,
             editMeta = decodeEditMeta(editMetaJson),
             audioAssetKey = defaultAudioAssetKey,
+            note = note,
         )
 
     private fun AudioAssetInput.toEntity(createdAt: String): AudioAssetEntity =

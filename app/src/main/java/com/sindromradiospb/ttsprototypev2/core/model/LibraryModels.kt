@@ -39,6 +39,7 @@ data class LibraryRow(
     val editMeta: EditMeta? = null,
     val audioAssetKey: String? = null,
     val audioTtsProfile: TtsProfile? = null,
+    val note: String? = null,
 )
 
 @Serializable

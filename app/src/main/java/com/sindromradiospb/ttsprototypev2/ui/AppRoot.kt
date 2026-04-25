@@ -44,6 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -71,9 +72,14 @@ import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialStatus
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicHebrewTableFont
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicGeneratedRowUi
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeUiState
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeViewModel
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicNoteEditorState
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicSaveMetadataDraft
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicSourceLanguage
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicTranslitProfile
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryTextMetadataDraft
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryUiState
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryViewModel
@@ -136,11 +142,26 @@ fun AppRoot(
                     state = classicState,
                     onSourceTextChanged = classicModeViewModel::onSourceTextChanged,
                     onClearSource = { classicModeViewModel.onSourceTextChanged("") },
+                    onSourceLanguageChanged = classicModeViewModel::onSourceLanguageChanged,
                     onTranslationProviderChanged = classicModeViewModel::onTranslationProviderChanged,
                     onTtsProviderChanged = classicModeViewModel::onTtsProviderChanged,
+                    onTtsVoiceNameChanged = classicModeViewModel::onTtsVoiceNameChanged,
+                    onSpeakingRateChanged = classicModeViewModel::onSpeakingRateChanged,
+                    onPitchChanged = classicModeViewModel::onPitchChanged,
+                    onTranslitProfileChanged = classicModeViewModel::onTranslitProfileChanged,
+                    onHebrewTableFontChanged = classicModeViewModel::onHebrewTableFontChanged,
                     onGenerate = classicModeViewModel::generateTable,
                     onSave = classicModeViewModel::saveCurrent,
+                    onSaveMetadataDraftChanged = classicModeViewModel::updateSaveMetadataDraft,
+                    onCommitSaveMetadata = classicModeViewModel::commitSaveMetadata,
+                    onCancelSaveMetadata = classicModeViewModel::cancelSaveMetadata,
                     onSpeak = classicModeViewModel::speakSource,
+                    onPlayRow = classicModeViewModel::playRow,
+                    onOpenRowNote = classicModeViewModel::openRowNote,
+                    onRowNoteDraftChanged = classicModeViewModel::updateRowNoteDraft,
+                    onSaveRowNote = classicModeViewModel::saveRowNote,
+                    onDeleteRowNote = classicModeViewModel::deleteRowNote,
+                    onCloseRowNote = classicModeViewModel::closeRowNote,
                     onOpenLibrary = { isLibraryOpen = true },
                     onOpenSettings = { selectedTab = 1 },
                     onOpenIde = { selectedTab = 2 },
@@ -195,11 +216,26 @@ fun ClassicModeScreen(
     state: ClassicModeUiState,
     onSourceTextChanged: (String) -> Unit,
     onClearSource: () -> Unit,
+    onSourceLanguageChanged: (ClassicSourceLanguage) -> Unit,
     onTranslationProviderChanged: (TranslationProviderId) -> Unit,
     onTtsProviderChanged: (TtsProviderId) -> Unit,
+    onTtsVoiceNameChanged: (String?) -> Unit,
+    onSpeakingRateChanged: (Double) -> Unit,
+    onPitchChanged: (Double) -> Unit,
+    onTranslitProfileChanged: (ClassicTranslitProfile) -> Unit,
+    onHebrewTableFontChanged: (ClassicHebrewTableFont) -> Unit,
     onGenerate: () -> Unit,
     onSave: () -> Unit,
+    onSaveMetadataDraftChanged: (ClassicSaveMetadataDraft) -> Unit,
+    onCommitSaveMetadata: () -> Unit,
+    onCancelSaveMetadata: () -> Unit,
     onSpeak: () -> Unit,
+    onPlayRow: (Int) -> Unit,
+    onOpenRowNote: (Int) -> Unit,
+    onRowNoteDraftChanged: (String) -> Unit,
+    onSaveRowNote: () -> Unit,
+    onDeleteRowNote: () -> Unit,
+    onCloseRowNote: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenIde: () -> Unit,
@@ -252,10 +288,22 @@ fun ClassicModeScreen(
             onSpeak = onSpeak,
         )
 
-        ProviderSettingsCard(
+        VoiceSettingsCard(
+            state = state,
+            onSourceLanguageChanged = onSourceLanguageChanged,
+            onTtsProviderChanged = onTtsProviderChanged,
+            onTtsVoiceNameChanged = onTtsVoiceNameChanged,
+            onSpeakingRateChanged = onSpeakingRateChanged,
+            onPitchChanged = onPitchChanged,
+            onOpenSettings = onOpenSettings,
+        )
+
+        TranslationTableSettingsCard(
             state = state,
             onTranslationProviderChanged = onTranslationProviderChanged,
-            onTtsProviderChanged = onTtsProviderChanged,
+            onTranslitProfileChanged = onTranslitProfileChanged,
+            onHebrewTableFontChanged = onHebrewTableFontChanged,
+            onOpenSettings = onOpenSettings,
         )
 
         state.message?.let {
@@ -269,6 +317,9 @@ fun ClassicModeScreen(
             onSave = onSave,
             isSaveEnabled = state.rows.isNotEmpty() && !state.isSaving && !state.isGenerating,
             isSaving = state.isSaving,
+            playingRowIndex = state.playingRowIndex,
+            onPlayRow = onPlayRow,
+            onOpenRowNote = onOpenRowNote,
         )
 
         LocalLibrarySummaryCard(
@@ -276,6 +327,26 @@ fun ClassicModeScreen(
             savedTextId = state.savedTextId,
             onOpenLibrary = onOpenLibrary,
         )
+
+        state.saveMetadataDraft?.let { draft ->
+            ClassicSaveMetadataDialog(
+                draft = draft,
+                isSaving = state.isSaving,
+                onDraftChanged = onSaveMetadataDraftChanged,
+                onSave = onCommitSaveMetadata,
+                onCancel = onCancelSaveMetadata,
+            )
+        }
+
+        state.noteEditor?.let { editor ->
+            RowNoteDialog(
+                editor = editor,
+                onDraftChanged = onRowNoteDraftChanged,
+                onSave = onSaveRowNote,
+                onDelete = onDeleteRowNote,
+                onClose = onCloseRowNote,
+            )
+        }
     }
 }
 
@@ -399,38 +470,174 @@ private fun SourceComposerCard(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProviderSettingsCard(
+private fun VoiceSettingsCard(
     state: ClassicModeUiState,
-    onTranslationProviderChanged: (TranslationProviderId) -> Unit,
+    onSourceLanguageChanged: (ClassicSourceLanguage) -> Unit,
     onTtsProviderChanged: (TtsProviderId) -> Unit,
+    onTtsVoiceNameChanged: (String?) -> Unit,
+    onSpeakingRateChanged: (Double) -> Unit,
+    onPitchChanged: (Double) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     SurfaceCard {
-        Text("Настройки перевода и озвучки", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Выбор провайдеров явный. Скрытого fallback для quota/key/billing ошибок нет.", color = MutedText)
+        Text("Настройки озвучки", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Язык, голос, темп и ключи провайдера.", color = MutedText)
         Spacer(Modifier.height(10.dp))
-        Text("Перевод", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        LabeledChoiceRow(
+            label = "Язык исходного текста",
+            options = ClassicSourceLanguage.entries,
+            selected = state.sourceLanguage,
+            optionLabel = { it.label },
+            onSelected = onSourceLanguageChanged,
+        )
+        LabeledChoiceRow(
+            label = "Провайдер озвучки",
+            options = TtsProviderId.entries,
+            selected = state.ttsProvider,
+            optionLabel = { ttsProviderLabel(it) },
+            onSelected = onTtsProviderChanged,
+        )
+        LabeledChoiceRow(
+            label = "Голос TTS",
+            options = TtsVoiceOptions,
+            selected = state.ttsVoiceName.orEmpty(),
+            optionLabel = { if (it.isBlank()) "Авто (по умолчанию)" else it },
+            onSelected = { onTtsVoiceNameChanged(it.ifBlank { null }) },
+        )
+        LabeledSlider(
+            label = "Скорость речи",
+            valueText = String.format(Locale.US, "%.2f×", state.speakingRate),
+            value = state.speakingRate.toFloat(),
+            valueRange = 0.5f..2.0f,
+            steps = 14,
+            onValueChange = { onSpeakingRateChanged(it.toDouble()) },
+        )
+        LabeledSlider(
+            label = "Тон (pitch)",
+            valueText = String.format(Locale.US, "%.1f", state.pitch),
+            value = state.pitch.toFloat(),
+            valueRange = -5f..5f,
+            steps = 19,
+            onValueChange = { onPitchChanged(it.toDouble()) },
+        )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            TranslationProviderId.entries.forEach { provider ->
-                FilterChip(
-                    selected = state.translationProvider == provider,
-                    onClick = { onTranslationProviderChanged(provider) },
-                    label = { Text(provider.wireId) },
-                )
-            }
+            SecondaryActionButton("🔑 Ключи провайдера", onOpenSettings)
+            StatusPill("TTS: ${ttsProviderLabel(state.ttsProvider)}")
+            StatusPill("Голос: ${state.ttsVoiceName ?: "авто"}")
         }
-        Spacer(Modifier.height(8.dp))
-        Text("TTS", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TranslationTableSettingsCard(
+    state: ClassicModeUiState,
+    onTranslationProviderChanged: (TranslationProviderId) -> Unit,
+    onTranslitProfileChanged: (ClassicTranslitProfile) -> Unit,
+    onHebrewTableFontChanged: (ClassicHebrewTableFont) -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    SurfaceCard {
+        Text("Настройки перевода и таблицы", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Переводчик, транслит, шрифт таблицы и сохранение результата.", color = MutedText)
+        Spacer(Modifier.height(10.dp))
+        LabeledChoiceRow(
+            label = "Провайдер перевода",
+            options = TranslationProviderId.entries,
+            selected = state.translationProvider,
+            optionLabel = { translationProviderLabel(it) },
+            onSelected = onTranslationProviderChanged,
+        )
+        LabeledChoiceRow(
+            label = "Профиль транслитерации",
+            options = ClassicTranslitProfile.entries,
+            selected = state.translitProfile,
+            optionLabel = { it.label },
+            onSelected = onTranslitProfileChanged,
+        )
+        LabeledChoiceRow(
+            label = "Шрифт иврита табличной части",
+            options = ClassicHebrewTableFont.entries,
+            selected = state.hebrewTableFont,
+            optionLabel = { it.label },
+            onSelected = onHebrewTableFontChanged,
+        )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            TtsProviderId.entries.forEach { provider ->
+            SecondaryActionButton("🔑 Ключи перевода", onOpenSettings)
+            StatusPill("Перевод: ${translationProviderLabel(state.translationProvider)}")
+            StatusPill(state.translitProfile.label)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun <T> LabeledChoiceRow(
+    label: String,
+    options: List<T>,
+    selected: T,
+    optionLabel: (T) -> String,
+    onSelected: (T) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { option ->
                 FilterChip(
-                    selected = state.ttsProvider == provider,
-                    onClick = { onTtsProviderChanged(provider) },
-                    label = { Text(provider.wireId) },
+                    selected = selected == option,
+                    onClick = { onSelected(option) },
+                    label = { Text(optionLabel(option), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 )
             }
         }
     }
 }
+
+@Composable
+private fun LabeledSlider(
+    label: String,
+    valueText: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onValueChange: (Float) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(valueText, style = MaterialTheme.typography.labelLarge, color = MutedText)
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps,
+        )
+    }
+}
+
+private val TtsVoiceOptions = listOf(
+    "",
+    "he-IL-Standard-A",
+    "he-IL-Standard-B",
+    "ru-RU-Standard-A",
+    "ru-RU-Standard-B",
+    "en-US-Standard-C",
+    "en-US-Standard-D",
+)
+
+private fun ttsProviderLabel(provider: TtsProviderId): String =
+    when (provider) {
+        TtsProviderId.GoogleOnlineTts -> "Online TTS"
+        TtsProviderId.SystemFallbackLowQuality -> "System fallback"
+    }
+
+private fun translationProviderLabel(provider: TranslationProviderId): String =
+    when (provider) {
+        TranslationProviderId.GoogleTranslateFree -> "Google Translate"
+        TranslationProviderId.GcpTranslate -> "GCP Translate"
+        TranslationProviderId.GeminiLegacy -> "Gemini (legacy)"
+    }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -441,6 +648,9 @@ private fun ClassicResultCard(
     onSave: () -> Unit,
     isSaveEnabled: Boolean,
     isSaving: Boolean,
+    playingRowIndex: Int?,
+    onPlayRow: (Int) -> Unit,
+    onOpenRowNote: (Int) -> Unit,
 ) {
     SurfaceCard {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -455,7 +665,7 @@ private fun ClassicResultCard(
                 Text("Таблица адаптирована в карточки строк для телефона.", color = MutedText)
             }
             PrimaryGreenButton(
-                text = if (isSaving) "Сохранение..." else "💾 Сохранить",
+                text = if (isSaving) "Сохранение..." else "💾 Обновить",
                 onClick = onSave,
                 enabled = isSaveEnabled,
             )
@@ -465,22 +675,43 @@ private fun ClassicResultCard(
             EmptyState("Пока нет строк. Введите Hebrew text и нажмите `Собрать таблицу`.")
         } else {
             rows.forEach { row ->
-                GeneratedRowCard(row)
+                GeneratedRowCard(
+                    row = row,
+                    onPlayRow = { onPlayRow(row.orderIndex) },
+                    onOpenRowNote = { onOpenRowNote(row.orderIndex) },
+                    isPlaying = playingRowIndex == row.orderIndex,
+                )
                 Spacer(Modifier.height(8.dp))
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun GeneratedRowCard(row: ClassicGeneratedRowUi) {
+private fun GeneratedRowCard(
+    row: ClassicGeneratedRowUi,
+    onPlayRow: () -> Unit,
+    onOpenRowNote: () -> Unit,
+    isPlaying: Boolean,
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = SoftPanelBackground),
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, BorderColor),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Строка ${row.orderIndex + 1}", style = MaterialTheme.typography.labelLarge, color = MutedText)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Строка ${row.orderIndex + 1}", style = MaterialTheme.typography.labelLarge, color = MutedText)
+                    Text("Действие", style = MaterialTheme.typography.labelSmall, color = MutedText)
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AudioCacheBadge(row.audioAssetKey)
+                    SecondaryActionButton(if (isPlaying) "▶..." else "▶", onPlayRow, modifier = Modifier.widthIn(min = 48.dp))
+                    SecondaryActionButton(if (row.note.isNullOrBlank()) "📝" else "📝 ✓", onOpenRowNote, modifier = Modifier.widthIn(min = 48.dp))
+                }
+            }
             Text(row.hebrewPlain, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
             if (row.hebrewNiqqud.isNotBlank()) {
                 Text(row.hebrewNiqqud, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
@@ -490,12 +721,179 @@ private fun GeneratedRowCard(row: ClassicGeneratedRowUi) {
             if (row.translit.isNotBlank()) Text("SBL: ${row.translit}")
             if (row.translitRu.isNotBlank()) Text("Russian phonetic: ${row.translitRu}")
             if (row.russian.isNotBlank()) Text("Russian: ${row.russian}")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryActionButton("▶ Озвучить строку", onClick = {}, enabled = false)
-                SecondaryActionButton("Изменить", onClick = {}, enabled = false)
+            if (!row.note.isNullOrBlank()) {
+                Text("Заметка: ${row.note.lineSequence().firstOrNull().orEmpty().take(120)}", style = MaterialTheme.typography.bodySmall, color = ClassicBlue)
             }
         }
     }
+}
+
+@Composable
+private fun AudioCacheBadge(assetKey: String?) {
+    val (label, color) = if (assetKey.isNullOrBlank()) {
+        "○" to Color(0xFFADB5BD)
+    } else {
+        "●" to ClassicGreen
+    }
+    Surface(
+        shape = RoundedCornerShape(99.dp),
+        color = color.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.55f)),
+    ) {
+        Text(
+            label,
+            color = color,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
+}
+
+@Composable
+private fun ClassicSaveMetadataDialog(
+    draft: ClassicSaveMetadataDraft,
+    isSaving: Boolean,
+    onDraftChanged: (ClassicSaveMetadataDraft) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = {
+            if (!isSaving) onCancel()
+        },
+        title = { Text("Метаданные текста", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedTextField(
+                    value = draft.title,
+                    onValueChange = { onDraftChanged(draft.copy(title = it)) },
+                    label = { Text("TITLE*") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving,
+                )
+                OutlinedTextField(
+                    value = draft.level,
+                    onValueChange = { onDraftChanged(draft.copy(level = it)) },
+                    label = { Text("LEVEL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving,
+                )
+                OutlinedTextField(
+                    value = draft.tagsCsv,
+                    onValueChange = { onDraftChanged(draft.copy(tagsCsv = it)) },
+                    label = { Text("TAGS") },
+                    supportingText = { Text("Tags вводите через запятую. Пустое поле = очистка значения.") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving,
+                )
+                OutlinedTextField(
+                    value = draft.source,
+                    onValueChange = { onDraftChanged(draft.copy(source = it)) },
+                    label = { Text("SOURCE") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving,
+                )
+                OutlinedTextField(
+                    value = draft.topic,
+                    onValueChange = { onDraftChanged(draft.copy(topic = it)) },
+                    label = { Text("TEMA") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving,
+                )
+            }
+        },
+        confirmButton = {
+            PrimaryGreenButton(if (isSaving) "Save..." else "Save", onSave, enabled = !isSaving && draft.title.isNotBlank())
+        },
+        dismissButton = {
+            SecondaryActionButton("Cancel", onCancel, enabled = !isSaving)
+        },
+    )
+}
+
+@Composable
+private fun RowNoteDialog(
+    editor: ClassicNoteEditorState,
+    onDraftChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onDelete: () -> Unit,
+    onClose: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = {
+            if (!editor.isSaving) onClose()
+        },
+        title = { Text("Заметка к строке", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    color = SoftPanelBackground,
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, BorderColor),
+                ) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(editor.row.hebrewPlain, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
+                        if (editor.row.russian.isNotBlank()) Text(editor.row.russian, color = MutedText)
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    NoteTemplateButton("B", "**", editor.draft, onDraftChanged)
+                    NoteTemplateButton("I", "*", editor.draft, onDraftChanged)
+                    NoteAppendButton("• List", "\n- ", editor.draft, onDraftChanged)
+                    NoteAppendButton("> Quote", "\n> ", editor.draft, onDraftChanged)
+                }
+                OutlinedTextField(
+                    value = editor.draft,
+                    onValueChange = onDraftChanged,
+                    label = { Text("Note") },
+                    placeholder = { Text("Напишите заметку к этой строке. Поддерживаются Markdown-паттерны.") },
+                    minLines = 8,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !editor.isSaving,
+                )
+                Text(
+                    "Пустая заметка не хранится: очистите поле и нажмите Save или используйте Delete.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                )
+            }
+        },
+        confirmButton = {
+            PrimaryGreenButton(if (editor.isSaving) "Save..." else "Save", onSave, enabled = !editor.isSaving)
+        },
+        dismissButton = {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SecondaryActionButton("Delete", onDelete, enabled = !editor.isSaving && !editor.row.note.isNullOrBlank())
+                SecondaryActionButton("Close", onClose, enabled = !editor.isSaving)
+            }
+        },
+    )
+}
+
+@Composable
+private fun NoteTemplateButton(label: String, marker: String, draft: String, onDraftChanged: (String) -> Unit) {
+    SecondaryActionButton(label, onClick = { onDraftChanged(draft + marker + "text" + marker) })
+}
+
+@Composable
+private fun NoteAppendButton(label: String, value: String, draft: String, onDraftChanged: (String) -> Unit) {
+    SecondaryActionButton(label, onClick = { onDraftChanged(draft + value) })
 }
 
 @Composable

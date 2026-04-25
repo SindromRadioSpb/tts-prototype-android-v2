@@ -8,18 +8,17 @@ This is the implementation spec and current Room baseline for M1.
 
 Implemented in Android code:
 
-- Room database: `AppDatabase`, schema version `2`.
-- Entities: `LibraryTextEntity`, `LibraryRowEntity`, `AudioAssetEntity`, `RowAudioEntity`, `TextAudioEntity`, `ExportHistoryEntity`, `ProviderCallLogEntity`.
+- Room database: `AppDatabase`, schema version `3`.
+- Entities: `LibraryTextEntity`, `LibraryRowEntity`, `SentenceNoteEntity`, `AudioAssetEntity`, `RowAudioEntity`, `TextAudioEntity`, `ExportHistoryEntity`, `ProviderCallLogEntity`.
 - DAO: `LibraryDao`.
 - Repository: `RoomLibraryRepository`.
-- Exported schemas: `app/schemas/com.sindromradiospb.ttsprototypev2.data.db.AppDatabase/1.json` and `app/schemas/com.sindromradiospb.ttsprototypev2.data.db.AppDatabase/2.json`.
+- Exported schemas: `app/schemas/com.sindromradiospb.ttsprototypev2.data.db.AppDatabase/1.json`, `2.json`, and `3.json`.
 
 Not implemented yet:
 
-- Export ZIP writer.
-- Import compatibility layer.
 - Provider event writes from real providers.
 - Audio file cleanup for orphaned assets.
+- Notes in Android ZIP export/import.
 
 ## Entity List
 
@@ -27,6 +26,7 @@ Not implemented yet:
 |-------|-----------|---------|
 | `library_texts` | `text_id` string UUID | Saved source text plus table-level metadata. |
 | `library_rows` | `row_id` string UUID | Ordered Hebrew/Russian study rows for one text. |
+| `sentence_notes` | `note_id` string UUID | Per-row user notes mirrored from the source prototype note semantics. |
 | `audio_assets` | `asset_key` deterministic string | Locally owned audio file metadata. |
 | `row_audio` | composite `row_id`, `asset_key` | Row-level audio links and default selection. |
 | `text_audio` | composite `text_id`, `asset_key` | Full-text audio links and default selection. |
@@ -75,6 +75,19 @@ Indexes: unique `text_key`; index `updated_at`; index `is_archived, updated_at`.
 - `updated_at TEXT NOT NULL`
 
 Indexes: unique `text_id, order_index`; index `text_id`; index `row_hash`.
+
+### `sentence_notes`
+
+- `note_id TEXT PRIMARY KEY`
+- `text_id TEXT NOT NULL REFERENCES library_texts(text_id) ON DELETE CASCADE`
+- `sentence_id TEXT NOT NULL REFERENCES library_rows(row_id) ON DELETE CASCADE`
+- `note TEXT NOT NULL`
+- `created_at TEXT NOT NULL`
+- `updated_at TEXT NOT NULL`
+
+Indexes: unique `text_id, sentence_id`; index `sentence_id`.
+
+P017 mirrors the source prototype `sentence_notes` behavior: one note per row, trimmed text, blank save deletes the note, and notes are capped at 16000 characters at the repository boundary.
 
 ### `audio_assets`
 
@@ -148,7 +161,7 @@ No raw input text longer than the configured diagnostic limit may be stored in p
 
 ## M5 Audio Metadata Status
 
-M5 writes row audio through existing audio tables. P014 moves Room to schema version 2 for Library v3 metadata fields; audio tables are unchanged.
+M5 writes row audio through existing audio tables. P014 moves Room to schema version 2 for Library v3 metadata fields; P017 moves Room to schema version 3 for `sentence_notes`. Audio tables are unchanged.
 
 - `audio_assets.relative_path` stores the app-internal relative path, never an absolute path.
 - `audio_assets.asset_key` is accepted for file naming only when it matches `[A-Za-z0-9._-]+`; unsafe provider output is treated as an invalid response.
@@ -163,6 +176,7 @@ Text-level audio remains planned and uses the existing `text_audio` table later.
 - Save new generated text: insert `library_texts` and all `library_rows` in one transaction.
 - Update existing generated text: update `library_texts`, preserve stable row IDs where row hashes/order permit, insert/delete changed rows in one transaction.
 - Update text metadata: update `title`, `level`, normalized `tags_json`, `source_label`, `topic`, and `updated_at` in one transaction without regenerating rows.
+- Save row note: upsert one `sentence_notes` row after verifying the row belongs to the text; blank note deletes the row note.
 - Edit row: update row fields and edit metadata, mark linked default audio stale if Hebrew or niqqud changes, in one transaction.
 - Reorder rows: update all affected `order_index` values in one transaction.
 - Delete text: cascade rows and audio links; audio files become orphan candidates but are not deleted until cleanup confirms no links remain.
@@ -182,14 +196,16 @@ Text-level audio remains planned and uses the existing `text_audio` table later.
 |-------------------|-------------------|
 | `texts` | `library_texts` |
 | `sentences` | `library_rows` |
+| `sentence_notes` | `sentence_notes` |
 | `audio_assets` | `audio_assets` |
 | `sentence_audio` | `row_audio` |
 | `text_audio` | `text_audio` |
 | server export JSON | Android ZIP `library/library.json` plus manifest |
 
-Excluded from first Android Room schema:
+Excluded from current Android import/export scope:
 
-- Web navigation/history/SRS/notes/search tables.
+- Web navigation/history/SRS/search tables.
+- Notes in Android ZIP export/import until export schema is expanded.
 - Server-only cache tables.
 - Python sidecar state.
 - Desktop/browser localStorage state.
@@ -198,6 +214,7 @@ Excluded from first Android Room schema:
 
 - Room schema version started at `1`.
 - Version `2` adds nullable `library_texts.source_label` and `library_texts.topic` for Library v3 metadata parity. Migration `MIGRATION_1_2` uses additive `ALTER TABLE` statements and preserves existing rows.
+- Version `3` adds `sentence_notes` plus unique/index coverage for one persisted note per library row. Migration `MIGRATION_2_3` is additive and preserves existing rows.
 - Every schema change must add a migration test and update this document.
 - Export schema has its own `export_schema_version`, starting at `1`.
 

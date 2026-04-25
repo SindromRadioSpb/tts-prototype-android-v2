@@ -640,6 +640,16 @@ data class CredentialFileUiState(
 - No source repository files are modified.
 - No secrets are added.
 
+P017 implementation status:
+
+- `Настройки озвучки` is split out as its own native card with source language, TTS provider, voice, speech rate, pitch, and a provider-key shortcut.
+- `Настройки перевода и таблицы` is split out as its own native card with translation provider, transliteration profile, Hebrew table font, and a provider-key shortcut.
+- `Результат` now exposes `Обновить` once rows exist; it opens the metadata editor and then saves/updates the Library text card.
+- Row cards preserve the source prototype `Действие` column semantics without web clipping: cache marker, row play, and row note action are reachable on narrow phones.
+- Row `▶` uses real selected TTS providers. Saved rows adopt generated audio into `audio_assets`/`row_audio`; unsaved rows can play temporary provider output.
+- Row notes persist in Room `sentence_notes`, matching the prototype's one-note-per-`(text_id, sentence_id)` rule. The Android note editor improves the web dialog with row context, keyboard-safe scrolling, Markdown helper buttons, and explicit save/delete behavior.
+- Remaining evidence gaps: manual screenshot comparison against `0. Main classic mode.JPG`, real-key TTS playback smoke, and Android ZIP export/import expansion for `sentence_notes`.
+
 ## UI DoD Evidence Checklist
 
 Future implementation patches must collect evidence for:
