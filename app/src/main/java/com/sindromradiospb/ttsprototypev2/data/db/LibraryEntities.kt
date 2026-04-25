@@ -24,6 +24,9 @@ data class LibraryTextEntity(
     val level: String?,
     @ColumnInfo(name = "tags_json")
     val tagsJson: String,
+    @ColumnInfo(name = "source_label")
+    val sourceLabel: String?,
+    val topic: String?,
     @ColumnInfo(name = "source_text")
     val sourceText: String,
     @ColumnInfo(name = "source_meta_json")

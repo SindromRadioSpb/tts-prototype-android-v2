@@ -30,6 +30,13 @@ M2 update:
 - Full open/archive/restore/delete lifecycle UI is implemented at repository/ViewModel/UI level in M7; screenshot/manual evidence is still pending.
 - Row edit/reorder/reset/delete/add workflow is implemented at ViewModel/UI level in M8; screenshot/manual evidence is still pending.
 
+P014 update:
+
+- The `LibraryRepository` port now includes opening saved texts into Classic Mode and marking `last_opened_at`; `RoomLibraryRepository` exposes text-level metadata updates for `LibraryViewModel`.
+- Room schema version 2 adds nullable `source_label` and `topic` fields for Library v3 metadata parity.
+- Metadata editor saves `TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, and `TEMA` without regenerating rows.
+- Final UI access for row-level edit/reset/reorder must be reconciled with the new Classic-owned Library v3 modal before release hardening.
+
 ## Repository Interfaces
 
 Target repository surface:
@@ -38,6 +45,7 @@ Target repository surface:
 - `getText(textId: String): LibraryTextWithRows`
 - `saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult`
 - `updateGeneratedText(textId: String, input: SaveGeneratedTextRequest): SaveTextResult`
+- `updateTextMetadata(textId: String, input: TextMetadataUpdate): LibraryText`
 - `patchRow(textId: String, rowId: String, fields: EditableRowFields): LibraryRow`
 - `resetRowFields(textId: String, rowId: String, fields: Set<RowField>): LibraryRow`
 - `reorderRows(textId: String, orderedRowIds: List<String>): List<LibraryRow>`
@@ -47,12 +55,17 @@ Target repository surface:
 - `archiveText(textId: String, archived: Boolean): Unit`
 - `markOpened(textId: String, openedAt: Instant): Unit`
 
-Current code exposes a small `LibraryRepository` port for M2 ViewModel wiring:
+Current code exposes the `LibraryRepository` port used by Classic Mode and the broader `RoomLibraryRepository` surface used by Library ViewModel:
 
 - `observeTexts(includeArchived: Boolean)`
+- `getText(textId: String)`
 - `saveGeneratedText(input: SaveGeneratedTextRequest)`
+- `archiveText(textId: String, archived: Boolean)`
+- `deleteText(textId: String)`
+- `markOpened(textId: String, openedAt: String)`
+- `updateTextMetadata(textId: String, input: TextMetadataUpdate)` on `RoomLibraryRepository`
 
-`RoomLibraryRepository` implements this port and also keeps the broader M1 repository methods.
+`RoomLibraryRepository` implements this port and also keeps the broader M1/M8 row mutation methods.
 
 ## DAO Responsibilities
 
@@ -112,6 +125,14 @@ M8 row lifecycle behavior:
 - `Add row` appends at the end, while `Add after` inserts after a specific row;
 - new rows require at least one non-blank field.
 
+P014 Library v3 text metadata behavior:
+
+- `Изменить` edits text-level metadata only, not row text.
+- Blank title is rejected before repository write.
+- Tags are parsed from comma/space/newline-separated input, normalized without leading `#`, deduped, and persisted as JSON.
+- Source and topic are nullable fields; empty UI fields clear the stored value.
+- Saving metadata refreshes summaries and selected text state.
+
 ## Testing Plan
 
 - Save/load round trip with Hebrew, niqqud, transliteration, Russian, tags.
@@ -125,6 +146,8 @@ M8 row lifecycle behavior:
 - Delete compacts order and cascades row audio links.
 - Archive hides text by default but keeps data.
 - App restart safety: close/reopen DB and read saved text.
+- Schema migration 1 to 2 adds nullable `source_label` and `topic` without losing existing rows.
+- Text metadata update persists title, level, tags, source, and topic without regenerating rows.
 
 Implemented test file:
 

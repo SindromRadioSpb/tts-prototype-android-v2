@@ -192,6 +192,36 @@ M9 tests do not instantiate Android Keystore directly and do not use real provid
 
 These tests use stub HTTP clients and fake stores. They intentionally do not call real Google endpoints and do not require real provider credentials.
 
+## Current P014 Classic Mobile v4 UI Coverage
+
+`ClassicModeViewModelTest` covers:
+
+- opening a saved library text into Classic Mode;
+- preserving saved text ID/source text after open;
+- visible message for the resume path when row progress metadata is not yet available.
+
+`LibraryViewModelTest` covers:
+
+- starting text-level metadata editing from a selected text or summary;
+- saving `TITLE*`, `LEVEL`, comma/space-separated `TAGS`, `SOURCE`, and `TEMA`;
+- rejecting blank metadata title;
+- archive/delete lifecycle still works from the Library v3 card actions.
+
+`RoomLibraryRepositoryTest` covers:
+
+- persisting Library v3 text metadata fields `source_label` and `topic`;
+- updating metadata without regenerating rows.
+
+`AppDatabaseMigrationTest` covers:
+
+- Room schema version 2 migration preserving existing v1 text rows and adding nullable metadata columns.
+
+`LibraryZipExportRepositoryTest` covers:
+
+- exporting `source_label` and `topic` in `library/library.json`.
+
+P014 does not include Compose UI tests or emulator screenshots. Manual evidence remains required for the Classic main screen, Library v3 dropdowns, action-card clipping, metadata editor with IME open, and Settings JSON credential target controls.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.

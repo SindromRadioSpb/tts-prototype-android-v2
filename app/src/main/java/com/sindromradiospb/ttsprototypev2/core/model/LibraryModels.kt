@@ -9,6 +9,8 @@ data class LibraryText(
     val title: String,
     val level: String? = null,
     val tags: List<String> = emptyList(),
+    val sourceLabel: String? = null,
+    val topic: String? = null,
     val sourceText: String,
     val sourceMeta: SourceMeta? = null,
     val ttsProfile: TtsProfile? = null,

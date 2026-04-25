@@ -126,6 +126,27 @@ class ClassicModeViewModelTest {
     }
 
     @Test
+    fun openLibraryTextLoadsSavedRowsIntoClassicMode() = runTest(mainDispatcherRule.testDispatcher) {
+        val repository = FakeLibraryRepository()
+        val viewModel = viewModel(repository)
+
+        viewModel.onSourceTextChanged("שלום עולם")
+        viewModel.generateTable()
+        advanceUntilIdle()
+        viewModel.saveCurrent()
+        advanceUntilIdle()
+        viewModel.onSourceTextChanged("אחר")
+        viewModel.openLibraryText("saved-1", resume = true)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("שלום עולם", state.sourceText)
+        assertEquals("saved-1", state.savedTextId)
+        assertEquals("Library: שלום עולם", state.generationLabel)
+        assertTrue(state.message.orEmpty().contains("Progress metadata is not available yet"))
+    }
+
+    @Test
     fun speakSourceUsesSelectedTtsProvider() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = viewModel(
             ttsProviders = TtsProviderRegistry(
@@ -196,6 +217,13 @@ private class FakeLibraryRepository : LibraryRepository {
 
     override fun observeTexts(includeArchived: Boolean): Flow<List<LibraryTextSummary>> = summaries
 
+    override suspend fun getText(textId: String): LibraryText =
+        requireNotNull(lastSavedText?.takeIf { it.id == textId }) { "Library text not found: $textId" }
+
+    override suspend fun markOpened(textId: String, openedAt: String) {
+        lastSavedText = lastSavedText?.takeIf { it.id == textId }?.copy(lastOpenedAt = openedAt)
+    }
+
     override suspend fun saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult {
         if (savedRequests.any { it.sourceText == input.sourceText }) {
             return SaveTextResult.Conflict(existingTextId = "saved-1", textKey = "fake-key")
@@ -214,16 +242,24 @@ private class FakeLibraryRepository : LibraryRepository {
             createdAt = "2026-04-25T02:00:00Z",
             updatedAt = "2026-04-25T02:00:00Z",
         )
+        lastSavedText = saved
         summaries.value = listOf(
             LibraryTextSummary(
                 textId = saved.id,
                 textKey = saved.textKey,
                 title = saved.title,
                 level = saved.level,
+                tags = saved.tags,
+                sourceLabel = saved.sourceLabel,
+                topic = saved.topic,
+                createdAt = saved.createdAt,
                 updatedAt = saved.updatedAt,
+                lastOpenedAt = saved.lastOpenedAt,
                 isArchived = false,
             ),
         )
         return SaveTextResult.Saved(saved)
     }
+
+    private var lastSavedText: LibraryText? = null
 }

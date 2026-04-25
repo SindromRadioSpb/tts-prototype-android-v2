@@ -76,6 +76,9 @@ data class ExportLibraryText(
     val title: String,
     val level: String?,
     val tags: List<String>,
+    @SerialName("source_label")
+    val sourceLabel: String?,
+    val topic: String?,
     @SerialName("source_text")
     val sourceText: String,
     @SerialName("source_meta")

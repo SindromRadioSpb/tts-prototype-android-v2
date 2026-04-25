@@ -49,6 +49,8 @@ class RoomLibraryRepositoryTest {
         val loaded = repository.getText(saved.id)
 
         assertEquals("Greeting", loaded.title)
+        assertEquals("youtube", loaded.sourceLabel)
+        assertEquals("lyrics", loaded.topic)
         assertEquals(listOf("hebrew", "study"), loaded.tags)
         assertEquals("שלום עולם", loaded.sourceText)
         assertEquals(2, loaded.rows.size)
@@ -192,6 +194,32 @@ class RoomLibraryRepositoryTest {
     }
 
     @Test
+    fun updateTextMetadataPersistsLibraryV3Fields() = runTest {
+        val saved = (repository.saveGeneratedText(sampleRequest()) as SaveTextResult.Saved).text
+
+        val updated = repository.updateTextMetadata(
+            saved.id,
+            TextMetadataUpdate(
+                title = "Position 1. כולם גנבים - אושר כהן",
+                level = "alef+",
+                tags = listOf("hitlist.mako", "song", "hitlist.mako"),
+                sourceLabel = "https://www.youtube.com/watch?v=demo",
+                topic = "lyrics",
+            ),
+        )
+        val summary = repository.observeTexts(includeArchived = true).first().single()
+
+        assertEquals("Position 1. כולם גנבים - אושר כהן", updated.title)
+        assertEquals("alef+", updated.level)
+        assertEquals(listOf("hitlist.mako", "song"), updated.tags)
+        assertEquals("https://www.youtube.com/watch?v=demo", updated.sourceLabel)
+        assertEquals("lyrics", updated.topic)
+        assertEquals(updated.sourceLabel, summary.sourceLabel)
+        assertEquals(updated.topic, summary.topic)
+        assertEquals(updated.tags, summary.tags)
+    }
+
+    @Test
     fun archiveHidesTextFromDefaultSummaryFlow() = runTest {
         val saved = (repository.saveGeneratedText(sampleRequest()) as SaveTextResult.Saved).text
 
@@ -249,6 +277,8 @@ class RoomLibraryRepositoryTest {
     ): SaveGeneratedTextRequest =
         SaveGeneratedTextRequest(
             title = "Greeting",
+            sourceLabel = "youtube",
+            topic = "lyrics",
             tags = tags,
             sourceText = "שלום עולם",
             tableModelMeta = TableModelMeta(

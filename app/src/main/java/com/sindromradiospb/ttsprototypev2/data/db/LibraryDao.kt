@@ -13,7 +13,12 @@ data class LibraryTextSummaryRow(
     val textKey: String,
     val title: String,
     val level: String?,
+    val tagsJson: String,
+    val sourceLabel: String?,
+    val topic: String?,
+    val createdAt: String,
     val updatedAt: String,
+    val lastOpenedAt: String?,
     val isArchived: Boolean,
 )
 
@@ -21,11 +26,13 @@ data class LibraryTextSummaryRow(
 interface LibraryDao {
     @Query(
         """
-        SELECT text_id AS textId, text_key AS textKey, title, level, updated_at AS updatedAt,
-               is_archived AS isArchived
+        SELECT text_id AS textId, text_key AS textKey, title, level,
+               tags_json AS tagsJson, source_label AS sourceLabel, topic,
+               created_at AS createdAt, updated_at AS updatedAt,
+               last_opened_at AS lastOpenedAt, is_archived AS isArchived
         FROM library_texts
         WHERE (:includeArchived = 1 OR is_archived = 0)
-        ORDER BY updated_at DESC
+        ORDER BY COALESCE(last_opened_at, updated_at) DESC, updated_at DESC, title COLLATE NOCASE ASC
         """,
     )
     fun observeTextSummaries(includeArchived: Boolean): Flow<List<LibraryTextSummaryRow>>

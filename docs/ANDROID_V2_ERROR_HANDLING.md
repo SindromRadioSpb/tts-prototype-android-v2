@@ -60,6 +60,12 @@ Settings must distinguish:
 
 Secret values and external file paths must not appear in user-facing error details, logs, crash reports, exports, or screenshots intended for documentation.
 
+P014 UI status:
+
+- Settings shows disabled `Прикрепить JSON` and `Проверить` controls until the SAF credential flow is implemented.
+- Disabled target controls must show a visible pending/coming-later state, not fail silently.
+- The interim single-line credential path still uses existing validation errors for blank, multiline, oversized, or private-key/service-account-shaped values.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)

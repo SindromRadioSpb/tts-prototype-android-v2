@@ -14,8 +14,9 @@ M6 export ZIP with audio is implemented in commit `4ac57c9`.
 M7 library UI and saved text lifecycle is implemented in commit `4396158`.
 M8 editing/reorder/reset behavior is implemented in commit `e17cd9e`.
 M9 API key/settings/security is implemented in commit `7e3a082`.
-M9 follow-up keyed provider smoke adapters are in progress: stored single-line credentials now feed GCP Translate, Gemini, and Google Online TTS HTTP adapters, while raw service account JSON remains blocked.
+M9 follow-up keyed provider smoke adapters are implemented in commit `0f3990c`: stored single-line credentials now feed GCP Translate, Gemini, and Google Online TTS HTTP adapters, while raw service account JSON remains blocked.
 Classic Mode / Library v3 mobile parity based on v4 screenshots is now specified in `docs/ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md`.
+P014 implements the first native v4 parity pass: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards without clipping, text-level metadata editor, and Room schema version 2 metadata fields.
 
 Completed:
 
@@ -29,7 +30,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Next recommended implementation milestone is a Classic Mode / Library v3 mobile UI parity patch based on the v4 screenshots, before further IDE Mode expansion. A manual device/emulator smoke pass for Settings, translation, and TTS should also run before release hardening.
+- Next recommended implementation milestone is M12/M13 UI evidence hardening: capture emulator/device screenshots for Classic portrait, Library v3 filters/dropdowns/cards, metadata editor with keyboard, and then continue with JSON credential file attachment and audio playback UI wiring.
 
 ## Dependency Graph
 
@@ -62,12 +63,12 @@ M13 -> M14
 | M4 - TTS/audio providers | High | Implement `google_online_tts` and Android TextToSpeech fallback contracts. | Fake TTS tests; platform TTS smoke still pending on emulator/device. | Keep playback disabled with visible unsupported state. | Completed: `79d5b57 feat(audio): add tts provider contracts`. |
 | M5 - Audio storage and playback | High | Store row/text audio files, play them, mark stale/missing states. | Audio repository tests, manual playback evidence. | Retain metadata but hide playback controls if playback fails. | Completed in `c82a734`; manual playback evidence remains a release hardening item. |
 | M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | Completed in `4ac57c9`; SAF/share UI evidence remains future work. |
-| M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, save/update library texts, and converge on Library v3 modal/screen parity. | Repository tests, Compose UI tests, v4 screenshot evidence. | Keep current Library tab usable while implementing Classic-owned Library v3 entry. | Completed in `4396158`; v4 parity spec added later and requires follow-up implementation. |
-| M8 - Editing/reorder/reset behavior | Medium | Edit row fields plus text-level metadata editor parity where scoped. | `LibraryViewModelTest`, repository regression tests, metadata editor UI evidence. | Disable mutation actions if persistence invariant breaks. | Completed in `e17cd9e`; v4 metadata editor parity remains future work. |
+| M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, save/update library texts, and converge on Library v3 modal/screen parity. | Repository tests, Compose UI tests, v4 screenshot evidence. | Keep current Library tab usable while implementing Classic-owned Library v3 entry. | Completed in `4396158`; P014 replaces the rough separate Library tab with Classic-owned Library v3 modal behavior. |
+| M8 - Editing/reorder/reset behavior | Medium | Edit row fields plus text-level metadata editor parity where scoped. | `LibraryViewModelTest`, repository regression tests, metadata editor UI evidence. | Disable mutation actions if persistence invariant breaks. | Completed in `e17cd9e`; P014 adds text-level metadata editor parity for title/level/tags/source/topic. |
 | M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows, keyed providers, and migrate target UX to JSON credential attachment/validation. | Settings repository/ViewModel tests, no-secret export/log tests, keyed adapter contract tests, SAF credential UI tests. | Disable only failing keyed provider while preserving visible errors and no silent fallback. | Completed in `7e3a082`; keyed adapter follow-up complete; JSON credential attachment remains future UI work. |
 | M10 - IDE Mode experimental integration | Medium | Keep IDE Mode separate and experimental with shared models only. | Navigation tests, no Classic dependency regression. | Hide IDE entry if it destabilizes Classic. | `feat(ide): define experimental workspace shell`. |
 | M11 - Import/compatibility layer | Medium | Import Android ZIP and compatible old web JSON where possible. | Import fixture tests and partial import tests. | Import remains read-only preview until safe. | `feat(import): add library compatibility import`. |
-| M12 - Premium UI/UX polish | Medium | Implement and verify v4 screenshot-based Classic/Library mobile parity, accessibility, RTL, insets, long text, no clipped actions. | UI DoD evidence, screenshot/manual smoke, accessibility smoke tests. | Keep functional UI if visual polish causes regressions. | `feat(ui): implement classic library v4 mobile parity`. |
+| M12 - Premium UI/UX polish | Medium | Implement and verify v4 screenshot-based Classic/Library mobile parity, accessibility, RTL, insets, long text, no clipped actions. | UI DoD evidence, screenshot/manual smoke, accessibility smoke tests. | Keep functional UI if visual polish causes regressions. | P014 implements the first code pass; manual evidence and Compose UI tests remain required. |
 | M13 - QA hardening | High | Broaden regression suite and stabilize CI expectations. | Full required commands plus targeted instrumented tests. | Fix failing behavior, not tests, unless test is wrong. | `test(android): harden migration regression suite`. |
 | M14 - Release readiness | High | Prepare release build, signing plan, privacy checks, release blocker list. | Release checklist and manual QA sign-off. | Do not release until blockers are closed. | `chore(release): prepare android v2 release readiness`. |
 
@@ -266,7 +267,7 @@ Still out of scope for M7:
 - Row editing/reorder/reset UI, handled by M8.
 - SAF/share export UI wiring.
 - Compose screenshot/manual device evidence.
-- v4 screenshot parity for Library v3 modal/screen, filters, dropdowns, tag chips, and action-card clipping fixes.
+- v4 screenshot parity screenshot evidence. P014 implements the first native modal/card/filter pass, but manual evidence remains required.
 
 ## M8 Implementation Status
 
@@ -286,7 +287,7 @@ Still out of scope for M8:
 - Compose screenshot/manual device evidence.
 - SAF/share export UI wiring.
 - TTS playback controls on row cards.
-- v4 text-level metadata editor parity for `TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, `TEMA`, `Cancel`, `Save`, and keyboard-safe behavior.
+- Manual keyboard evidence for v4 text-level metadata editor parity. P014 implements the editor fields and Room metadata persistence.
 
 ## M9 Implementation Status
 
@@ -337,10 +338,33 @@ Specified in docs-only patch P013:
 
 Implementation required after P013:
 
-- Replace current rough Library tab experience with Classic-owned Library v3 modal/screen.
-- Add filter/search/sort/tag state and repository queries.
-- Add text-level metadata editor matching v4 screenshot.
+- Capture emulator/device evidence for the Classic-owned Library v3 modal/screen.
+- Move Library v3 filtering/sorting from UI-local derived state into repository/query layer if the list grows beyond current in-memory summary scale.
+- Verify text-level metadata editor with IME open and mixed Hebrew/Russian/Latin values.
 - Add JSON credential attach/validate/delete UI and update provider settings implementation accordingly.
+
+## P014 Classic Mobile v4 UI Implementation Status
+
+Implemented in this patch:
+
+- Classic Mode main screen now follows the v4 mobile hierarchy more closely: `Лимиты и квоты`, `Classic Mode`, a visible `📚 Библиотека` entry point, source input, provider settings, generated row cards, save action, and source-level `🔊 Озвучить`.
+- Library v3 is opened from Classic Mode as a modal/screen instead of a separate top-level mode.
+- Library v3 includes header actions `Экспорт Библиотеки`, `Импорт Библиотеки`, `Обновить`, and `Закрыть`.
+- Library v3 implements the required filter order: search, level, tags mode, search scope, sort, `Сохранить текущую таблицу`, tag chips, and `Сбросить`.
+- Saved text cards include position, title, level/topic badges, source/source copy placeholder, timestamps, tag chips, and stacked `Открыть`, `Продолжить`, `Изменить`, `В архив`, `Удалить` actions so narrow phones do not clip actions.
+- `Изменить` opens a text-level metadata editor for `TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, and `TEMA`.
+- Room schema version 2 adds nullable `library_texts.source_label` and `library_texts.topic`; export JSON includes these fields.
+- `ClassicModeViewModel.openLibraryText` loads saved rows into Classic Mode and marks the text opened.
+- Settings now displays the target JSON credential actions (`Прикрепить JSON`, `Проверить`, `Удалить ключ`) while keeping the previous single-line credential field explicitly marked as interim.
+
+Still out of scope after P014:
+
+- Manual emulator/device screenshots for Classic portrait, Library v3 filters/dropdowns/cards, metadata editor with keyboard, and Settings JSON credential target controls.
+- Actual SAF JSON file picker, parser, provider-specific JSON validation, and health-check buttons.
+- Real SAF export/import UI wiring for Library header buttons.
+- ClipboardManager integration for the source copy button.
+- Compose UI tests for dropdown expansion, action-card clipping, and metadata validation.
+- Reconciliation of the previous M8 row-level edit controls with the v4 Classic-owned Library flow; repository/ViewModel row editing remains covered, but UI evidence must confirm the final access path.
 
 ## Blocking Questions
 

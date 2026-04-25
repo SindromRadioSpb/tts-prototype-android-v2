@@ -620,6 +620,14 @@ data class CredentialFileUiState(
 
 ## Acceptance Criteria
 
+- P014 implementation status:
+  - Classic Mode main screen now exposes `📚 Библиотека` from the primary workflow and keeps Settings/IDE separate.
+  - Library v3 is implemented as a Classic-owned modal/screen with header actions, filters, dropdowns, tag chips, list cards, stacked actions, delete confirmation, and metadata editor.
+  - The metadata editor persists `TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, and `TEMA` through Room schema version 2.
+  - `Открыть` and `Продолжить` load saved rows back into Classic Mode and mark the text opened.
+  - Settings shows target JSON credential actions as disabled future controls while keeping interim single-line key input for smoke tests.
+  - Manual screenshots, keyboard evidence, actual SAF JSON attachment, export/import header flows, source clipboard copy, and Compose UI tests remain required follow-up evidence/work.
+
 - Screenshots are copied into `docs/ui/v4`.
 - This spec references all copied screenshots.
 - [Classic Mode UI Spec](../ANDROID_V2_CLASSIC_MODE_UI_SPEC.md) links here.

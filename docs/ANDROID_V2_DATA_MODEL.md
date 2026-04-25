@@ -8,11 +8,11 @@ This is the implementation spec and current Room baseline for M1.
 
 Implemented in Android code:
 
-- Room database: `AppDatabase`, schema version `1`.
+- Room database: `AppDatabase`, schema version `2`.
 - Entities: `LibraryTextEntity`, `LibraryRowEntity`, `AudioAssetEntity`, `RowAudioEntity`, `TextAudioEntity`, `ExportHistoryEntity`, `ProviderCallLogEntity`.
 - DAO: `LibraryDao`.
 - Repository: `RoomLibraryRepository`.
-- Exported schema: `app/schemas/com.sindromradiospb.ttsprototypev2.data.db.AppDatabase/1.json`.
+- Exported schemas: `app/schemas/com.sindromradiospb.ttsprototypev2.data.db.AppDatabase/1.json` and `app/schemas/com.sindromradiospb.ttsprototypev2.data.db.AppDatabase/2.json`.
 
 Not implemented yet:
 
@@ -44,6 +44,8 @@ Secrets are stored outside Room in Android Keystore-backed encrypted preferences
 - `title TEXT NOT NULL`
 - `level TEXT NULL`
 - `tags_json TEXT NOT NULL DEFAULT '[]'`
+- `source_label TEXT NULL`
+- `topic TEXT NULL`
 - `source_text TEXT NOT NULL`
 - `source_meta_json TEXT NULL`
 - `table_model_meta_json TEXT NULL`
@@ -146,7 +148,7 @@ No raw input text longer than the configured diagnostic limit may be stored in p
 
 ## M5 Audio Metadata Status
 
-M5 writes row audio through existing schema version 1 tables; no Room migration is required.
+M5 writes row audio through existing audio tables. P014 moves Room to schema version 2 for Library v3 metadata fields; audio tables are unchanged.
 
 - `audio_assets.relative_path` stores the app-internal relative path, never an absolute path.
 - `audio_assets.asset_key` is accepted for file naming only when it matches `[A-Za-z0-9._-]+`; unsafe provider output is treated as an invalid response.
@@ -160,6 +162,7 @@ Text-level audio remains planned and uses the existing `text_audio` table later.
 
 - Save new generated text: insert `library_texts` and all `library_rows` in one transaction.
 - Update existing generated text: update `library_texts`, preserve stable row IDs where row hashes/order permit, insert/delete changed rows in one transaction.
+- Update text metadata: update `title`, `level`, normalized `tags_json`, `source_label`, `topic`, and `updated_at` in one transaction without regenerating rows.
 - Edit row: update row fields and edit metadata, mark linked default audio stale if Hebrew or niqqud changes, in one transaction.
 - Reorder rows: update all affected `order_index` values in one transaction.
 - Delete text: cascade rows and audio links; audio files become orphan candidates but are not deleted until cleanup confirms no links remain.
@@ -193,7 +196,8 @@ Excluded from first Android Room schema:
 
 ## Schema Versioning
 
-- Room schema version starts at `1`.
+- Room schema version started at `1`.
+- Version `2` adds nullable `library_texts.source_label` and `library_texts.topic` for Library v3 metadata parity. Migration `MIGRATION_1_2` uses additive `ALTER TABLE` statements and preserves existing rows.
 - Every schema change must add a migration test and update this document.
 - Export schema has its own `export_schema_version`, starting at `1`.
 

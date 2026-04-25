@@ -25,7 +25,12 @@ data class LibraryTextSummary(
     val textKey: String,
     val title: String,
     val level: String?,
+    val tags: List<String>,
+    val sourceLabel: String?,
+    val topic: String?,
+    val createdAt: String,
     val updatedAt: String,
+    val lastOpenedAt: String?,
     val isArchived: Boolean,
 )
 
@@ -33,6 +38,8 @@ data class SaveGeneratedTextRequest(
     val title: String,
     val level: String? = null,
     val tags: List<String> = emptyList(),
+    val sourceLabel: String? = null,
+    val topic: String? = null,
     val sourceText: String,
     val sourceMeta: SourceMeta? = null,
     val tableModelMeta: TableModelMeta? = null,
@@ -61,6 +68,14 @@ data class EditableRowFields(
     val values: Map<RowField, String>,
 )
 
+data class TextMetadataUpdate(
+    val title: String,
+    val level: String?,
+    val tags: List<String>,
+    val sourceLabel: String?,
+    val topic: String?,
+)
+
 sealed class SaveTextResult {
     data class Saved(val text: LibraryText) : SaveTextResult()
     data class Conflict(val existingTextId: String, val textKey: String) : SaveTextResult()
@@ -83,6 +98,8 @@ data class AudioAssetInput(
 
 interface LibraryRepository {
     fun observeTexts(includeArchived: Boolean): Flow<List<LibraryTextSummary>>
+    suspend fun getText(textId: String): LibraryText
+    suspend fun markOpened(textId: String, openedAt: String)
     suspend fun saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult
 }
 
@@ -105,13 +122,18 @@ class RoomLibraryRepository(
                     textKey = it.textKey,
                     title = it.title,
                     level = it.level,
+                    tags = json.decodeFromString(it.tagsJson),
+                    sourceLabel = it.sourceLabel,
+                    topic = it.topic,
+                    createdAt = it.createdAt,
                     updatedAt = it.updatedAt,
+                    lastOpenedAt = it.lastOpenedAt,
                     isArchived = it.isArchived,
                 )
             }
         }
 
-    suspend fun getText(textId: String): LibraryText =
+    override suspend fun getText(textId: String): LibraryText =
         database.withTransaction { requireText(textId) }
 
     override suspend fun saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult =
@@ -292,12 +314,29 @@ class RoomLibraryRepository(
         }
     }
 
-    suspend fun markOpened(textId: String, openedAt: String) {
+    override suspend fun markOpened(textId: String, openedAt: String) {
         database.withTransaction {
             val current = dao.getText(textId) ?: error("Library text not found: $textId")
             dao.updateText(current.copy(lastOpenedAt = openedAt))
         }
     }
+
+    suspend fun updateTextMetadata(textId: String, metadata: TextMetadataUpdate): LibraryText =
+        database.withTransaction {
+            require(metadata.title.isNotBlank()) { "Title is required" }
+            val current = dao.getText(textId) ?: error("Library text not found: $textId")
+            dao.updateText(
+                current.copy(
+                    title = metadata.title.trim(),
+                    level = metadata.level?.trim()?.takeIf { it.isNotEmpty() },
+                    tagsJson = json.encodeToString(normalizeTags(metadata.tags)),
+                    sourceLabel = metadata.sourceLabel?.trim()?.takeIf { it.isNotEmpty() },
+                    topic = metadata.topic?.trim()?.takeIf { it.isNotEmpty() },
+                    updatedAt = clock(),
+                ),
+            )
+            requireText(textId)
+        }
 
     suspend fun linkDefaultRowAudio(rowId: String, input: AudioAssetInput) {
         database.withTransaction {
@@ -348,6 +387,8 @@ class RoomLibraryRepository(
             title = title,
             level = level,
             tagsJson = json.encodeToString(normalizeTags(tags)),
+            sourceLabel = sourceLabel?.trim()?.takeIf { it.isNotEmpty() },
+            topic = topic?.trim()?.takeIf { it.isNotEmpty() },
             sourceText = sourceText,
             sourceMetaJson = sourceMeta?.let { json.encodeToString(it) },
             tableModelMetaJson = tableModelMeta?.let { json.encodeToString(it) },
@@ -390,6 +431,8 @@ class RoomLibraryRepository(
             title = title,
             level = level,
             tags = json.decodeFromString(tagsJson),
+            sourceLabel = sourceLabel,
+            topic = topic,
             sourceText = sourceText,
             sourceMeta = sourceMetaJson?.let { json.decodeFromString(it) },
             ttsProfile = ttsProfileJson?.let { json.decodeFromString(it) },

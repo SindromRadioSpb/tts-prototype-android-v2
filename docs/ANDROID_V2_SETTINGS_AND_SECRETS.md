@@ -36,6 +36,13 @@ Current M9 status values:
 - `gemini_legacy`: currently configurable as a single-line API key and used by the keyed adapter. Target UI must change to provider-specific JSON wrapper unless an ADR supersedes it.
 - `google_online_tts`: currently configurable as a single-line credential and used by the keyed adapter. Target UI must change to JSON attachment/validation; raw service account JSON/private keys still must not be embedded in the APK.
 
+P014 UI status:
+
+- Settings shows the target controls `Прикрепить JSON`, `Проверить`, and `Удалить ключ` for each provider.
+- `Прикрепить JSON` and `Проверить` are currently disabled with visible pending wording; they must not imply that SAF credential validation is already implemented.
+- The single-line credential field remains available only as an interim smoke-check path for restricted keys.
+- Future JSON attachment implementation must replace or demote the interim field and update this document, provider docs, error handling, traceability, risk register, and UI evidence.
+
 ## Target JSON Credential Attachment Flow
 
 Provider credentials must be supplied through Android file picker / Storage Access Framework.

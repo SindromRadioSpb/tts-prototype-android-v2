@@ -187,6 +187,56 @@ class ClassicModeViewModel(
         }
     }
 
+    fun openLibraryText(textId: String, resume: Boolean = false) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isGenerating = true, message = null) }
+            runCatching {
+                val openedAt = clock()
+                repository.markOpened(textId, openedAt)
+                repository.getText(textId)
+            }.fold(
+                onSuccess = { text ->
+                    val provider = text.tableModelMeta?.provider ?: _uiState.value.translationProvider
+                    _uiState.update {
+                        it.copy(
+                            sourceText = text.sourceText,
+                            translationProvider = provider,
+                            ttsProvider = text.ttsProfile?.providerId ?: it.ttsProvider,
+                            rows = text.rows.sortedBy { row -> row.orderIndex }.map { row ->
+                                ClassicGeneratedRowUi(
+                                    orderIndex = row.orderIndex,
+                                    hebrewPlain = row.hebrewPlain,
+                                    hebrewNiqqud = row.hebrewNiqqud,
+                                    translit = row.translit,
+                                    translitRu = row.translitRu,
+                                    russian = row.russian,
+                                )
+                            },
+                            isGenerating = false,
+                            savedTextId = text.id,
+                            generatedAt = text.tableModelMeta?.generatedAt ?: text.updatedAt,
+                            generationLabel = "Library: ${text.title}",
+                            provenance = null,
+                            message = if (resume) {
+                                "Opened ${text.title}. Progress metadata is not available yet; resumed at the loaded table."
+                            } else {
+                                "Opened ${text.title} from local library."
+                            },
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isGenerating = false,
+                            message = "Could not open library text: ${error.message.orEmpty()}",
+                        )
+                    }
+                },
+            )
+        }
+    }
+
     fun speakSource() {
         val current = uiState.value
         if (current.sourceText.isBlank()) {
@@ -247,6 +297,8 @@ class ClassicModeViewModel(
                 ?: "Classic Mode text",
             level = null,
             tags = listOf("classic-mode", "m3-translation-provider"),
+            sourceLabel = "classic_mode",
+            topic = null,
             sourceText = sourceText,
             sourceMeta = SourceMeta(origin = "classic_mode_m3_translation_provider", importedAt = now),
             tableModelMeta = TableModelMeta(

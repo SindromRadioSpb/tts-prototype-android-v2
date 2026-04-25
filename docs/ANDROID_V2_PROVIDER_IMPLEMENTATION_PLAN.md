@@ -42,6 +42,13 @@ P013 credential UI target:
 - provider adapters should continue to receive sanitized credential values from `ProviderSettingsRepository`, not file paths or raw UI state;
 - validation should reject malformed JSON, wrong provider type, missing required fields, and private-key material that would be unsafe on-device.
 
+P014 UI status:
+
+- Settings exposes the target JSON credential controls (`Прикрепить JSON`, `Проверить`, `Удалить ключ`) beside provider status.
+- JSON attachment and health-check buttons are visibly disabled/pending; no provider adapter reads external file paths or raw JSON UI state.
+- The existing adapters still receive sanitized values from `ProviderSettingsRepository`.
+- The next provider/settings patch must add SAF file picking, provider-specific JSON parser tests, validation error mapping, and health-check wiring before enabling those buttons.
+
 ## Allowed Translation Providers
 
 | Provider ID | Purpose | Runtime notes | Production risk |

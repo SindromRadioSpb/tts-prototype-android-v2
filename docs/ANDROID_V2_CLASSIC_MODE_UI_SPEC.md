@@ -129,6 +129,17 @@ P013 v4 UI spec decision:
 - The target Settings UX for provider credentials is JSON file attachment and validation through Android Storage Access Framework, not manual raw text entry.
 - The current single-line key UI is an interim implementation and must be replaced or demoted when the JSON credential flow is implemented.
 
+P014 behavior:
+
+- Classic Mode now owns the visible `📚 Библиотека` entry point and opens Library v3 as a modal/screen instead of using a separate production Library tab.
+- The Classic main screen follows the v4 mobile hierarchy with quota/status strip, source input, provider settings, generated row cards, save action, and source-level `🔊 Озвучить`.
+- Library v3 renders the v4 filter stack, tag chips, saved text cards, stacked card actions, delete confirmation, and text-level metadata editor.
+- Saved text `Открыть` and `Продолжить` load rows back into Classic Mode and update `last_opened_at`.
+- Text-level metadata edits persist `TITLE*`, `LEVEL`, `TAGS`, `SOURCE`, and `TEMA` into Room schema version 2.
+- Settings shows target JSON credential controls as disabled future actions while the interim single-line smoke path remains available.
+- Manual screenshot, landscape, IME, accessibility, and narrow-phone action evidence remain pending in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
+- The previous M8 row-level edit/reset/reorder repository and ViewModel behavior remains tested, but the final UI access path must be reconciled with the v4 Classic-owned Library flow before release hardening.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.
@@ -143,6 +154,7 @@ P013 v4 UI spec decision:
 - [ ] Landscape screenshot or written result recorded.
 - [ ] Long Hebrew text verified.
 - [ ] Keyboard behavior verified.
+- [x] Library v3 modal/filter/card/metadata implementation has code-level evidence in P014.
 - [x] Row edit workflow has unit-level evidence through `LibraryViewModelTest`.
 - [ ] Row edit workflow has manual device/emulator evidence.
 - [ ] TTS stale/missing states verified.

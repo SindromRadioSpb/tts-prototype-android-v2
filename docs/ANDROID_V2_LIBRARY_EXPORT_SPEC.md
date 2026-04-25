@@ -46,6 +46,8 @@ android-v2-library-export.zip
       "title": "Psalm sample",
       "level": "A2",
       "tags": ["hebrew", "practice"],
+      "source_label": "https://example.com/source",
+      "topic": "lyrics",
       "source_text": "שלום עולם",
       "source_meta": {"origin": "manual"},
       "table_model_meta": {
@@ -129,6 +131,7 @@ Implemented:
 
 - writes `manifest.json`;
 - writes `library/library.json`;
+- includes Library v3 text metadata fields `source_label` and `topic` when present;
 - writes `metadata/missing_audio.json`;
 - copies available row/text audio entries under their app-owned relative `audio/...` paths;
 - writes `export_history` with text, row, audio, missing-audio, partial-backup, schema, status, and error metadata;

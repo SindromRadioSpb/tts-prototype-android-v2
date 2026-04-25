@@ -103,6 +103,8 @@ class LibraryZipExportRepositoryTest {
         assertEquals(1, manifest["row_count"]!!.jsonPrimitive.int)
         assertEquals(1, manifest["audio_count"]!!.jsonPrimitive.int)
         assertEquals("library/library.json", manifest["library_json_path"]!!.jsonPrimitive.content)
+        assertEquals("youtube", library["texts"]!!.jsonArray[0].jsonObject["source_label"]!!.jsonPrimitive.content)
+        assertEquals("lyrics", library["texts"]!!.jsonArray[0].jsonObject["topic"]!!.jsonPrimitive.content)
         assertEquals("שלום", library["texts"]!!.jsonArray[0].jsonObject["rows"]!!.jsonArray[0].jsonObject["hebrew_plain"]!!.jsonPrimitive.content)
         assertEquals("asset-1", library["audio_assets"]!!.jsonArray[0].jsonObject["asset_key"]!!.jsonPrimitive.content)
         assertEquals(0, missingAudio["missing_audio"]!!.jsonArray.size)
@@ -178,6 +180,8 @@ class LibraryZipExportRepositoryTest {
         val result = libraryRepository.saveGeneratedText(
             SaveGeneratedTextRequest(
                 title = "Export test",
+                sourceLabel = "youtube",
+                topic = "lyrics",
                 sourceText = "שלום",
                 tableModelMeta = TableModelMeta(
                     provider = TranslationProviderId.GoogleTranslateFree,

@@ -93,6 +93,12 @@ P013 credential UI target:
 - manual single-line key entry is an interim implementation and must be replaced or demoted;
 - provider docs and tests must cover wrong-provider JSON, malformed JSON, missing fields, and no secret logging.
 
+P014 UI status:
+
+- Settings now displays `Прикрепить JSON`, `Проверить`, and `Удалить ключ` controls for provider credentials.
+- `Прикрепить JSON` and `Проверить` are disabled until SAF parsing/validation is implemented; they are visible target-state controls, not completed behavior.
+- The interim single-line credential field still exists for restricted-key smoke checks and must not be documented or treated as the final production UX.
+
 ## Security Requirements
 
 - No API keys, service account JSON, bearer tokens, or full credential paths in logs.

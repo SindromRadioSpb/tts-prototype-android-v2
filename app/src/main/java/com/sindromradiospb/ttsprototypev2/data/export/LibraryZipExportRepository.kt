@@ -251,6 +251,8 @@ class LibraryZipExportRepository(
                 title = text.title,
                 level = text.level,
                 tags = json.decodeFromString<List<String>>(text.tagsJson),
+                sourceLabel = text.sourceLabel,
+                topic = text.topic,
                 sourceText = text.sourceText,
                 sourceMeta = text.sourceMetaJson?.parseJsonElementOrNull(),
                 tableModelMeta = text.tableModelMetaJson?.parseJsonElementOrNull(),

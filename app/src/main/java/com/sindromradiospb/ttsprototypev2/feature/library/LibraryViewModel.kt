@@ -9,6 +9,7 @@ import com.sindromradiospb.ttsprototypev2.data.repository.EditableRowFields
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.RoomLibraryRepository
 import com.sindromradiospb.ttsprototypev2.data.repository.RowField
+import com.sindromradiospb.ttsprototypev2.data.repository.TextMetadataUpdate
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +29,20 @@ data class LibraryUiState(
     val isAddingRow: Boolean = false,
     val addingAfterRowId: String? = null,
     val rowDraft: LibraryRowDraft = LibraryRowDraft(),
+    val metadataDraft: LibraryTextMetadataDraft? = null,
+    val pendingDeleteTextId: String? = null,
     val isLoading: Boolean = false,
     val message: String? = null,
+)
+
+data class LibraryTextMetadataDraft(
+    val textId: String,
+    val title: String,
+    val level: String,
+    val tagsCsv: String,
+    val source: String,
+    val topic: String,
+    val validationMessage: String? = null,
 )
 
 data class LibraryRowDraft(
@@ -132,16 +145,20 @@ class LibraryViewModel(
 
     fun archiveSelected(archived: Boolean) {
         val selected = uiState.value.selectedText ?: return
+        archiveText(selected.id, archived)
+    }
+
+    fun archiveText(textId: String, archived: Boolean) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             runCatching {
-                repository.archiveText(selected.id, archived)
-                repository.getText(selected.id)
+                repository.archiveText(textId, archived)
+                repository.getText(textId)
             }.fold(
                 onSuccess = { text ->
                     _uiState.update {
                         it.copy(
-                            selectedText = text,
+                            selectedText = if (it.selectedText?.id == textId) text else it.selectedText,
                             isLoading = false,
                             message = if (archived) "Archived ${text.title}." else "Restored ${text.title}.",
                         )
@@ -158,23 +175,114 @@ class LibraryViewModel(
 
     fun deleteSelected() {
         val selected = uiState.value.selectedText ?: return
+        deleteText(selected.id)
+    }
+
+    fun requestDeleteText(textId: String) {
+        _uiState.update { it.copy(pendingDeleteTextId = textId, message = null) }
+    }
+
+    fun cancelDeleteText() {
+        _uiState.update { it.copy(pendingDeleteTextId = null, message = null) }
+    }
+
+    fun deleteText(textId: String) {
+        val title = uiState.value.summaries.firstOrNull { it.textId == textId }?.title
+            ?: uiState.value.selectedText?.takeIf { it.id == textId }?.title
+            ?: "selected text"
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
             runCatching {
-                repository.deleteText(selected.id)
+                repository.deleteText(textId)
             }.fold(
                 onSuccess = {
                     _uiState.update {
                         it.copy(
-                            selectedText = null,
+                            selectedText = if (it.selectedText?.id == textId) null else it.selectedText,
+                            pendingDeleteTextId = null,
                             isLoading = false,
-                            message = "Deleted ${selected.title}.",
+                            message = "Deleted $title.",
                         )
                     }
                 },
                 onFailure = { error ->
                     _uiState.update {
                         it.copy(isLoading = false, message = "Could not delete library text: ${error.message.orEmpty()}")
+                    }
+                },
+            )
+        }
+    }
+
+    fun startEditingMetadata(textId: String) {
+        val selected = uiState.value.selectedText?.takeIf { it.id == textId }
+        val summary = uiState.value.summaries.firstOrNull { it.textId == textId }
+        if (selected == null && summary == null) {
+            _uiState.update { it.copy(message = "Could not find text metadata for editing.") }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                metadataDraft = LibraryTextMetadataDraft(
+                    textId = textId,
+                    title = selected?.title ?: summary?.title.orEmpty(),
+                    level = selected?.level ?: summary?.level.orEmpty(),
+                    tagsCsv = (selected?.tags ?: summary?.tags).orEmpty().joinToString(", "),
+                    source = selected?.sourceLabel ?: summary?.sourceLabel.orEmpty(),
+                    topic = selected?.topic ?: summary?.topic.orEmpty(),
+                ),
+                pendingDeleteTextId = null,
+                message = null,
+            )
+        }
+    }
+
+    fun updateMetadataDraft(draft: LibraryTextMetadataDraft) {
+        _uiState.update { it.copy(metadataDraft = draft.copy(validationMessage = null), message = null) }
+    }
+
+    fun cancelMetadataEdit() {
+        _uiState.update { it.copy(metadataDraft = null, message = null) }
+    }
+
+    fun saveMetadata() {
+        val draft = uiState.value.metadataDraft ?: return
+        if (draft.title.isBlank()) {
+            _uiState.update { it.copy(metadataDraft = draft.copy(validationMessage = "Title обязателен.")) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, message = null) }
+            runCatching {
+                repository.updateTextMetadata(
+                    draft.textId,
+                    TextMetadataUpdate(
+                        title = draft.title,
+                        level = draft.level,
+                        tags = tagsFromCsv(draft.tagsCsv),
+                        sourceLabel = draft.source,
+                        topic = draft.topic,
+                    ),
+                )
+            }.fold(
+                onSuccess = { text ->
+                    _uiState.update {
+                        it.copy(
+                            selectedText = if (it.selectedText?.id == text.id) text else it.selectedText,
+                            metadataDraft = null,
+                            isLoading = false,
+                            message = "Saved metadata for ${text.title}.",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            metadataDraft = draft.copy(
+                                validationMessage = "Could not save metadata: ${error.message.orEmpty()}",
+                            ),
+                        )
                     }
                 },
             )
@@ -353,3 +461,9 @@ private fun rowFieldFromStorageKey(key: String): RowField? =
         "russian" -> RowField.Russian
         else -> null
     }
+
+private fun tagsFromCsv(value: String): List<String> =
+    value.split(",", " ", "\n", "\t")
+        .map { it.trim().removePrefix("#") }
+        .filter { it.isNotEmpty() }
+        .distinct()

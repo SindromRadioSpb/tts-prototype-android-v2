@@ -17,7 +17,8 @@ class TtsPrototypeApplication : Application() {
             applicationContext,
             AppDatabase::class.java,
             "tts-prototype-v2.db",
-        ).build()
+        ).addMigrations(AppDatabase.MIGRATION_1_2)
+            .build()
     }
 
     val libraryRepository: RoomLibraryRepository by lazy {
