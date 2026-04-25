@@ -87,6 +87,11 @@ P021 provider error status:
 - Settings `Проверить` is local format validation, not a Gemini network health check.
 - Gemini runtime failures include the sanitized Google error body so the UI can distinguish invalid keys from request/model/payload errors.
 
+P022 provider error status:
+
+- Gemini successful HTTP responses whose candidate text is malformed, not an object with `rows`, or otherwise unparsable must be `InvalidResponse`, never generic `Unknown`.
+- Gemini parsing accepts both `{ "rows": [...] }` and a top-level row array, and accepts Russian translation under `ru`, `russian`, or `translation`.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)

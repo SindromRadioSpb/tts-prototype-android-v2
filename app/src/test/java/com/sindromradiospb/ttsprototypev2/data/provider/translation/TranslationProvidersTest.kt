@@ -13,6 +13,8 @@ import com.sindromradiospb.ttsprototypev2.data.settings.ProviderSettingsReposito
 import java.io.IOException
 import java.net.URI
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -249,6 +251,54 @@ class TranslationProvidersTest {
     }
 
     @Test
+    fun geminiLegacyParsesArrayRowsAndTranslationAliases() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = geminiCandidateText(
+                        """[{"segment_index":7,"he":"שלום","he_niqqud":"שָׁלוֹם","translit":"shalom","translation":"Привет"}]""",
+                    ),
+                ),
+            ),
+        )
+
+        val response = provider.translate(
+            TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GeminiLegacy),
+        ).getOrThrow()
+
+        assertEquals(7, response.rows.single().segmentIndex)
+        assertEquals("Привет", response.rows.single().russian)
+    }
+
+    @Test
+    fun geminiLegacyMalformedCandidateJsonReturnsInvalidResponse() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = geminiCandidateText("""{"rows": ["""),
+                ),
+            ),
+        )
+
+        val error = assertSuspendProviderException {
+            provider.translate(
+                TranslationRequest(sourceText = "שלום", providerId = TranslationProviderId.GeminiLegacy),
+            ).getOrThrow()
+        }
+
+        assertEquals(ProviderErrorCategory.InvalidResponse, error.category)
+        assertTrue(error.userMessage.contains("Gemini table rows returned an invalid response envelope"))
+    }
+
+    @Test
     fun geminiLegacyMapsBadRequestByErrorBody() = runTest {
         val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
         settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
@@ -377,6 +427,11 @@ private fun serviceAccountJson(): String =
     """.trimIndent()
 
 private fun geminiTableResponse(): String =
+    geminiCandidateText(
+        "{\"segments\":[{\"index\":1,\"he\":\"שלום\"}],\"rows\":[{\"segment_index\":1,\"he\":\"שלום\",\"he_niqqud\":\"שָׁלוֹם\",\"translit\":\"shalom\",\"ru\":\"Здравствуйте\"}]}",
+    )
+
+private fun geminiCandidateText(text: String): String =
     """
     {
       "candidates": [
@@ -384,7 +439,7 @@ private fun geminiTableResponse(): String =
           "content": {
             "parts": [
               {
-                "text": "{\"segments\":[{\"index\":1,\"he\":\"שלום\"}],\"rows\":[{\"segment_index\":1,\"he\":\"שלום\",\"he_niqqud\":\"שָׁלוֹם\",\"translit\":\"shalom\",\"ru\":\"Здравствуйте\"}]}"
+                "text": ${Json.encodeToString(text)}
               }
             ]
           }
