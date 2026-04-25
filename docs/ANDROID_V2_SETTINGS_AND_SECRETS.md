@@ -34,6 +34,7 @@ UI must not show full key, full service account JSON, or full credential file pa
 - Debug builds may use fake providers and fake keys.
 - Release builds must not ship hardcoded keys.
 - CI must not require real API keys.
+- Local service account JSON files may be used only as manual QA inputs during M3/M4/M9 work. They must stay outside the repository, must not be copied into `app/src`, and must not be embedded in `BuildConfig`, resources, logs, screenshots, or exports.
 
 ## Manual QA Checklist
 

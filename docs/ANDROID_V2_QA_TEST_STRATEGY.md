@@ -61,6 +61,19 @@ git status --short --branch
 - archive hidden from default summaries;
 - app restart safety through a file-backed Room database.
 
+## Current M2 Coverage
+
+`ClassicModeViewModelTest` covers:
+
+- blank Hebrew source validation;
+- fake row generation from multiline Hebrew input;
+- selected translation/TTS provider state preservation;
+- save action through the `LibraryRepository` port;
+- local library summary propagation into UI state;
+- duplicate save conflict message without creating a second saved text.
+
+M2 does not yet include Compose UI tests or emulator evidence. Those become mandatory when row editing, playback, SAF export, IME/insets, or accessibility behavior changes.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.

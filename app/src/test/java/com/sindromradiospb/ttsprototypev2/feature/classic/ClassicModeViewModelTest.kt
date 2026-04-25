@@ -1,0 +1,139 @@
+package com.sindromradiospb.ttsprototypev2.feature.classic
+
+import com.sindromradiospb.ttsprototypev2.MainDispatcherRule
+import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
+import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
+import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
+import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
+import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
+import com.sindromradiospb.ttsprototypev2.data.repository.SaveGeneratedTextRequest
+import com.sindromradiospb.ttsprototypev2.data.repository.SaveTextResult
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ClassicModeViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun blankSourceDoesNotGenerateRows() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onSourceTextChanged("   ")
+        viewModel.generateTable()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.rows.isEmpty())
+        assertEquals("Введите Hebrew source text перед генерацией.", state.message)
+    }
+
+    @Test
+    fun generateCreatesFakeRowsAndPreservesSelectedProviders() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onTranslationProviderChanged(TranslationProviderId.GeminiLegacy)
+        viewModel.onTtsProviderChanged(TtsProviderId.SystemFallbackLowQuality)
+        viewModel.onSourceTextChanged("שלום עולם\nבדיקה")
+        viewModel.generateTable()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isGenerating)
+        assertEquals(2, state.rows.size)
+        assertEquals("שלום עולם", state.rows.first().hebrewPlain)
+        assertEquals("m2-fake-sbl-1", state.rows.first().translit)
+        assertEquals(TranslationProviderId.GeminiLegacy, state.translationProvider)
+        assertEquals(TtsProviderId.SystemFallbackLowQuality, state.ttsProvider)
+        assertTrue(state.message.orEmpty().contains("M2 fake generation"))
+    }
+
+    @Test
+    fun saveGeneratedRowsPersistsToLibraryPort() = runTest(mainDispatcherRule.testDispatcher) {
+        val repository = FakeLibraryRepository()
+        val viewModel = viewModel(repository)
+
+        viewModel.onSourceTextChanged("שלום עולם")
+        viewModel.generateTable()
+        advanceUntilIdle()
+        viewModel.saveCurrent()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isSaving)
+        assertEquals(1, repository.savedRequests.size)
+        assertEquals("saved-1", state.savedTextId)
+        assertEquals("Saved to local Room library.", state.message)
+        assertEquals(1, state.libraryTexts.size)
+    }
+
+    @Test
+    fun duplicateSaveShowsConflictWithoutCreatingSecondText() = runTest(mainDispatcherRule.testDispatcher) {
+        val repository = FakeLibraryRepository()
+        val viewModel = viewModel(repository)
+
+        viewModel.onSourceTextChanged("שלום עולם")
+        viewModel.generateTable()
+        advanceUntilIdle()
+        viewModel.saveCurrent()
+        advanceUntilIdle()
+        viewModel.saveCurrent()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.savedRequests.size)
+        assertEquals("This generated text is already saved in the local library.", viewModel.uiState.value.message)
+    }
+
+    private fun viewModel(repository: LibraryRepository = FakeLibraryRepository()): ClassicModeViewModel =
+        ClassicModeViewModel(
+            repository = repository,
+            clock = { "2026-04-25T02:00:00Z" },
+        )
+}
+
+private class FakeLibraryRepository : LibraryRepository {
+    private val summaries = MutableStateFlow<List<LibraryTextSummary>>(emptyList())
+    val savedRequests = mutableListOf<SaveGeneratedTextRequest>()
+
+    override fun observeTexts(includeArchived: Boolean): Flow<List<LibraryTextSummary>> = summaries
+
+    override suspend fun saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult {
+        if (savedRequests.any { it.sourceText == input.sourceText }) {
+            return SaveTextResult.Conflict(existingTextId = "saved-1", textKey = "fake-key")
+        }
+        savedRequests.add(input)
+        val saved = LibraryText(
+            id = "saved-1",
+            textKey = "fake-key",
+            title = input.title,
+            tags = input.tags,
+            sourceText = input.sourceText,
+            sourceMeta = input.sourceMeta,
+            ttsProfile = input.ttsProfile,
+            tableModelMeta = input.tableModelMeta,
+            rows = emptyList(),
+            createdAt = "2026-04-25T02:00:00Z",
+            updatedAt = "2026-04-25T02:00:00Z",
+        )
+        summaries.value = listOf(
+            LibraryTextSummary(
+                textId = saved.id,
+                textKey = saved.textKey,
+                title = saved.title,
+                level = saved.level,
+                updatedAt = saved.updatedAt,
+                isArchived = false,
+            ),
+        )
+        return SaveTextResult.Saved(saved)
+    }
+}

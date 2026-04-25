@@ -16,6 +16,7 @@ Date: 2026-04-25
 | RISK-010 | Process | Documentation can become stale after code patches. | High | Medium | Future agents implement against wrong contracts. | Maintenance policy, patch register, ADR rule. | Enforce every patch. | Active | 2026-04-25 |
 | RISK-011 | Security | Secret leakage in logs, exports, screenshots, or Git. | High | Medium | User credentials exposed. | Secret scan, encrypted settings, export exclusion. | Enforce in M9 and release checks. | Open | 2026-04-25 |
 | RISK-012 | Testing | Robolectric does not currently run unit tests at app target SDK 36. | Low | Medium | Local Room tests fail if default Robolectric SDK follows target SDK. | Pin repository tests to SDK 35 until Robolectric supports SDK 36 in this project. | Revisit during dependency updates. | Mitigated | 2026-04-25 |
+| RISK-013 | Product | M2 fake generation could be mistaken for real translation/transliteration output. | High | Medium | User may trust non-production language output. | Label UI as `M2 fake`, tag saved texts as `m2-fake-generation`, and keep real provider work in M3/M4. | Remove fake output from production path once M3/M4 are complete. | Active | 2026-04-25 |
 
 ## Related Docs
 

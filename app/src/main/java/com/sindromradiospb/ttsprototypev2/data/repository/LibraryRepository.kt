@@ -81,6 +81,11 @@ data class AudioAssetInput(
     val isMissing: Boolean = false,
 )
 
+interface LibraryRepository {
+    fun observeTexts(includeArchived: Boolean): Flow<List<LibraryTextSummary>>
+    suspend fun saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult
+}
+
 class RoomLibraryRepository(
     private val database: AppDatabase,
     private val clock: () -> String = { Instant.now().toString() },
@@ -89,10 +94,10 @@ class RoomLibraryRepository(
         encodeDefaults = true
         ignoreUnknownKeys = true
     },
-) {
+) : LibraryRepository {
     private val dao = database.libraryDao()
 
-    fun observeTexts(includeArchived: Boolean): Flow<List<LibraryTextSummary>> =
+    override fun observeTexts(includeArchived: Boolean): Flow<List<LibraryTextSummary>> =
         dao.observeTextSummaries(includeArchived).map { rows ->
             rows.map {
                 LibraryTextSummary(
@@ -109,7 +114,7 @@ class RoomLibraryRepository(
     suspend fun getText(textId: String): LibraryText =
         database.withTransaction { requireText(textId) }
 
-    suspend fun saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult =
+    override suspend fun saveGeneratedText(input: SaveGeneratedTextRequest): SaveTextResult =
         database.withTransaction {
             val textKey = computeTextKey(input)
             val existing = dao.getTextByKey(textKey)

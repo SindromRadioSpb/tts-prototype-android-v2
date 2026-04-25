@@ -19,10 +19,16 @@ Implemented:
 
 Still pending outside M1:
 
-- Classic Mode ViewModel/UI wiring.
+- Full library screen and saved text lifecycle UI.
 - Export ZIP writer.
 - Real provider-generated rows.
 - Audio playback and file cleanup.
+
+M2 update:
+
+- Classic Mode can now save fake-generated rows through the `LibraryRepository` port into the Room-backed runtime repository.
+- The ViewModel uses the repository summary flow to show saved text count in Classic Mode.
+- Full open/update/archive/delete lifecycle UI remains M7 scope.
 
 ## Repository Interfaces
 
@@ -39,6 +45,13 @@ Target repository surface:
 - `addRow(textId: String, afterRowId: String?, fields: EditableRowFields): LibraryRow`
 - `archiveText(textId: String, archived: Boolean): Unit`
 - `markOpened(textId: String, openedAt: Instant): Unit`
+
+Current code exposes a small `LibraryRepository` port for M2 ViewModel wiring:
+
+- `observeTexts(includeArchived: Boolean)`
+- `saveGeneratedText(input: SaveGeneratedTextRequest)`
+
+`RoomLibraryRepository` implements this port and also keeps the broader M1 repository methods.
 
 ## DAO Responsibilities
 

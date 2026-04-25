@@ -2,6 +2,8 @@ package com.sindromradiospb.ttsprototypev2.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,15 +20,16 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -35,11 +38,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
+import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicGeneratedRowUi
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeUiState
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeViewModel
 
 @Composable
-fun AppRoot() {
+fun AppRoot(classicModeViewModel: ClassicModeViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Classic", "IDE")
+    val classicState by classicModeViewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -62,7 +70,16 @@ fun AppRoot() {
         },
     ) { innerPadding ->
         when (selectedTab) {
-            0 -> ClassicModeScreen(Modifier.padding(innerPadding))
+            0 -> ClassicModeScreen(
+                state = classicState,
+                onSourceTextChanged = classicModeViewModel::onSourceTextChanged,
+                onTranslationProviderChanged = classicModeViewModel::onTranslationProviderChanged,
+                onTtsProviderChanged = classicModeViewModel::onTtsProviderChanged,
+                onGenerate = classicModeViewModel::generateTable,
+                onSave = classicModeViewModel::saveCurrent,
+                onDismissMessage = classicModeViewModel::clearMessage,
+                modifier = Modifier.padding(innerPadding),
+            )
             else -> IdeModeScreen(Modifier.padding(innerPadding))
         }
     }
@@ -70,11 +87,16 @@ fun AppRoot() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClassicModeScreen(modifier: Modifier = Modifier) {
-    var input by remember { mutableStateOf("שלום, זהו אבטיפוס פשוט של המערכת") }
-    var translationProvider by remember { mutableStateOf(TranslationProviderId.GoogleTranslateFree) }
-    var ttsProvider by remember { mutableStateOf(TtsProviderId.GoogleOnlineTts) }
-
+fun ClassicModeScreen(
+    state: ClassicModeUiState,
+    onSourceTextChanged: (String) -> Unit,
+    onTranslationProviderChanged: (TranslationProviderId) -> Unit,
+    onTtsProviderChanged: (TtsProviderId) -> Unit,
+    onGenerate: () -> Unit,
+    onSave: () -> Unit,
+    onDismissMessage: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -83,36 +105,42 @@ fun ClassicModeScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         OutlinedTextField(
-            value = input,
-            onValueChange = { input = it },
+            value = state.sourceText,
+            onValueChange = onSourceTextChanged,
             label = { Text("Hebrew source text") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 5,
+            enabled = !state.isGenerating && !state.isSaving,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
             textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.End),
         )
 
         ProviderChips(
-            translationProvider = translationProvider,
-            onTranslationProviderChanged = { translationProvider = it },
-            ttsProvider = ttsProvider,
-            onTtsProviderChanged = { ttsProvider = it },
+            translationProvider = state.translationProvider,
+            onTranslationProviderChanged = onTranslationProviderChanged,
+            ttsProvider = state.ttsProvider,
+            onTtsProviderChanged = onTtsProviderChanged,
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { }) {
-                Text("Generate table")
-            }
-            Button(onClick = { }) {
-                Text("Speak")
-            }
+        ActionButtons(
+            state = state,
+            onGenerate = onGenerate,
+            onSave = onSave,
+        )
+
+        state.message?.let {
+            MessageCard(message = it, onDismiss = onDismissMessage)
         }
 
-        ResultPreviewCard()
-        LibraryActionCard()
+        ResultPreviewCard(rows = state.rows, generatedAt = state.generatedAt)
+        LibraryActionCard(
+            summaries = state.libraryTexts,
+            savedTextId = state.savedTextId,
+        )
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProviderChips(
     translationProvider: TranslationProviderId,
@@ -122,7 +150,7 @@ private fun ProviderChips(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Translation provider", style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             TranslationProviderId.entries.forEach { provider ->
                 FilterChip(
                     selected = translationProvider == provider,
@@ -133,7 +161,7 @@ private fun ProviderChips(
         }
 
         Text("TTS provider", style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             TtsProviderId.entries.forEach { provider ->
                 FilterChip(
                     selected = ttsProvider == provider,
@@ -145,36 +173,106 @@ private fun ProviderChips(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ResultPreviewCard() {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = { }, label = { Text("Library: draft") })
-                AssistChip(onClick = { }, label = { Text("Audio: missing") })
-            }
-            Text("Generated result", style = MaterialTheme.typography.titleMedium)
-            Text("Hebrew: שלום", textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
-            Text("Niqqud: שָׁלוֹם", textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
-            Text("Translit: shalom")
-            Text("Russian: привет")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { }) { Text("Play row") }
-                Button(onClick = { }) { Text("Edit") }
+private fun ActionButtons(
+    state: ClassicModeUiState,
+    onGenerate: () -> Unit,
+    onSave: () -> Unit,
+) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = onGenerate,
+            enabled = !state.isGenerating && !state.isSaving,
+        ) {
+            Text(if (state.isGenerating) "Generating..." else "Generate table")
+        }
+        Button(
+            onClick = onSave,
+            enabled = state.rows.isNotEmpty() && !state.isGenerating && !state.isSaving,
+        ) {
+            Text(if (state.isSaving) "Saving..." else "Save")
+        }
+        OutlinedButton(
+            onClick = { },
+            enabled = false,
+        ) {
+            Text("Speak")
+        }
+    }
+}
+
+@Composable
+private fun MessageCard(message: String, onDismiss: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(message)
+            OutlinedButton(onClick = onDismiss) {
+                Text("Dismiss")
             }
         }
     }
 }
 
 @Composable
-private fun LibraryActionCard() {
+private fun ResultPreviewCard(rows: List<ClassicGeneratedRowUi>, generatedAt: String?) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(onClick = { }, label = { Text("Generation: M2 fake") })
+                AssistChip(onClick = { }, label = { Text("Audio: missing") })
+            }
+            Text("Generated result", style = MaterialTheme.typography.titleMedium)
+            if (generatedAt != null) {
+                Text("Generated at: $generatedAt", style = MaterialTheme.typography.bodySmall)
+            }
+            if (rows.isEmpty()) {
+                Text("No rows yet. Enter Hebrew text and generate the table.")
+            } else {
+                rows.forEach { row ->
+                    GeneratedRowCard(row)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GeneratedRowCard(row: ClassicGeneratedRowUi) {
+    Card {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Row ${row.orderIndex + 1}", style = MaterialTheme.typography.labelLarge)
+            Text("Hebrew: ${row.hebrewPlain}", textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+            Text("Niqqud: not generated in M2", textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+            Text("Translit: ${row.translit}")
+            Text("Russian phonetic: ${row.translitRu}")
+            Text("Russian: ${row.russian}")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { }, enabled = false) { Text("Play row") }
+                OutlinedButton(onClick = { }, enabled = false) { Text("Edit") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryActionCard(
+    summaries: List<LibraryTextSummary>,
+    savedTextId: String?,
+) {
     Card {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Local library", style = MaterialTheme.typography.titleMedium)
-            Text("Room/SQLite and ZIP export are the required storage path. Cloud storage is out of runtime scope.")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { }) { Text("Save") }
-                Button(onClick = { }) { Text("Export ZIP") }
+            Text("Saved texts are persisted locally with Room/SQLite. Cloud storage is out of runtime scope.")
+            Text("Saved texts: ${summaries.size}")
+            if (savedTextId != null) {
+                AssistChip(onClick = { }, label = { Text("Current text saved") })
+            }
+            summaries.take(3).forEach { summary ->
+                Text("${summary.title} - updated ${summary.updatedAt}", style = MaterialTheme.typography.bodySmall)
+            }
+            OutlinedButton(onClick = { }, enabled = false) {
+                Text("Export ZIP")
             }
         }
     }
