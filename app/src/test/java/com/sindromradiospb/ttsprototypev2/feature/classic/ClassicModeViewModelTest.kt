@@ -68,6 +68,22 @@ class ClassicModeViewModelTest {
     }
 
     @Test
+    fun selectingSystemFallbackResetsUnsupportedVoiceControls() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onTtsVoiceNameChanged("he-IL-Wavenet-A")
+        viewModel.onSpeakingRateChanged(1.6)
+        viewModel.onPitchChanged(2.0)
+        viewModel.onTtsProviderChanged(TtsProviderId.SystemFallbackLowQuality)
+
+        val state = viewModel.uiState.value
+        assertEquals(TtsProviderId.SystemFallbackLowQuality, state.ttsProvider)
+        assertNull(state.ttsVoiceName)
+        assertEquals(1.0, state.speakingRate, 0.0)
+        assertEquals(0.0, state.pitch, 0.0)
+    }
+
+    @Test
     fun missingConfiguredProviderShowsVisibleErrorWithoutFallback() = runTest(mainDispatcherRule.testDispatcher) {
         val registry = TranslationProviderRegistry(
             listOf(
@@ -90,6 +106,24 @@ class ClassicModeViewModelTest {
         assertTrue(state.rows.isEmpty())
         assertEquals("Translation failed", state.generationLabel)
         assertTrue(state.message.orEmpty().contains("MissingConfiguration"))
+    }
+
+    @Test
+    fun changingTranslationProviderRegeneratesExistingTable() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onSourceTextChanged("שלום עולם")
+        viewModel.generateTable()
+        advanceUntilIdle()
+        assertEquals("Translation: google_translate_free", viewModel.uiState.value.generationLabel)
+
+        viewModel.onTranslationProviderChanged(TranslationProviderId.GeminiLegacy)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(TranslationProviderId.GeminiLegacy, state.translationProvider)
+        assertEquals("Translation: gemini_legacy", state.generationLabel)
+        assertEquals("Translation complete via gemini_legacy.", state.message)
     }
 
     @Test

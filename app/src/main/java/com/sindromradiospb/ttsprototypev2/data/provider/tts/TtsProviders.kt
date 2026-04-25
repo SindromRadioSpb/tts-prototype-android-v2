@@ -296,11 +296,11 @@ class AndroidPlatformTtsProvider(
             throw ProviderException(
                 category = ProviderErrorCategory.ProviderUnavailable,
                 providerId = id.wireId,
-                userMessage = "Android system TextToSpeech is unavailable.",
+                userMessage = "Android system TextToSpeech is unavailable on this emulator/device. Install or enable a system TTS engine and language data, or choose Google Online TTS.",
             )
         }
-        tts.setSpeechRate(request.profile.speakingRate.toFloat())
-        tts.setPitch((1.0 + request.profile.pitch).toFloat().coerceAtLeast(0.1f))
+        tts.setSpeechRate(1.0f)
+        tts.setPitch(1.0f)
         val languageResult = tts.setLanguage(request.profile.language.toLocale())
         if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
             throw ProviderException(

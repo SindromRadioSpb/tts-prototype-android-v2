@@ -187,11 +187,37 @@ class ClassicModeViewModel(
     }
 
     fun onTranslationProviderChanged(providerId: TranslationProviderId) {
-        _uiState.update { it.copy(translationProvider = providerId, savedTextId = null, message = null) }
+        val current = uiState.value
+        if (current.translationProvider == providerId) return
+        val shouldRegenerate = current.rows.isNotEmpty() &&
+            current.sourceText.isNotBlank() &&
+            !current.isGenerating &&
+            !current.isSaving
+        _uiState.update {
+            it.copy(
+                translationProvider = providerId,
+                savedTextId = null,
+                saveMetadataDraft = null,
+                message = if (shouldRegenerate) "Переводчик изменён. Пересобираю таблицу..." else null,
+            )
+        }
+        if (shouldRegenerate) {
+            generateTable()
+        }
     }
 
     fun onTtsProviderChanged(providerId: TtsProviderId) {
-        _uiState.update { it.copy(ttsProvider = providerId, savedTextId = null, message = null) }
+        val isSystemFallback = providerId == TtsProviderId.SystemFallbackLowQuality
+        _uiState.update {
+            it.copy(
+                ttsProvider = providerId,
+                ttsVoiceName = if (isSystemFallback) null else it.ttsVoiceName,
+                speakingRate = if (isSystemFallback) 1.0 else it.speakingRate,
+                pitch = if (isSystemFallback) 0.0 else it.pitch,
+                savedTextId = null,
+                message = null,
+            )
+        }
     }
 
     fun onSourceLanguageChanged(language: ClassicSourceLanguage) {

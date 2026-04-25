@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -88,6 +89,7 @@ import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicSaveMetadataDra
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicSourceLanguage
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicTableColumn
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicTranslitProfile
+import com.sindromradiospb.ttsprototypev2.feature.classic.transliterateHebrewWithProfile
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryTextMetadataDraft
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryUiState
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryViewModel
@@ -524,6 +526,7 @@ private fun VoiceSettingsCard(
     onPitchChanged: (Double) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    val isSystemFallback = state.ttsProvider == TtsProviderId.SystemFallbackLowQuality
     DisclosureSurfaceCard(
         title = "Настройки озвучки",
         subtitle = "Язык, голос, темп и ключи провайдера.",
@@ -545,33 +548,41 @@ private fun VoiceSettingsCard(
             optionLabel = { ttsProviderLabel(it) },
             onSelected = onTtsProviderChanged,
         )
-        LabeledChoiceRow(
-            label = "Голос TTS",
-            options = TtsVoiceOptions,
-            selected = state.ttsVoiceName.orEmpty(),
-            optionLabel = { if (it.isBlank()) "Авто (по умолчанию)" else it },
-            onSelected = { onTtsVoiceNameChanged(it.ifBlank { null }) },
-        )
-        LabeledSlider(
-            label = "Скорость речи",
-            valueText = String.format(Locale.US, "%.2f×", state.speakingRate),
-            value = state.speakingRate.toFloat(),
-            valueRange = 0.5f..2.0f,
-            steps = 14,
-            onValueChange = { onSpeakingRateChanged(it.toDouble()) },
-        )
-        LabeledSlider(
-            label = "Тон (pitch)",
-            valueText = String.format(Locale.US, "%.1f", state.pitch),
-            value = state.pitch.toFloat(),
-            valueRange = -5f..5f,
-            steps = 19,
-            onValueChange = { onPitchChanged(it.toDouble()) },
-        )
+        if (isSystemFallback) {
+            Text(
+                "System fallback использует установленный TTS-движок Android. Выбор голоса, скорости и тона недоступен в этом режиме; если в эмуляторе нет системного TTS-движка или языковых данных, воспроизведение завершится ошибкой ProviderUnavailable/UnsupportedLanguage.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MutedText,
+            )
+        } else {
+            LabeledChoiceRow(
+                label = "Голос TTS",
+                options = TtsVoiceOptions,
+                selected = state.ttsVoiceName.orEmpty(),
+                optionLabel = { if (it.isBlank()) "Авто (по умолчанию)" else it },
+                onSelected = { onTtsVoiceNameChanged(it.ifBlank { null }) },
+            )
+            LabeledSlider(
+                label = "Скорость речи",
+                valueText = String.format(Locale.US, "%.2f×", state.speakingRate),
+                value = state.speakingRate.toFloat(),
+                valueRange = 0.5f..2.0f,
+                steps = 14,
+                onValueChange = { onSpeakingRateChanged(it.toDouble()) },
+            )
+            LabeledSlider(
+                label = "Тон (pitch)",
+                valueText = String.format(Locale.US, "%.1f", state.pitch),
+                value = state.pitch.toFloat(),
+                valueRange = -5f..5f,
+                steps = 19,
+                onValueChange = { onPitchChanged(it.toDouble()) },
+            )
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SecondaryActionButton("🔑 Ключи провайдера", onOpenSettings)
             StatusPill("TTS: ${ttsProviderLabel(state.ttsProvider)}")
-            StatusPill("Голос: ${state.ttsVoiceName ?: "авто"}")
+            StatusPill("Голос: ${if (isSystemFallback) "системный" else state.ttsVoiceName ?: "авто"}")
         }
     }
 }
@@ -955,15 +966,18 @@ private fun ClassicTableCell(
                 }
             }
             else -> {
-                Text(
-                    text = row.tableCellText(column, state),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (column == ClassicTableColumn.Hebrew) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (row.tableCellText(column, state).isBlank()) MutedText else Color(0xFF1F2933),
-                    textAlign = if (isRtlText) TextAlign.End else TextAlign.Start,
-                    modifier = Modifier.fillMaxSize(),
-                    overflow = TextOverflow.Ellipsis,
-                )
+                val cellText = row.tableCellText(column, state)
+                SelectionContainer {
+                    Text(
+                        text = cellText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (column == ClassicTableColumn.Hebrew) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (cellText.isBlank()) MutedText else Color(0xFF1F2933),
+                        textAlign = if (isRtlText) TextAlign.End else TextAlign.Start,
+                        modifier = Modifier.fillMaxSize(),
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
@@ -1005,81 +1019,14 @@ private fun ClassicGeneratedRowUi.tableCellText(column: ClassicTableColumn, stat
         ClassicTableColumn.Hebrew -> hebrewPlain
         ClassicTableColumn.Niqqud -> hebrewNiqqud.ifBlank { "—" }
         ClassicTableColumn.Translit -> when (state.translitProfile) {
-            ClassicTranslitProfile.Sbl -> translit.ifBlank { sblFallback(hebrewNiqqud) }
-            ClassicTranslitProfile.RuPhonetic -> translitRu.ifBlank { ruPhoneticFallback(hebrewNiqqud) }.ifBlank { translit }
+            ClassicTranslitProfile.Sbl -> translit.ifBlank {
+                transliterateHebrewWithProfile(hebrewNiqqud, ClassicTranslitProfile.Sbl)
+            }
+            ClassicTranslitProfile.RuPhonetic -> translitRu.ifBlank {
+                transliterateHebrewWithProfile(hebrewNiqqud, ClassicTranslitProfile.RuPhonetic)
+            }.ifBlank { translit }
         }.ifBlank { "—" }
         ClassicTableColumn.Translation -> russian.ifBlank { "—" }
-    }
-
-private fun sblFallback(hebrewNiqqud: String): String =
-    hebrewNiqqud.filter { it !in HebrewMarks }.trim()
-
-private fun ruPhoneticFallback(hebrewNiqqud: String): String {
-    if (hebrewNiqqud.isBlank()) return ""
-    val result = StringBuilder()
-    var index = 0
-    while (index < hebrewNiqqud.length) {
-        val char = hebrewNiqqud[index]
-        if (char in HebrewMarks) {
-            index += 1
-            continue
-        }
-        val marks = buildString {
-            var markIndex = index + 1
-            while (markIndex < hebrewNiqqud.length && hebrewNiqqud[markIndex] in HebrewMarks) {
-                append(hebrewNiqqud[markIndex])
-                markIndex += 1
-            }
-        }
-        result.append(ruConsonant(char, marks))
-        result.append(ruVowel(char, marks))
-        index += 1 + marks.length
-    }
-    return result.toString().replace(Regex("\\s+"), " ").trim()
-}
-
-private val HebrewMarks: Set<Char> = ('\u0591'..'\u05C7').toSet()
-
-private fun ruConsonant(char: Char, marks: String): String =
-    when (char) {
-        'א', 'ע' -> ""
-        'ב' -> if ('\u05BC' in marks) "б" else "в"
-        'ג' -> "г"
-        'ד' -> "д"
-        'ה' -> "h"
-        'ו' -> if ('\u05BC' in marks) "" else "в"
-        'ז' -> "з"
-        'ח' -> "х"
-        'ט' -> "т"
-        'י' -> "й"
-        'כ', 'ך' -> if ('\u05BC' in marks) "к" else "х"
-        'ל' -> "л"
-        'מ', 'ם' -> "м"
-        'נ', 'ן' -> "н"
-        'ס' -> "с"
-        'פ', 'ף' -> if ('\u05BC' in marks) "п" else "ф"
-        'צ', 'ץ' -> "ц"
-        'ק' -> "к"
-        'ר' -> "р"
-        'ש' -> if ('\u05C1' in marks) "ш" else "с"
-        'ת' -> "т"
-        else -> char.toString()
-    }
-
-private fun ruVowel(char: Char, marks: String): String =
-    when {
-        char == 'ו' && '\u05BC' in marks -> "у"
-        '\u05B4' in marks -> "и"
-        '\u05B5' in marks -> "е"
-        '\u05B6' in marks -> "э"
-        '\u05B7' in marks -> "а"
-        '\u05B8' in marks -> "а"
-        '\u05B9' in marks || '\u05BA' in marks -> "о"
-        '\u05BB' in marks -> "у"
-        '\u05B1' in marks -> "э"
-        '\u05B2' in marks -> "а"
-        '\u05B3' in marks -> "о"
-        else -> ""
     }
 
 @OptIn(ExperimentalLayoutApi::class)

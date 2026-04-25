@@ -218,7 +218,7 @@ class TranslationProvidersTest {
         assertEquals("שָׁלוֹם", response.rows.single().hebrewNiqqud)
         assertEquals("shalom", response.rows.single().translit)
         assertEquals("Здравствуйте", response.rows.single().russian)
-        assertEquals("gemini-flash-latest", response.provenance.model)
+        assertEquals("gemini-2.0-flash", response.provenance.model)
     }
 
     @Test

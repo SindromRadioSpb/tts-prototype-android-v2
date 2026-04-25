@@ -108,6 +108,11 @@ P019 provider policy update:
 - `gemini_legacy` uses a pasted single-line Gemini API key as the primary credential UX. The older JSON wrapper remains allowed only as a backward-compatible stored format.
 - `gemini_legacy` table generation must request strict JSON rows containing Hebrew, niqqud, SBL transliteration, and Russian translation; raw prose responses are invalid.
 
+P020 provider policy update:
+
+- `gemini_legacy` uses stable model `gemini-2.0-flash` unless a later ADR changes the model.
+- `system_or_browser_fallback_low_quality` is a low-quality Android framework fallback and must not expose Google Online TTS-style voice/rate/pitch choices when the framework engine owns those settings.
+
 ## Security Requirements
 
 - No API keys, service account JSON, bearer tokens, or full credential paths in logs.

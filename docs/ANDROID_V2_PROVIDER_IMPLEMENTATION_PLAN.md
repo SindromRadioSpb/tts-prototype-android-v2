@@ -30,7 +30,7 @@ M4 implementation status:
 P019 credential/provider status:
 
 - `gcp_translate` is implemented as a Google Cloud Translation adapter: legacy single-line keys use Basic v2 JSON POST, while attached service-account JSON uses Cloud Translation v3 REST with OAuth JWT bearer auth.
-- `gemini_legacy` is implemented as a Gemini `gemini-flash-latest` JSON POST adapter using a pasted single-line API key as the primary credential path, with the older provider-specific JSON wrapper still accepted for compatibility.
+- `gemini_legacy` is implemented as a Gemini `gemini-2.0-flash` JSON POST adapter using a pasted single-line API key as the primary credential path, with the older provider-specific JSON wrapper still accepted for compatibility.
 - `google_online_tts` is implemented as a Google Cloud Text-to-Speech `text:synthesize` JSON POST adapter using either a legacy stored single-line key or an attached service-account JSON credential with OAuth JWT bearer auth.
 - Missing credentials still produce `MissingConfiguration` and do not fallback automatically.
 - Raw service account JSON/private-key material remains blocked from manual single-line entry, but the SAF JSON attachment path validates and stores provider credentials in encrypted app-private storage.
@@ -73,7 +73,7 @@ Current runtime wiring:
 Current runtime wiring:
 
 - `google_online_tts`: implemented as Google Cloud Text-to-Speech adapter. It supports service-account JSON bearer auth and legacy restricted API keys, decodes returned MP3 bytes, and writes them to app cache before returning `TtsResponse`.
-- `system_or_browser_fallback_low_quality`: implemented as Android platform `TextToSpeech.synthesizeToFile` adapter writing a temporary WAV under app cache.
+- `system_or_browser_fallback_low_quality`: implemented as Android platform `TextToSpeech.synthesizeToFile` adapter writing a temporary WAV under app cache. The provider uses Android system voice/rate/pitch defaults; if `TextToSpeech` does not initialize, Android v2 reports that the emulator/device has no enabled system TTS engine or language data.
 
 ## Disallowed Providers
 

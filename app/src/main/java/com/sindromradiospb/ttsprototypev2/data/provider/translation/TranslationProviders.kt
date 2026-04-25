@@ -363,7 +363,7 @@ class GeminiLegacyTranslationProvider(
     private val httpClient: TranslationHttpClient = UrlConnectionTranslationHttpClient(),
     private val clock: () -> String = { Instant.now().toString() },
     private val json: Json = Json { ignoreUnknownKeys = true },
-    private val model: String = "gemini-flash-latest",
+    private val model: String = "gemini-2.0-flash",
 ) : TranslationProvider {
     override val id: TranslationProviderId = TranslationProviderId.GeminiLegacy
 

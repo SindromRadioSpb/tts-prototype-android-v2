@@ -75,6 +75,12 @@ P019 provider error status:
 - Gemini malformed, fenced, or prose-only responses that do not contain strict JSON table rows are `InvalidResponse`.
 - Gemini credential errors use the single-line API-key validation path, while malformed JSON errors apply only to the optional backward-compatible wrapper.
 
+P020 provider error status:
+
+- `system_or_browser_fallback_low_quality` `ProviderUnavailable` means Android framework `TextToSpeech` failed to initialize on the current emulator/device. Treat this as a device capability/setup problem, not as hidden fallback to another provider.
+- System fallback `UnsupportedLanguage` means the installed Android TTS engine does not support the selected source language data.
+- Translation-provider changes after generation intentionally clear saved-text identity and rebuild the table; failures from the newly selected provider remain visible and do not fall back to the previous provider.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)

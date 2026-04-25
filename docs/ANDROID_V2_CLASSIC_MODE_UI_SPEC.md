@@ -171,12 +171,19 @@ P018 behavior:
 P019 behavior:
 
 - `google_translate_free` now follows the source prototype path more closely: batch newline request, `sl=iw`, browser User-Agent, no silent quota fallback, and provenance model `google-free-gtx-v1`.
-- `gemini_legacy` now uses the prototype-style strict JSON table prompt. It produces rows with `he`, `he_niqqud`, `translit`, and `ru` instead of only a Russian string.
+- `gemini_legacy` now uses the prototype-style strict JSON table prompt through stable model `gemini-2.0-flash`. It produces rows with `he`, `he_niqqud`, `translit`, and `ru` instead of only a Russian string.
 - Gemini credentials are entered as a pasted API key in Settings; service-account JSON attachment remains for GCP/Google TTS.
 - Row playback cache is keyed by the full active TTS profile. If provider, voice, language, rate, pitch, or row text changes, row play regenerates audio and overwrites/adopts the current row cache instead of playing stale audio.
 - The last visible table column now has the same resize handle as all other columns.
 - The Russian phonetic transliteration view can be derived from `he_niqqud` when imported legacy rows lack `translit_ru`, so switching `SBL Academic` / `Русская фонетика` changes the visible table.
 - Classic source, voice settings, translation/table settings, and result sections are collapsible, matching the source prototype's lower-noise mobile interaction pattern.
+
+P020 behavior:
+
+- Changing `Провайдер перевода` after rows already exist immediately rebuilds the table from the current source text, because the selected provider is part of table provenance.
+- `System fallback` TTS hides unsupported voice/rate/pitch controls, resets those values to system defaults, and ignores stale profile values during synthesis. `ProviderUnavailable` now means Android `TextToSpeech` did not initialize on that emulator/device, usually because no system TTS engine or language data is installed/enabled.
+- `SBL Academic` and `Русская фонетика` fallback transliteration now use a shared Kotlin transliterator ported from source-prototype fixtures instead of the previous approximate stripping/map fallback.
+- Table text cells are wrapped in selectable text containers so Hebrew, niqqud, transliteration, and translation can be selected by touch or mouse.
 
 ## Accessibility and Insets
 

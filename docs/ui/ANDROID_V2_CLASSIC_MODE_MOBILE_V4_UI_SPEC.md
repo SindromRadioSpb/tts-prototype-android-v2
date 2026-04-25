@@ -707,6 +707,14 @@ P019 implementation status:
 - Row TTS cache is reused only when the stored row audio key matches the current provider/voice/language/rate/pitch/text profile.
 - The final visible table column can be resized, and missing imported `translit_ru` can be displayed through a Russian phonetic fallback derived from `he_niqqud`.
 
+P020 implementation status:
+
+- Changing the translation provider after table generation now rebuilds the table from the current source text and clears saved-card identity.
+- Gemini legacy uses pasted API keys with strict JSON table generation through `gemini-2.0-flash`.
+- System fallback TTS hides unsupported voice/rate/pitch controls and reports missing Android `TextToSpeech` engine/language data explicitly.
+- SBL Academic and Russian phonetic fallback transliteration are covered by source-prototype fixtures.
+- Non-action table cells are selectable by touch or mouse for copy workflows.
+
 ## UI DoD Evidence Checklist
 
 Future implementation patches must collect evidence for:
