@@ -19,6 +19,8 @@ The goal is strong visual and behavioral parity with the source web product whil
 | UI-V4-06 | `E:\projects\tts-prototype-android\Picture UI\v4\6. library_v3_list_cards.PNG` | [docs/ui/v4/6. library_v3_list_cards.PNG](v4/6.%20library_v3_list_cards.PNG) | Library list cards | Defines loaded count, saved text card content, tag chips, source URL, copy action, and visible clipping risk. |
 | UI-V4-07 | `E:\projects\tts-prototype-android\Picture UI\v4\7. library_v3_action_cards.PNG` | [docs/ui/v4/7. library_v3_action_cards.PNG](v4/7.%20library_v3_action_cards.PNG) | Card action buttons | Defines action order and colors; also documents source web overflow that Android must fix. |
 | UI-V4-08 | `E:\projects\tts-prototype-android\Picture UI\v4\8. library_v3_metadata_cards_изменить.PNG` | [docs/ui/v4/8. library_v3_metadata_cards_изменить.PNG](v4/8.%20library_v3_metadata_cards_%D0%B8%D0%B7%D0%BC%D0%B5%D0%BD%D0%B8%D1%82%D1%8C.PNG) | Metadata edit dialog | Defines text-level metadata fields, labels, actions, helper text, and keyboard-sensitive layout. |
+| UI-V4-09 | `E:\projects\tts-prototype-android-v2\docs\ui\v4\9. ТАБЛИЦА ОТОБРАЖЕНИЕ И СЦЕНАРИИ.PNG` | [docs/ui/v4/9. ТАБЛИЦА ОТОБРАЖЕНИЕ И СЦЕНАРИИ.PNG](v4/9.%20%D0%A2%D0%90%D0%91%D0%9B%D0%98%D0%A6%D0%90%20%D0%9E%D0%A2%D0%9E%D0%91%D0%A0%D0%90%D0%96%D0%95%D0%9D%D0%98%D0%95%20%D0%98%20%D0%A1%D0%A6%D0%95%D0%9D%D0%90%D0%A0%D0%98%D0%98.PNG) | Classic table display and scenarios | Defines the source table block, visible column controls, row action column, selected row highlight, and post-row playback scenario. |
+| UI-V4-10 | `E:\projects\tts-prototype-android-v2\docs\ui\v4\Результат_андроид.png` | [docs/ui/v4/Результат_андроид.png](v4/%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82_%D0%B0%D0%BD%D0%B4%D1%80%D0%BE%D0%B8%D0%B4.png) | Android pre-P018 result gap | Documents the previous generated-result card layout that P018 replaces with the source-style table. |
 
 ## Navigation Flow
 
@@ -52,6 +54,48 @@ Rules:
 - The Library entry must not navigate to IDE Mode.
 - The Library entry should sit beside the IDE mode entry only as a mode-level control; Library remains Classic-owned.
 - If Classic Mode has stale result badges, source update warnings, or disabled table actions, the Library entry remains enabled.
+
+## Classic Table Display And Scenarios
+
+Reference: [UI-V4-09](v4/9.%20%D0%A2%D0%90%D0%91%D0%9B%D0%98%D0%A6%D0%90%20%D0%9E%D0%A2%D0%9E%D0%91%D0%A0%D0%90%D0%96%D0%95%D0%9D%D0%98%D0%95%20%D0%98%20%D0%A1%D0%A6%D0%95%D0%9D%D0%90%D0%A0%D0%98%D0%98.PNG).
+
+Android v2 must render generated Classic rows as a table, not as unrelated vertical cards. The table block above the rows is titled:
+
+```text
+🧩 Таблица: отображение и сценарии
+```
+
+Required controls:
+
+- `Колонки` / `Скрыть колонки` toggles only the column selector area.
+- The prototype preset buttons `Полная`, `Иврит+рус`, `Фонетика`, `Только иврит` are intentionally not part of Android v2; they are represented by individual column checkboxes.
+- Column checkboxes are shown in this order: `Действие`, `Иврит`, `Огласовки`, `Транслит`, `Перевод`.
+- At least one column must remain visible.
+- `▶▶ Построчное воспроизведение` starts auto-next playback from the selected/highlighted row; if no row is selected, it starts from the first row.
+- While auto-next is active the start button becomes a stop action.
+- The old `Плейлист (Auto-next)` checkbox is not required in Android v2; auto-next is implied by the start button label and behavior.
+
+The generated table columns are:
+
+```text
+▶✎ | Иврит | Огласовки | Транслит | Перевод
+```
+
+Behavior:
+
+- The `▶✎` action column contains row number, audio cache status, row TTS play action, and row notes action.
+- Tapping a row selects/highlights it and makes it the auto-next start point.
+- `▶` plays cached row audio if present; otherwise it synthesizes with the selected TTS provider. For saved rows, generated audio is adopted into app-owned storage and linked as row cache.
+- `✎` opens the row notes editor. Notes belong to the saved row and must persist in Room.
+- Column visibility immediately affects the table.
+- Column widths are adjustable from the column headers. On phones this may be implemented as horizontal drag handles plus horizontal scrolling.
+- Long Hebrew/Russian text must stay readable through table scrolling or ellipsis; it must not push action buttons off-screen.
+
+Implementation status:
+
+- P018 implements `ClassicTableColumn`, `ClassicTableDisplayState`, `Колонки` / `Скрыть колонки`, checkboxes, selected row, adjustable widths, and auto-next state.
+- P018 replaces generated row cards in `Результат` with the table layout required by UI-V4-09.
+- Manual screenshot evidence comparing UI-V4-09 with the Android screen remains required before release hardening.
 
 ## Library v3 Screen / Modal Layout
 

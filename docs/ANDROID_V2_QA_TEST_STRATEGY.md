@@ -43,6 +43,8 @@ git status --short --branch
 - Reorder preserves exactly one order position per row.
 - App restart preserves library state.
 - Row notes save, trim, render after reload, and delete on blank note.
+- Classic table column visibility cannot hide all columns and width resizing remains clamped.
+- Auto-next playback starts from the selected row and stops visibly on user action or playback failure.
 
 ## Current M1 Coverage
 
@@ -74,6 +76,16 @@ git status --short --branch
 - duplicate save conflict message without creating a second saved text.
 
 M2 does not include Compose UI tests or emulator evidence. Row editing now has M8 ViewModel coverage, but Compose screenshot/manual evidence remains mandatory before release hardening.
+
+## Current P018 Coverage
+
+`ClassicModeViewModelTest` covers:
+
+- visible table columns cannot all be hidden;
+- table column width resizing is clamped and reset restores defaults;
+- auto-next start without rows shows an explicit disabled-flow message.
+
+P018 does not yet include Compose UI tests for the rendered table or real device playback evidence for auto-next row advancement.
 
 ## Current M3 Coverage
 

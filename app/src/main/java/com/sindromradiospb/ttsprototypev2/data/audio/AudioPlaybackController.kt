@@ -9,7 +9,7 @@ sealed class AudioPlaybackResult {
 }
 
 interface AudioPlaybackController {
-    fun play(file: File): AudioPlaybackResult
+    fun play(file: File, onCompletion: (() -> Unit)? = null): AudioPlaybackResult
     fun stop()
     fun release()
 }
@@ -17,7 +17,7 @@ interface AudioPlaybackController {
 class AndroidAudioPlaybackController : AudioPlaybackController {
     private var mediaPlayer: MediaPlayer? = null
 
-    override fun play(file: File): AudioPlaybackResult {
+    override fun play(file: File, onCompletion: (() -> Unit)?): AudioPlaybackResult {
         if (!file.exists() || file.length() <= 0L) {
             return AudioPlaybackResult.Failed("Audio file is missing.")
         }
@@ -27,6 +27,7 @@ class AndroidAudioPlaybackController : AudioPlaybackController {
                 setDataSource(file.absolutePath)
                 setOnCompletionListener {
                     this@AndroidAudioPlaybackController.stop()
+                    onCompletion?.invoke()
                 }
                 prepare()
                 start()

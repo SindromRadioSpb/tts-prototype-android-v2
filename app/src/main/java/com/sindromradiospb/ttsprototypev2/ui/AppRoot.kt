@@ -5,6 +5,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +37,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,8 +64,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -79,6 +85,7 @@ import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeViewModel
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicNoteEditorState
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicSaveMetadataDraft
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicSourceLanguage
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicTableColumn
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicTranslitProfile
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryTextMetadataDraft
 import com.sindromradiospb.ttsprototypev2.feature.library.LibraryUiState
@@ -157,7 +164,13 @@ fun AppRoot(
                     onCancelSaveMetadata = classicModeViewModel::cancelSaveMetadata,
                     onSpeak = classicModeViewModel::speakSource,
                     onPlayRow = classicModeViewModel::playRow,
+                    onToggleAutoNext = classicModeViewModel::toggleAutoNextPlayback,
                     onOpenRowNote = classicModeViewModel::openRowNote,
+                    onSelectRow = classicModeViewModel::selectRow,
+                    onToggleTableColumnsPanel = classicModeViewModel::toggleTableColumnsPanel,
+                    onToggleTableColumn = classicModeViewModel::toggleTableColumn,
+                    onResetTableDisplay = classicModeViewModel::resetTableDisplay,
+                    onAdjustTableColumnWidth = classicModeViewModel::adjustTableColumnWidth,
                     onRowNoteDraftChanged = classicModeViewModel::updateRowNoteDraft,
                     onSaveRowNote = classicModeViewModel::saveRowNote,
                     onDeleteRowNote = classicModeViewModel::deleteRowNote,
@@ -231,7 +244,13 @@ fun ClassicModeScreen(
     onCancelSaveMetadata: () -> Unit,
     onSpeak: () -> Unit,
     onPlayRow: (Int) -> Unit,
+    onToggleAutoNext: () -> Unit,
     onOpenRowNote: (Int) -> Unit,
+    onSelectRow: (Int) -> Unit,
+    onToggleTableColumnsPanel: () -> Unit,
+    onToggleTableColumn: (ClassicTableColumn) -> Unit,
+    onResetTableDisplay: () -> Unit,
+    onAdjustTableColumnWidth: (ClassicTableColumn, Float) -> Unit,
     onRowNoteDraftChanged: (String) -> Unit,
     onSaveRowNote: () -> Unit,
     onDeleteRowNote: () -> Unit,
@@ -311,6 +330,7 @@ fun ClassicModeScreen(
         }
 
         ClassicResultCard(
+            state = state,
             rows = state.rows,
             generatedAt = state.generatedAt,
             generationLabel = state.generationLabel,
@@ -319,7 +339,13 @@ fun ClassicModeScreen(
             isSaving = state.isSaving,
             playingRowIndex = state.playingRowIndex,
             onPlayRow = onPlayRow,
+            onToggleAutoNext = onToggleAutoNext,
             onOpenRowNote = onOpenRowNote,
+            onSelectRow = onSelectRow,
+            onToggleTableColumnsPanel = onToggleTableColumnsPanel,
+            onToggleTableColumn = onToggleTableColumn,
+            onResetTableDisplay = onResetTableDisplay,
+            onAdjustTableColumnWidth = onAdjustTableColumnWidth,
         )
 
         LocalLibrarySummaryCard(
@@ -642,6 +668,7 @@ private fun translationProviderLabel(provider: TranslationProviderId): String =
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ClassicResultCard(
+    state: ClassicModeUiState,
     rows: List<ClassicGeneratedRowUi>,
     generatedAt: String?,
     generationLabel: String,
@@ -650,7 +677,13 @@ private fun ClassicResultCard(
     isSaving: Boolean,
     playingRowIndex: Int?,
     onPlayRow: (Int) -> Unit,
+    onToggleAutoNext: () -> Unit,
     onOpenRowNote: (Int) -> Unit,
+    onSelectRow: (Int) -> Unit,
+    onToggleTableColumnsPanel: () -> Unit,
+    onToggleTableColumn: (ClassicTableColumn) -> Unit,
+    onResetTableDisplay: () -> Unit,
+    onAdjustTableColumnWidth: (ClassicTableColumn, Float) -> Unit,
 ) {
     SurfaceCard {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -662,7 +695,7 @@ private fun ClassicResultCard(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
                 Text("Результат", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Таблица адаптирована в карточки строк для телефона.", color = MutedText)
+                Text("Таблица с колонками как в Classic Mode: действие, иврит, огласовки, транслит и перевод.", color = MutedText)
             }
             PrimaryGreenButton(
                 text = if (isSaving) "Сохранение..." else "💾 Обновить",
@@ -671,21 +704,279 @@ private fun ClassicResultCard(
             )
         }
         Spacer(Modifier.height(10.dp))
+        TableDisplayScenarioPanel(
+            state = state,
+            onToggleColumnsPanel = onToggleTableColumnsPanel,
+            onToggleColumn = onToggleTableColumn,
+            onReset = onResetTableDisplay,
+            onToggleAutoNext = onToggleAutoNext,
+        )
+        Spacer(Modifier.height(10.dp))
         if (rows.isEmpty()) {
             EmptyState("Пока нет строк. Введите Hebrew text и нажмите `Собрать таблицу`.")
         } else {
-            rows.forEach { row ->
-                GeneratedRowCard(
-                    row = row,
-                    onPlayRow = { onPlayRow(row.orderIndex) },
-                    onOpenRowNote = { onOpenRowNote(row.orderIndex) },
-                    isPlaying = playingRowIndex == row.orderIndex,
+            GeneratedRowsTable(
+                state = state,
+                onPlayRow = onPlayRow,
+                onOpenRowNote = onOpenRowNote,
+                onSelectRow = onSelectRow,
+                onAdjustColumnWidth = onAdjustTableColumnWidth,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TableDisplayScenarioPanel(
+    state: ClassicModeUiState,
+    onToggleColumnsPanel: () -> Unit,
+    onToggleColumn: (ClassicTableColumn) -> Unit,
+    onReset: () -> Unit,
+    onToggleAutoNext: () -> Unit,
+) {
+    Surface(
+        color = SoftPanelBackground,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, BorderColor),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("🧩 Таблица: отображение и сценарии", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SecondaryActionButton(
+                    text = if (state.tableDisplay.isColumnsPanelOpen) "Скрыть колонки" else "Колонки",
+                    onClick = onToggleColumnsPanel,
                 )
-                Spacer(Modifier.height(8.dp))
+                PrimaryBlueButton(
+                    text = if (state.tableDisplay.isAutoNextActive) "■ Остановить" else "▶▶ Построчное воспроизведение",
+                    onClick = onToggleAutoNext,
+                    enabled = state.rows.isNotEmpty(),
+                )
+            }
+            if (state.tableDisplay.isColumnsPanelOpen) {
+                HorizontalDivider()
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ClassicTableColumn.entries.forEach { column ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                                .padding(end = 10.dp),
+                        ) {
+                            Checkbox(
+                                checked = column in state.tableDisplay.visibleColumns,
+                                onCheckedChange = { onToggleColumn(column) },
+                            )
+                            Text(column.columnControlLabel())
+                        }
+                    }
+                }
+                SecondaryActionButton("Сбросить настройки", onReset)
+                Text("Настройки таблицы сохраняются в текущем экране. Потяните правый край заголовка колонки, чтобы изменить ширину.", color = MutedText)
             }
         }
     }
 }
+
+@Composable
+private fun GeneratedRowsTable(
+    state: ClassicModeUiState,
+    onPlayRow: (Int) -> Unit,
+    onOpenRowNote: (Int) -> Unit,
+    onSelectRow: (Int) -> Unit,
+    onAdjustColumnWidth: (ClassicTableColumn, Float) -> Unit,
+) {
+    val visibleColumns = ClassicTableColumn.entries.filter { it in state.tableDisplay.visibleColumns }
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(scrollState),
+    ) {
+        Row {
+            visibleColumns.forEachIndexed { index, column ->
+                ClassicTableHeaderCell(
+                    text = column.columnHeaderLabel(state),
+                    widthDp = state.tableDisplay.columnWidthsDp[column] ?: column.defaultWidthDp(),
+                    canResize = index < visibleColumns.lastIndex,
+                    onResize = { dragPx ->
+                        onAdjustColumnWidth(column, with(density) { dragPx.toDp().value })
+                    },
+                )
+            }
+        }
+        state.rows.forEach { row ->
+            val selected = state.tableDisplay.selectedRowIndex == row.orderIndex
+            val playing = state.playingRowIndex == row.orderIndex
+            Row(
+                modifier = Modifier
+                    .clickable { onSelectRow(row.orderIndex) }
+                    .background(
+                        when {
+                            playing -> Color(0xFFE3F2FD)
+                            selected -> Color(0xFFFFF3B0)
+                            else -> Color.White
+                        },
+                    ),
+            ) {
+                visibleColumns.forEach { column ->
+                    ClassicTableCell(
+                        column = column,
+                        row = row,
+                        state = state,
+                        isPlaying = playing,
+                        onPlayRow = { onPlayRow(row.orderIndex) },
+                        onOpenRowNote = { onOpenRowNote(row.orderIndex) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClassicTableHeaderCell(
+    text: String,
+    widthDp: Int,
+    canResize: Boolean,
+    onResize: (Float) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .width(widthDp.dp)
+            .height(58.dp)
+            .background(Color(0xFFF1F4F7))
+            .border(1.dp, BorderColor)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (canResize) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .width(14.dp)
+                    .pointerInput(text) {
+                        detectHorizontalDragGestures { _, dragAmount ->
+                            onResize(dragAmount)
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("⋮", color = MutedText, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClassicTableCell(
+    column: ClassicTableColumn,
+    row: ClassicGeneratedRowUi,
+    state: ClassicModeUiState,
+    isPlaying: Boolean,
+    onPlayRow: () -> Unit,
+    onOpenRowNote: () -> Unit,
+) {
+    val widthDp = state.tableDisplay.columnWidthsDp[column] ?: column.defaultWidthDp()
+    val isRtlText = column == ClassicTableColumn.Hebrew || column == ClassicTableColumn.Niqqud
+    Box(
+        modifier = Modifier
+            .width(widthDp.dp)
+            .height(124.dp)
+            .border(1.dp, BorderColor)
+            .padding(8.dp),
+    ) {
+        when (column) {
+            ClassicTableColumn.Action -> {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically),
+                ) {
+                    Text("${row.orderIndex + 1}", style = MaterialTheme.typography.labelSmall, color = MutedText)
+                    AudioCacheBadge(row.audioAssetKey)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SecondaryActionButton(
+                            text = if (isPlaying) "▶..." else "▶",
+                            onClick = onPlayRow,
+                            modifier = Modifier.width(48.dp),
+                        )
+                        SecondaryActionButton(
+                            text = if (row.note.isNullOrBlank()) "✎" else "✎✓",
+                            onClick = onOpenRowNote,
+                            modifier = Modifier.width(52.dp),
+                        )
+                    }
+                }
+            }
+            else -> {
+                Text(
+                    text = row.tableCellText(column, state),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (column == ClassicTableColumn.Hebrew) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (row.tableCellText(column, state).isBlank()) MutedText else Color(0xFF1F2933),
+                    textAlign = if (isRtlText) TextAlign.End else TextAlign.Start,
+                    modifier = Modifier.fillMaxSize(),
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+private fun ClassicTableColumn.columnControlLabel(): String =
+    when (this) {
+        ClassicTableColumn.Action -> "Действие"
+        ClassicTableColumn.Hebrew -> "Иврит"
+        ClassicTableColumn.Niqqud -> "Огласовки"
+        ClassicTableColumn.Translit -> "Транслит"
+        ClassicTableColumn.Translation -> "Перевод"
+    }
+
+private fun ClassicTableColumn.columnHeaderLabel(state: ClassicModeUiState): String =
+    when (this) {
+        ClassicTableColumn.Action -> "▶✎"
+        ClassicTableColumn.Hebrew -> "Иврит"
+        ClassicTableColumn.Niqqud -> "Огласовки"
+        ClassicTableColumn.Translit -> when (state.translitProfile) {
+            ClassicTranslitProfile.Sbl -> "Транслит (SBL)"
+            ClassicTranslitProfile.RuPhonetic -> "Транслит (рус.)"
+        }
+        ClassicTableColumn.Translation -> "Перевод"
+    }
+
+private fun ClassicTableColumn.defaultWidthDp(): Int =
+    when (this) {
+        ClassicTableColumn.Action -> 92
+        ClassicTableColumn.Hebrew -> 170
+        ClassicTableColumn.Niqqud -> 190
+        ClassicTableColumn.Translit -> 190
+        ClassicTableColumn.Translation -> 230
+    }
+
+private fun ClassicGeneratedRowUi.tableCellText(column: ClassicTableColumn, state: ClassicModeUiState): String =
+    when (column) {
+        ClassicTableColumn.Action -> ""
+        ClassicTableColumn.Hebrew -> hebrewPlain
+        ClassicTableColumn.Niqqud -> hebrewNiqqud.ifBlank { "—" }
+        ClassicTableColumn.Translit -> when (state.translitProfile) {
+            ClassicTranslitProfile.Sbl -> translit
+            ClassicTranslitProfile.RuPhonetic -> translitRu.ifBlank { translit }
+        }.ifBlank { "—" }
+        ClassicTableColumn.Translation -> russian.ifBlank { "—" }
+    }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

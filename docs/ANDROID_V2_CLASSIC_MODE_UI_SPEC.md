@@ -157,6 +157,17 @@ P017 behavior:
 - Room schema version 3 adds `sentence_notes`; notes are one per saved row and are deleted when the note is saved empty.
 - The row notes dialog shows row context, Markdown helper actions, 16K validation, save/delete controls, and keyboard-safe scrolling.
 
+P018 behavior:
+
+- `Результат` now renders generated rows as the source-style table from `docs/ui/v4/9. ТАБЛИЦА ОТОБРАЖЕНИЕ И СЦЕНАРИИ.PNG`, with columns `▶✎`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
+- The `🧩 Таблица: отображение и сценарии` block exposes `Колонки` / `Скрыть колонки` instead of the prototype `Сценарии и колонки` label.
+- Preset buttons `Полная`, `Иврит+рус`, `Фонетика`, and `Только иврит` are intentionally omitted; Android uses explicit checkboxes for `Действие`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
+- At least one column must stay visible, and the ViewModel rejects attempts to hide all columns.
+- Column widths are adjustable from table headers with touch drag handles and are clamped to readable mobile bounds.
+- `▶▶ Построчное воспроизведение` starts auto-next row playback from the selected row or from row 1 when nothing is selected. During playback the control becomes `■ Остановить`.
+- Tapping a row selects it and determines the next auto-next start point.
+- The row action column keeps the source-prototype semantics: row number, cache marker, row TTS play, and row note action.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.

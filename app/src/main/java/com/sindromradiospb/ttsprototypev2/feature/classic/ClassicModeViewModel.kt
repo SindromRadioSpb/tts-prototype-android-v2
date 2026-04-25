@@ -77,6 +77,28 @@ data class ClassicNoteEditorState(
     val isSaving: Boolean = false,
 )
 
+enum class ClassicTableColumn(val label: String) {
+    Action("▶✎"),
+    Hebrew("Иврит"),
+    Niqqud("Огласовки"),
+    Translit("Транслит"),
+    Translation("Перевод"),
+}
+
+data class ClassicTableDisplayState(
+    val isColumnsPanelOpen: Boolean = false,
+    val visibleColumns: Set<ClassicTableColumn> = ClassicTableColumn.entries.toSet(),
+    val columnWidthsDp: Map<ClassicTableColumn, Int> = mapOf(
+        ClassicTableColumn.Action to 92,
+        ClassicTableColumn.Hebrew to 170,
+        ClassicTableColumn.Niqqud to 190,
+        ClassicTableColumn.Translit to 190,
+        ClassicTableColumn.Translation to 230,
+    ),
+    val selectedRowIndex: Int? = null,
+    val isAutoNextActive: Boolean = false,
+)
+
 data class ClassicModeUiState(
     val sourceText: String = "שלום, זהו אבטיפוס פשוט של המערכת",
     val sourceLanguage: ClassicSourceLanguage = ClassicSourceLanguage.Hebrew,
@@ -93,6 +115,7 @@ data class ClassicModeUiState(
     val isSaving: Boolean = false,
     val isSpeaking: Boolean = false,
     val playingRowIndex: Int? = null,
+    val tableDisplay: ClassicTableDisplayState = ClassicTableDisplayState(),
     val savedTextId: String? = null,
     val saveMetadataDraft: ClassicSaveMetadataDraft? = null,
     val noteEditor: ClassicNoteEditorState? = null,
@@ -163,6 +186,58 @@ class ClassicModeViewModel(
         _uiState.update { it.copy(hebrewTableFont = font, message = null) }
     }
 
+    fun toggleTableColumnsPanel() {
+        _uiState.update {
+            it.copy(
+                tableDisplay = it.tableDisplay.copy(isColumnsPanelOpen = !it.tableDisplay.isColumnsPanelOpen),
+                message = null,
+            )
+        }
+    }
+
+    fun toggleTableColumn(column: ClassicTableColumn) {
+        _uiState.update { current ->
+            val visible = current.tableDisplay.visibleColumns
+            val next = if (column in visible) visible - column else visible + column
+            if (next.isEmpty()) {
+                current.copy(message = "Нельзя скрыть все колонки. Минимум одна должна оставаться видимой.")
+            } else {
+                current.copy(
+                    tableDisplay = current.tableDisplay.copy(visibleColumns = next),
+                    message = null,
+                )
+            }
+        }
+    }
+
+    fun resetTableDisplay() {
+        _uiState.update {
+            it.copy(
+                tableDisplay = ClassicTableDisplayState(isColumnsPanelOpen = it.tableDisplay.isColumnsPanelOpen),
+                message = "Настройки таблицы сброшены.",
+            )
+        }
+    }
+
+    fun adjustTableColumnWidth(column: ClassicTableColumn, deltaDp: Float) {
+        if (deltaDp == 0f) return
+        _uiState.update { current ->
+            val widths = current.tableDisplay.columnWidthsDp.toMutableMap()
+            val currentWidth = widths[column] ?: 120
+            widths[column] = (currentWidth + deltaDp.toInt()).coerceIn(64, 420)
+            current.copy(tableDisplay = current.tableDisplay.copy(columnWidthsDp = widths))
+        }
+    }
+
+    fun selectRow(orderIndex: Int) {
+        _uiState.update {
+            it.copy(
+                tableDisplay = it.tableDisplay.copy(selectedRowIndex = orderIndex),
+                message = null,
+            )
+        }
+    }
+
     fun generateTable() {
         val current = uiState.value
         if (current.sourceText.isBlank()) {
@@ -198,6 +273,11 @@ class ClassicModeViewModel(
                             rows = rows,
                             isGenerating = false,
                             savedTextId = null,
+                            playingRowIndex = null,
+                            tableDisplay = it.tableDisplay.copy(
+                                selectedRowIndex = null,
+                                isAutoNextActive = false,
+                            ),
                             generatedAt = response.provenance.generatedAt,
                             generationLabel = "Translation: ${response.provenance.actualProviderId}",
                             provenance = response.provenance,
@@ -397,7 +477,7 @@ class ClassicModeViewModel(
             result.fold(
                 onSuccess = { response ->
                     val playbackMessage = response.localFilePath
-                        ?.let { playFile(File(it)) }
+                        ?.let { playFile(File(it)).toUserMessage() }
                         ?.let { " Playback: $it" }
                         .orEmpty()
                     _uiState.update {
@@ -421,36 +501,101 @@ class ClassicModeViewModel(
     }
 
     fun playRow(orderIndex: Int) {
+        startRowPlayback(orderIndex, autoAdvance = false)
+    }
+
+    fun toggleAutoNextPlayback() {
+        val current = uiState.value
+        if (current.tableDisplay.isAutoNextActive) {
+            audioPlaybackController?.stop()
+            _uiState.update {
+                it.copy(
+                    playingRowIndex = null,
+                    tableDisplay = it.tableDisplay.copy(isAutoNextActive = false),
+                    message = "Построчное воспроизведение остановлено.",
+                )
+            }
+            return
+        }
+        if (current.rows.isEmpty()) {
+            _uiState.update { it.copy(message = "Нет строк для построчного воспроизведения.") }
+            return
+        }
+        val startIndex = current.tableDisplay.selectedRowIndex
+            ?.takeIf { it in current.rows.indices }
+            ?: 0
+        _uiState.update {
+            it.copy(
+                tableDisplay = it.tableDisplay.copy(
+                    selectedRowIndex = startIndex,
+                    isAutoNextActive = true,
+                ),
+                message = null,
+            )
+        }
+        startRowPlayback(startIndex, autoAdvance = true)
+    }
+
+    private fun startRowPlayback(orderIndex: Int, autoAdvance: Boolean) {
         val current = uiState.value
         val row = current.rows.firstOrNull { it.orderIndex == orderIndex }
         if (row == null) {
-            _uiState.update { it.copy(message = "Строка не найдена.") }
+            _uiState.update {
+                it.copy(
+                    playingRowIndex = null,
+                    tableDisplay = it.tableDisplay.copy(isAutoNextActive = false),
+                    message = "Строка не найдена.",
+                )
+            }
             return
         }
         val registry = ttsProviders
         if (registry == null) {
-            _uiState.update { it.copy(message = "TTS registry is not available in this build path.") }
+            _uiState.update {
+                it.copy(
+                    playingRowIndex = null,
+                    tableDisplay = it.tableDisplay.copy(isAutoNextActive = false),
+                    message = "TTS registry is not available in this build path.",
+                )
+            }
             return
         }
         val textForTts = row.hebrewNiqqud.ifBlank { row.hebrewPlain }.trim()
         if (textForTts.isBlank()) {
-            _uiState.update { it.copy(message = "В строке нет текста для озвучки.") }
+            _uiState.update {
+                it.copy(
+                    playingRowIndex = null,
+                    tableDisplay = it.tableDisplay.copy(isAutoNextActive = false),
+                    message = "В строке нет текста для озвучки.",
+                )
+            }
             return
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(playingRowIndex = orderIndex, message = null) }
+            _uiState.update {
+                it.copy(
+                    playingRowIndex = orderIndex,
+                    tableDisplay = it.tableDisplay.copy(selectedRowIndex = orderIndex),
+                    message = null,
+                )
+            }
 
             val existingAssetKey = row.audioAssetKey?.takeIf { it.isNotBlank() }
             val storage = audioStorageRepository
             if (storage != null && existingAssetKey != null) {
                 when (val cached = storage.resolvePlayableAudio(existingAssetKey)) {
                     is PlayableAudioResult.Available -> {
-                        val playback = playFile(cached.absoluteFile)
+                        val playback = playFile(cached.absoluteFile) {
+                            onRowPlaybackCompleted(orderIndex, autoAdvance)
+                        }
                         _uiState.update {
                             it.copy(
-                                playingRowIndex = null,
-                                message = "Row audio from cache: $playback",
+                                playingRowIndex = if (playback == AudioPlaybackResult.Started) orderIndex else null,
+                                tableDisplay = it.tableDisplay.copy(
+                                    isAutoNextActive = it.tableDisplay.isAutoNextActive && playback == AudioPlaybackResult.Started,
+                                ),
+                                message = "Row audio from cache: ${playback.toUserMessage()}",
                             )
                         }
                         return@launch
@@ -484,7 +629,11 @@ class ClassicModeViewModel(
                     } else {
                         response.localFilePath?.let(::File)
                     }
-                    val playback = adoptedFile?.let { playFile(it) } ?: "audio file unavailable"
+                    val playback = adoptedFile?.let {
+                        playFile(it) {
+                            onRowPlaybackCompleted(orderIndex, autoAdvance)
+                        }
+                    } ?: AudioPlaybackResult.Failed("audio file unavailable")
                     val refreshedRows = if (current.savedTextId != null) {
                         runCatching { repository.getText(current.savedTextId) }
                             .getOrNull()
@@ -509,8 +658,11 @@ class ClassicModeViewModel(
                     _uiState.update {
                         it.copy(
                             rows = refreshedRows ?: it.rows,
-                            playingRowIndex = null,
-                            message = "Row TTS via ${response.provenance.actualProviderId}: $playback",
+                            playingRowIndex = if (playback == AudioPlaybackResult.Started) orderIndex else null,
+                            tableDisplay = it.tableDisplay.copy(
+                                isAutoNextActive = it.tableDisplay.isAutoNextActive && playback == AudioPlaybackResult.Started,
+                            ),
+                            message = "Row TTS via ${response.provenance.actualProviderId}: ${playback.toUserMessage()}",
                         )
                     }
                 },
@@ -521,9 +673,45 @@ class ClassicModeViewModel(
                     } else {
                         "Row TTS failed: ${error.message.orEmpty().ifBlank { "Unknown provider error." }}"
                     }
-                    _uiState.update { it.copy(playingRowIndex = null, message = message) }
+                    _uiState.update {
+                        it.copy(
+                            playingRowIndex = null,
+                            tableDisplay = it.tableDisplay.copy(isAutoNextActive = false),
+                            message = message,
+                        )
+                    }
                 },
             )
+        }
+    }
+
+    private fun onRowPlaybackCompleted(orderIndex: Int, autoAdvance: Boolean) {
+        viewModelScope.launch {
+            val current = uiState.value
+            if (autoAdvance && current.tableDisplay.isAutoNextActive) {
+                val nextIndex = orderIndex + 1
+                if (nextIndex < current.rows.size) {
+                    startRowPlayback(nextIndex, autoAdvance = true)
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            playingRowIndex = null,
+                            tableDisplay = it.tableDisplay.copy(
+                                selectedRowIndex = orderIndex,
+                                isAutoNextActive = false,
+                            ),
+                            message = "Построчное воспроизведение завершено.",
+                        )
+                    }
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        playingRowIndex = null,
+                        tableDisplay = it.tableDisplay.copy(selectedRowIndex = orderIndex),
+                    )
+                }
+            }
         }
     }
 
@@ -664,13 +852,15 @@ class ClassicModeViewModel(
             pitch = pitch,
         )
 
-    private fun playFile(file: File): String {
-        val controller = audioPlaybackController ?: return "playback controller unavailable"
-        return when (val result = controller.play(file)) {
+    private fun playFile(file: File, onCompletion: (() -> Unit)? = null): AudioPlaybackResult =
+        audioPlaybackController?.play(file, onCompletion)
+            ?: AudioPlaybackResult.Failed("playback controller unavailable")
+
+    private fun AudioPlaybackResult.toUserMessage(): String =
+        when (this) {
             AudioPlaybackResult.Started -> "started"
-            is AudioPlaybackResult.Failed -> result.message
+            is AudioPlaybackResult.Failed -> message
         }
-    }
 
     class Factory(
         private val repository: LibraryRepository,

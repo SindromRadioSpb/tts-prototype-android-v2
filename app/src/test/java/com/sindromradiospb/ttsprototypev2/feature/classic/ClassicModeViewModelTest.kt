@@ -15,6 +15,7 @@ import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.SaveGeneratedTextRequest
 import com.sindromradiospb.ttsprototypev2.data.repository.SaveTextResult
+import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicTableColumn
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -229,6 +230,45 @@ class ClassicModeViewModelTest {
         state = viewModel.uiState.value
         assertEquals("Заметка удалена.", state.message)
         assertNull(state.rows.first().note)
+    }
+
+    @Test
+    fun tableColumnTogglePreventsHidingEveryColumn() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel()
+
+        ClassicTableColumn.entries.dropLast(1).forEach(viewModel::toggleTableColumn)
+        viewModel.toggleTableColumn(ClassicTableColumn.Translation)
+
+        val state = viewModel.uiState.value
+        assertEquals(setOf(ClassicTableColumn.Translation), state.tableDisplay.visibleColumns)
+        assertEquals("Нельзя скрыть все колонки. Минимум одна должна оставаться видимой.", state.message)
+    }
+
+    @Test
+    fun tableColumnResizeIsClampedAndResetRestoresDefaults() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.adjustTableColumnWidth(ClassicTableColumn.Hebrew, -10_000f)
+        assertEquals(64, viewModel.uiState.value.tableDisplay.columnWidthsDp[ClassicTableColumn.Hebrew])
+
+        viewModel.adjustTableColumnWidth(ClassicTableColumn.Hebrew, 10_000f)
+        assertEquals(420, viewModel.uiState.value.tableDisplay.columnWidthsDp[ClassicTableColumn.Hebrew])
+
+        viewModel.resetTableDisplay()
+        val state = viewModel.uiState.value
+        assertEquals(170, state.tableDisplay.columnWidthsDp[ClassicTableColumn.Hebrew])
+        assertEquals("Настройки таблицы сброшены.", state.message)
+    }
+
+    @Test
+    fun autoNextWithoutRowsShowsExplicitMessage() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.toggleAutoNextPlayback()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.tableDisplay.isAutoNextActive)
+        assertEquals("Нет строк для построчного воспроизведения.", state.message)
     }
 
     private fun viewModel(
