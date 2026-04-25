@@ -101,6 +101,19 @@ M3 tests do not call real network endpoints and do not require real provider cre
 
 M4 unit tests do not instantiate Android platform `TextToSpeech` and do not use Google TTS credentials. A device/emulator smoke test is still required before treating `system_or_browser_fallback_low_quality` as manually verified.
 
+## Current M5 Coverage
+
+`AudioStorageRepositoryTest` covers:
+
+- adopting provider row audio into app-owned storage;
+- inserting `audio_assets` metadata and default `row_audio` link;
+- marking missing files after playback resolution checks;
+- rejecting missing/empty provider output before adoption;
+- rejecting unsafe provider asset keys before they can become file paths;
+- returning playback failure for a missing file without starting `MediaPlayer`.
+
+M5 tests do not play real audio on a device. Manual emulator/device playback evidence is still required before release.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.

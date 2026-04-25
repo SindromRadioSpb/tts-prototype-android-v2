@@ -125,6 +125,7 @@ class AndroidPlatformTtsProvider(
                 TtsResponse(
                     audioAssetKey = assetKey,
                     localFileName = output.name,
+                    localFilePath = output.absolutePath,
                     mimeType = "audio/wav",
                     provenance = ProviderProvenance(
                         requestedProviderId = request.profile.providerId.wireId,

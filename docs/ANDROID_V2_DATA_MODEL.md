@@ -144,6 +144,18 @@ Primary key: `text_id, asset_key`.
 
 No raw input text longer than the configured diagnostic limit may be stored in provider logs; no secrets are stored.
 
+## M5 Audio Metadata Status
+
+M5 writes row audio through existing schema version 1 tables; no Room migration is required.
+
+- `audio_assets.relative_path` stores the app-internal relative path, never an absolute path.
+- `audio_assets.asset_key` is accepted for file naming only when it matches `[A-Za-z0-9._-]+`; unsafe provider output is treated as an invalid response.
+- `audio_assets.is_missing` is set only after playback/storage validation confirms the file is absent.
+- `row_audio.is_default` is cleared for prior default links before a new default row audio link is inserted.
+- `row_audio.is_stale` remains separate from missing-file state; stale means text/profile changed, missing means file validation failed.
+
+Text-level audio remains planned and uses the existing `text_audio` table later.
+
 ## Transaction Boundaries
 
 - Save new generated text: insert `library_texts` and all `library_rows` in one transaction.

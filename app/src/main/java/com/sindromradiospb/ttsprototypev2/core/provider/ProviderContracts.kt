@@ -3,6 +3,7 @@ package com.sindromradiospb.ttsprototypev2.core.provider
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProfile
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
+import kotlinx.serialization.Serializable
 
 data class TranslationRequest(
     val sourceText: String,
@@ -36,6 +37,7 @@ data class TtsRequest(
 data class TtsResponse(
     val audioAssetKey: String?,
     val localFileName: String?,
+    val localFilePath: String? = null,
     val mimeType: String,
     val provenance: ProviderProvenance,
     val fromCache: Boolean = false,
@@ -43,6 +45,7 @@ data class TtsResponse(
     val sizeBytes: Long? = null,
 )
 
+@Serializable
 data class ProviderProvenance(
     val requestedProviderId: String,
     val actualProviderId: String,
@@ -51,6 +54,7 @@ data class ProviderProvenance(
     val fallbackReason: ProviderErrorCategory? = null,
 )
 
+@Serializable
 enum class ProviderErrorCategory {
     MissingConfiguration,
     NetworkUnavailable,
@@ -62,6 +66,7 @@ enum class ProviderErrorCategory {
     ProviderUnavailable,
     InvalidResponse,
     UnsupportedLanguage,
+    MissingAudio,
     Unknown,
 }
 

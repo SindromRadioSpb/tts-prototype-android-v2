@@ -66,6 +66,16 @@ M4 implementation status:
 - `AndroidPlatformTtsProvider` uses Android `TextToSpeech.synthesizeToFile` and writes temporary WAV output under app cache.
 - M5 must move/record accepted audio files into final app storage and Room `audio_assets`; M4 does not yet persist audio metadata.
 
+M5 implementation status:
+
+- `AudioStorageRepository` copies provider output from `TtsResponse.localFilePath` into app-owned storage.
+- Row audio target path is `audio/rows/{text_id}/{row_id}/{asset_key}.{ext}` under app `filesDir`.
+- `asset_key` must match `[A-Za-z0-9._-]+`; unsafe provider keys are rejected before any file copy to prevent path traversal through audio filenames.
+- The adopted file is recorded in `audio_assets`; the row default is recorded in `row_audio`.
+- Replacing row default audio first clears the previous `row_audio.is_default` flag for that row.
+- Missing playback files are marked with `audio_assets.is_missing=true` only after `resolvePlayableAudio` checks the file path.
+- `AndroidAudioPlaybackController` owns foreground playback via Android `MediaPlayer`; only one item is played by one controller instance at a time.
+
 ## Metadata
 
 Store:
@@ -81,6 +91,7 @@ Store:
 - provenance JSON.
 
 M4 `TtsResponse` carries `durationMs` and `sizeBytes` fields when available. Duration is usually unknown for Android platform TTS until playback/metadata inspection is added.
+M5 also requires `TtsResponse.localFilePath` for adoption. This field is transient runtime metadata and must never be exported as an absolute path.
 
 ## Export Inclusion
 

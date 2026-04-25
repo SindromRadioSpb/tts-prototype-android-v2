@@ -295,6 +295,7 @@ class RoomLibraryRepository(
     suspend fun linkDefaultRowAudio(rowId: String, input: AudioAssetInput) {
         database.withTransaction {
             dao.insertAudioAsset(input.toEntity(createdAt = clock()))
+            dao.clearDefaultRowAudio(rowId)
             dao.insertRowAudio(
                 RowAudioEntity(
                     rowId = rowId,

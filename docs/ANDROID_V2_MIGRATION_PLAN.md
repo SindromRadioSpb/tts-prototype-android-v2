@@ -9,6 +9,7 @@ M1 local Room library storage is implemented at repository level in commit `60dd
 M2 Classic Mode functional flow is implemented in commit `479d50f feat(classic): wire generation workflow shell`.
 M3 translation provider layer is implemented in commit `bfa8613 feat(provider): add allowed translation providers`.
 M4 TTS/audio provider contracts are implemented in commit `79d5b57 feat(audio): add tts provider contracts`.
+M5 audio storage and playback layer is in progress in patch P007.
 
 Completed:
 
@@ -22,7 +23,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Next implementation milestone after M4 is M5: Audio storage and playback.
+- Next implementation milestone after M5 is M6: Export ZIP with audio.
 
 ## Dependency Graph
 
@@ -52,7 +53,7 @@ M13 -> M14
 | M2 - Classic Mode functional flow | High | Wire Classic ViewModel to generated rows, save state, errors, and loading. | ViewModel tests; Compose smoke tests still pending. | Route back to M0 shell by reverting `feature/classic` and `AppRoot` wiring. | Completed: `479d50f feat(classic): wire generation workflow shell`. |
 | M3 - Translation providers | High | Implement allowlisted translation providers and fake providers. | Provider contract tests, timeout/error mapping tests. | Keep provider registry but disable failing provider in UI/settings; fake tests remain. | Completed: `bfa8613 feat(provider): add allowed translation providers`. |
 | M4 - TTS/audio providers | High | Implement `google_online_tts` and Android TextToSpeech fallback contracts. | Fake TTS tests; platform TTS smoke still pending on emulator/device. | Keep playback disabled with visible unsupported state. | Completed: `79d5b57 feat(audio): add tts provider contracts`. |
-| M5 - Audio storage and playback | High | Store row/text audio files, play them, mark stale/missing states. | Audio repository tests, manual playback evidence. | Retain metadata but hide playback controls if playback fails. | `feat(audio): add local playback and asset storage`. |
+| M5 - Audio storage and playback | High | Store row/text audio files, play them, mark stale/missing states. | Audio repository tests, manual playback evidence. | Retain metadata but hide playback controls if playback fails. | In progress: `feat(audio): add local playback and asset storage`. |
 | M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | `feat(export): add audio-aware zip export`. |
 | M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, and save/update library texts. | Repository tests and Compose UI tests. | Keep library screen behind navigation item until stable. | `feat(library): add saved text lifecycle ui`. |
 | M8 - Editing/reorder/reset behavior | Medium | Edit row fields, reset, reorder, delete, add rows while preserving metadata. | Regression tests from source behavior and UI evidence. | Disable row mutation actions if persistence invariant breaks. | `feat(library): add row editing workflow`. |
@@ -197,6 +198,34 @@ Docs required:
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)
 - [QA Test Strategy](ANDROID_V2_QA_TEST_STRATEGY.md)
 - [Requirements Traceability](ANDROID_V2_REQUIREMENTS_TRACEABILITY.md)
+- [Risk and Gap Register](ANDROID_V2_RISK_AND_GAP_REGISTER.md)
+
+## M5 Implementation Status
+
+Implemented in patch P007:
+
+- `AudioStorageRepository` adopts provider TTS output into app-controlled storage under `filesDir/audio/rows/{textId}/{rowId}/`.
+- Adopted row audio is recorded in Room `audio_assets` and linked as the row default in `row_audio`.
+- Default row audio replacement clears the prior row default before inserting the new link.
+- `resolvePlayableAudio` validates the file exists before playback and marks `audio_assets.is_missing=true` if the file is absent.
+- `AndroidAudioPlaybackController` wraps Android `MediaPlayer` behind an interface and returns a failure for missing files before constructing a player.
+- `TtsResponse` now carries `localFilePath`, `durationMs`, and `sizeBytes` metadata needed by storage adoption.
+
+Still out of scope for M5:
+
+- Compose playback buttons wired to row cards.
+- Text-level audio adoption.
+- Media3 session/background playback.
+- Device/emulator audio smoke evidence.
+- Export ZIP writer.
+
+Docs required:
+
+- [Audio Architecture](ANDROID_V2_AUDIO_ARCHITECTURE.md)
+- [Data Model](ANDROID_V2_DATA_MODEL.md)
+- [QA Test Strategy](ANDROID_V2_QA_TEST_STRATEGY.md)
+- [Requirements Traceability](ANDROID_V2_REQUIREMENTS_TRACEABILITY.md)
+- [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md)
 - [Risk and Gap Register](ANDROID_V2_RISK_AND_GAP_REGISTER.md)
 
 ## Blocking Questions

@@ -20,6 +20,7 @@ Date: 2026-04-25
 | RISK-014 | Provider | `google_translate_free` uses an unofficial best-effort endpoint that can change without notice. | Medium | High | Translation may fail or parse incorrectly. | Map invalid responses visibly; keep GCP/Gemini as future configured alternatives; add manual smoke evidence before release. | Reassess in M13 and before release. | Active | 2026-04-25 |
 | RISK-015 | Audio | Android platform TTS availability and Hebrew voice quality vary by device. | Medium | High | Fallback audio may be unavailable or poor quality. | Label as low quality, map unsupported language, require emulator/device smoke before release. | Validate in M5/M13 manual QA. | Active | 2026-04-25 |
 | RISK-016 | Security | Google Online TTS service account JSON cannot be safely embedded in an Android APK. | High | High | Credential extraction from APK or Git leak. | Keep provider missing-configuration until M9 secure settings/credential strategy is implemented. | Resolve in M9 before enabling Google Online TTS. | Open | 2026-04-25 |
+| RISK-017 | Audio | `MediaPlayer` playback is not yet manually verified on device/emulator. | Medium | Medium | Audio controls may fail despite unit-level storage checks. | Keep UI playback controls disabled until M7/M12 evidence; add manual smoke before release. | Validate during M7/M12/M13. | Open | 2026-04-25 |
 
 ## Related Docs
 

@@ -69,6 +69,15 @@ interface LibraryDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAudioAsset(asset: AudioAssetEntity)
 
+    @Query("SELECT * FROM audio_assets WHERE asset_key = :assetKey")
+    suspend fun getAudioAsset(assetKey: String): AudioAssetEntity?
+
+    @Query("UPDATE audio_assets SET is_missing = 1 WHERE asset_key = :assetKey")
+    suspend fun markAudioAssetMissing(assetKey: String)
+
+    @Query("UPDATE row_audio SET is_default = 0 WHERE row_id = :rowId")
+    suspend fun clearDefaultRowAudio(rowId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRowAudio(rowAudio: RowAudioEntity)
 
