@@ -224,6 +224,7 @@ class TranslationProvidersTest {
         assertEquals("gemini-flash-latest", response.provenance.model)
         assertTrue(httpClient.lastBody.contains("Split the input Hebrew text into logical sentences"))
         assertTrue(httpClient.lastBody.contains("Translate each segment into Russian"))
+        assertTrue(!httpClient.lastBody.contains("generationConfig"))
         assertTrue(!httpClient.lastBody.contains("responseMimeType"))
         assertTrue(!httpClient.lastBody.contains("Add Hebrew niqqud"))
     }
@@ -333,6 +334,8 @@ class TranslationProvidersTest {
 
         assertEquals(2, response.rows.size)
         assertEquals(3, response.rows.last().segmentIndex)
+        assertEquals("ממביס", response.rows.last().hebrewNiqqud)
+        assertEquals("mmbys", response.rows.last().translit)
         assertEquals("Тест", response.rows.last().russian)
     }
 
@@ -367,7 +370,7 @@ class TranslationProvidersTest {
     }
 
     @Test
-    fun geminiLegacyLooseRecoveryIgnoresSegmentsObjects() = runTest {
+    fun geminiLegacyRepairPreservesFullRowsWithoutDuplicatingSegments() = runTest {
         val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
         settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
         val provider = GeminiLegacyTranslationProvider(
@@ -398,7 +401,9 @@ class TranslationProvidersTest {
         ).getOrThrow()
 
         assertEquals(2, response.rows.size)
-        assertEquals("שורת טבלה אחת", response.rows.first().hebrewPlain)
+        assertEquals("רק סגמנט אחד", response.rows.first().hebrewPlain)
+        assertEquals("שורת", response.rows.first().hebrewNiqqud)
+        assertEquals("shurat", response.rows.first().translit)
         assertEquals("Первая строка", response.rows.first().russian)
         assertEquals("Вторая строка", response.rows.last().russian)
     }

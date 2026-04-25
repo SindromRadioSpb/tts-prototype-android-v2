@@ -407,13 +407,6 @@ class GeminiLegacyTranslationProvider(
                         )
                     },
                 )
-                put(
-                    "generationConfig",
-                    buildJsonObject {
-                        put("temperature", 0.1)
-                        put("maxOutputTokens", 4096)
-                    },
-                )
             },
         )
         val response = withTimeout(30_000) {
@@ -468,9 +461,7 @@ class GeminiLegacyTranslationProvider(
     internal fun parseGeminiTableResponse(body: String): List<GeneratedRow> {
         val text = extractGeminiText(body)
         val jsonText = stripJsonFence(text)
-        val parsedRows = runCatching {
-            rowsFromGeminiPayload(json.parseToJsonElement(jsonText))
-        }.getOrElse { error ->
+        val parsedRows = parseGeminiPayloadCandidates(jsonText).getOrElse { error ->
             rowsFromLooseGeminiText(jsonText).ifEmpty {
                 throw invalidEnvelope(
                     providerId = id.wireId,
@@ -482,6 +473,24 @@ class GeminiLegacyTranslationProvider(
         if (parsedRows.isEmpty()) throw invalidEnvelope(id.wireId, "Gemini table rows")
         return parsedRows
     }
+
+    private fun parseGeminiPayloadCandidates(jsonText: String): Result<List<GeneratedRow>> {
+        val candidates = listOf(jsonText, repairGeminiJson(jsonText)).distinct()
+        var lastError: Throwable? = null
+        for (candidate in candidates) {
+            val parsed = runCatching { rowsFromGeminiPayload(json.parseToJsonElement(candidate)) }
+            val rows = parsed.getOrNull()
+            if (!rows.isNullOrEmpty()) return Result.success(rows)
+            lastError = parsed.exceptionOrNull()
+        }
+        return Result.failure(lastError ?: invalidEnvelope(id.wireId, "Gemini table rows"))
+    }
+
+    private fun repairGeminiJson(jsonText: String): String =
+        jsonText
+            .replace(Regex("}\\s*\\{"), "},{")
+            .replace(Regex(",\\s*]"), "]")
+            .replace(Regex(",\\s*}"), "}")
 
     private fun rowsFromGeminiPayload(root: JsonElement): List<GeneratedRow> {
         if (root is JsonArray) return rowsFromJsonElements(root, emptyMap())
@@ -532,7 +541,7 @@ class GeminiLegacyTranslationProvider(
     private fun rowsFromLooseGeminiText(text: String): List<GeneratedRow> =
         looseRowsSearchRegion(text)
             .let { rowsRegion ->
-        Regex("""\{[^{}]*"(?:he|hebrew)"\s*:[^{}]*\}""", RegexOption.DOT_MATCHES_ALL)
+                Regex("""\{[^{}]*"(?:he|hebrew)"\s*:[^{}]*\}""", RegexOption.DOT_MATCHES_ALL)
                 .findAll(rowsRegion)
                 .mapIndexedNotNull { index, match ->
                     val objectText = match.value
@@ -556,7 +565,9 @@ class GeminiLegacyTranslationProvider(
 
     private fun looseRowsSearchRegion(text: String): String {
         val rowsMatch = Regex("\"rows\"\\s*:\\s*\\[").find(text) ?: return text
-        return text.substring(rowsMatch.range.last + 1)
+        val start = rowsMatch.range.last + 1
+        val end = text.indexOf(']', start).takeIf { it >= 0 } ?: text.length
+        return text.substring(start, end)
     }
 
     private fun looseStringField(objectText: String, field: String): String {

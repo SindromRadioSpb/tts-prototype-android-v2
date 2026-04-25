@@ -725,6 +725,11 @@ P024 implementation status:
 - Gemini table generation follows the source prototype `/api/translate-table` prompt/parser contract: plain `generateContent` prompt, no REST JSON response mode, and source-style `segments` + `rows` normalization.
 - Malformed Gemini HTTP/candidate envelopes surface as `InvalidResponse`, not generic `Unknown`.
 
+P027 implementation status:
+
+- Gemini request bodies avoid Android-only `generationConfig` so the runtime behavior stays closer to the source prototype SDK call.
+- Missing-comma Gemini JSON is repaired and parsed through the full `segments` + `rows` path before loose fallback, preserving full table columns where the data exists.
+
 ## UI DoD Evidence Checklist
 
 Future implementation patches must collect evidence for:

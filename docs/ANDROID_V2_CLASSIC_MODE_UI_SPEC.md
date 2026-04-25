@@ -198,6 +198,11 @@ P024 behavior:
 - Gemini row normalization now mirrors source `buildRowsFromGeminiPayload`: `segments[index].he` is treated as the canonical Hebrew source for each row, while `rows` supplies `he_niqqud`, `translit`, and `ru`.
 - Malformed outer Gemini HTTP envelopes and malformed candidate JSON are mapped to `InvalidResponse` instead of generic `Unknown`.
 
+P027 behavior:
+
+- Gemini requests no longer include Android-only `generationConfig`; the request shape stays closer to the prototype SDK call.
+- Gemini malformed JSON is repaired for common missing-comma row-object output before loose fallback. This preserves niqqud, transliteration, and translation columns instead of rendering partial Hebrew-only rows.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.

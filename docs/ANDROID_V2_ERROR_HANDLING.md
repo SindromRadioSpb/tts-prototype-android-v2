@@ -110,6 +110,10 @@ P026 provider error status:
 
 - Gemini loose row recovery must scope object extraction to the `rows` array when `segments` is present. Segment-only objects must not become visible table rows with only the Hebrew column populated.
 
+P027 provider error status:
+
+- Gemini parser must try full JSON repair and strict `segments` + `rows` parsing before loose row extraction. Common model mistakes such as adjacent row objects without commas should preserve niqqud/translit/translation data instead of degrading to Hebrew-only rows.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)
