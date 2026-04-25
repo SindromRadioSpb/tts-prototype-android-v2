@@ -25,6 +25,7 @@ P021 fixes Gemini HTTP 400 handling: Android now uses the source-compatible `gem
 P022 hardens Gemini response parsing: malformed candidate JSON and unexpected row envelopes now surface as `InvalidResponse` with details instead of generic `Unknown`, while top-level row arrays and `translation`/`russian` aliases are accepted.
 P023 adds Gemini loose row recovery for partially malformed candidate JSON and makes visible message/error cards selectable for copy diagnostics.
 P024 realigns Gemini table generation with the source prototype `/api/translate-table` implementation: plain `generateContent` prompt, no REST JSON response mode, source-style `segments` + `rows` normalization, and `InvalidResponse` mapping for malformed outer Gemini envelopes.
+P025 fixes an Android runtime regex incompatibility in Gemini loose row recovery by escaping literal closing braces in the fallback parser.
 Classic Mode / Library v3 mobile parity based on v4 screenshots is now specified in `docs/ui/ANDROID_V2_CLASSIC_MODE_MOBILE_V4_UI_SPEC.md`.
 P014 implements the first native v4 parity pass in commit `844239b`: Classic-owned `📚 Библиотека`, Library v3 modal, filters/dropdowns/tag chips, stacked action cards without clipping, text-level metadata editor, and Room schema version 2 metadata fields.
 

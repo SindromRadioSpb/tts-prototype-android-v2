@@ -530,7 +530,7 @@ class GeminiLegacyTranslationProvider(
         }
 
     private fun rowsFromLooseGeminiText(text: String): List<GeneratedRow> =
-        Regex("""\{[^{}]*"(?:he|hebrew)"\s*:[^{}]*}""", RegexOption.DOT_MATCHES_ALL)
+        Regex("""\{[^{}]*"(?:he|hebrew)"\s*:[^{}]*\}""", RegexOption.DOT_MATCHES_ALL)
             .findAll(text)
             .mapIndexedNotNull { index, match ->
                 val objectText = match.value
@@ -554,7 +554,7 @@ class GeminiLegacyTranslationProvider(
     private fun looseStringField(objectText: String, field: String): String {
         val knownFields = "segment_index|index|he|hebrew|he_niqqud|translit|translit_ru|ru|russian|translation"
         return Regex(
-            """"$field"\s*:\s*"([\s\S]*?)(?="\s*,\s*"(?:$knownFields)"\s*:|"\s*}|$)""",
+            """"$field"\s*:\s*"([\s\S]*?)(?="\s*,\s*"(?:$knownFields)"\s*:|"\s*\}|$)""",
         ).find(objectText)
             ?.groupValues
             ?.getOrNull(1)

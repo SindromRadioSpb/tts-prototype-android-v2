@@ -337,6 +337,36 @@ class TranslationProvidersTest {
     }
 
     @Test
+    fun geminiLegacyLooseRecoveryRegexAcceptsAndroidRuntimeBraces() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = geminiCandidateText(
+                        """
+                        {"rows":[
+                          {"index":3,"he":"ממביס ועד לשירות הודעני שמ.","ru":"Тест"}
+                          {"index":4,"he":"עוד שורה","translation":"Ещё строка"}
+                        ]}
+                        """.trimIndent(),
+                    ),
+                ),
+            ),
+        )
+
+        val response = provider.translate(
+            TranslationRequest(sourceText = "ממביס ועד לשירות הודעני שמ.", providerId = TranslationProviderId.GeminiLegacy),
+        ).getOrThrow()
+
+        assertEquals(2, response.rows.size)
+        assertEquals("ממביס ועד לשירות הודעני שמ.", response.rows.first().hebrewPlain)
+        assertEquals("Ещё строка", response.rows.last().russian)
+    }
+
+    @Test
     fun geminiLegacyMalformedCandidateJsonReturnsInvalidResponse() = runTest {
         val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
         settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")

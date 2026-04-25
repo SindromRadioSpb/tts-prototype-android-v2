@@ -102,6 +102,10 @@ P024 provider error status:
 - Gemini malformed outer HTTP envelopes, missing candidate text, malformed candidate JSON, and invalid `segments`/`rows` payloads must surface as `InvalidResponse`, not `Unknown`.
 - Gemini table generation follows the source prototype prompt/parser contract. A valid response must contain row data recoverable from `rows` and may use `segments` as canonical Hebrew source text.
 
+P025 provider error status:
+
+- Gemini loose row recovery regex patterns must escape literal closing braces so Android runtime does not surface `PatternSyntaxException` as a provider failure.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)
