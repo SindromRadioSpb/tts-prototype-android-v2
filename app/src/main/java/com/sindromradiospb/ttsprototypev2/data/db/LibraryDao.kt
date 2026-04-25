@@ -63,6 +63,9 @@ interface LibraryDao {
     @Delete
     suspend fun deleteRow(row: LibraryRowEntity)
 
+    @Query("DELETE FROM library_texts WHERE text_id = :textId")
+    suspend fun deleteText(textId: String)
+
     @Query("DELETE FROM library_rows WHERE text_id = :textId")
     suspend fun deleteRowsForText(textId: String)
 

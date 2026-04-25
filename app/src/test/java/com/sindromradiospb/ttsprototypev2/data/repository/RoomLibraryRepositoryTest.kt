@@ -203,6 +203,18 @@ class RoomLibraryRepositoryTest {
     }
 
     @Test
+    fun deleteTextRemovesTextFromSummariesAndLoadPath() = runTest {
+        val saved = (repository.saveGeneratedText(sampleRequest()) as SaveTextResult.Saved).text
+
+        repository.deleteText(saved.id)
+
+        assertTrue(repository.observeTexts(includeArchived = true).first().isEmpty())
+        assertFailsWithMessage("Library text not found: ${saved.id}") {
+            repository.getText(saved.id)
+        }
+    }
+
+    @Test
     fun savedTextSurvivesDatabaseRestart() = runTest {
         val databaseName = "restart-${System.nanoTime()}.db"
         val firstDb = Room.databaseBuilder(context, AppDatabase::class.java, databaseName)
@@ -278,7 +290,10 @@ class RoomLibraryRepositoryTest {
         } catch (error: IllegalArgumentException) {
             assertEquals(expectedMessage, error.message)
             return
+        } catch (error: IllegalStateException) {
+            assertEquals(expectedMessage, error.message)
+            return
         }
-        throw AssertionError("Expected IllegalArgumentException")
+        throw AssertionError("Expected IllegalArgumentException or IllegalStateException")
     }
 }

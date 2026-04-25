@@ -19,16 +19,16 @@ Implemented:
 
 Still pending outside M1:
 
-- Full library screen and saved text lifecycle UI.
-- Export ZIP writer.
-- Real provider-generated rows.
-- Audio playback and file cleanup.
+- Row edit/reorder/reset UI.
+- SAF/share export UI wiring.
+- Audio file cleanup.
+- Compose screenshot/manual device evidence.
 
 M2 update:
 
 - Classic Mode can now save fake-generated rows through the `LibraryRepository` port into the Room-backed runtime repository.
 - The ViewModel uses the repository summary flow to show saved text count in Classic Mode.
-- Full open/update/archive/delete lifecycle UI remains M7 scope.
+- Full open/archive/restore/delete lifecycle UI is implemented at repository/ViewModel/UI level in M7; screenshot/manual evidence is still pending.
 
 ## Repository Interfaces
 
@@ -42,6 +42,7 @@ Target repository surface:
 - `resetRowFields(textId: String, rowId: String, fields: Set<RowField>): LibraryRow`
 - `reorderRows(textId: String, orderedRowIds: List<String>): List<LibraryRow>`
 - `deleteRow(textId: String, rowId: String): Unit`
+- `deleteText(textId: String): Unit`
 - `addRow(textId: String, afterRowId: String?, fields: EditableRowFields): LibraryRow`
 - `archiveText(textId: String, archived: Boolean): Unit`
 - `markOpened(textId: String, openedAt: Instant): Unit`
@@ -92,6 +93,14 @@ Update uses the same transaction but preserves row IDs where existing rows can b
 - Row mutations keep the current table visible while operation is in progress.
 - Conflict UI must offer update existing or cancel; it must not silently overwrite.
 - Stale audio indicator appears immediately after Hebrew/niqqud edit.
+
+M7 Library tab behavior:
+
+- active summaries are shown by default;
+- archived summaries are included only when the user enables the archived filter;
+- opening a text marks `last_opened_at` and displays row previews;
+- archive keeps the selected text open so the user can restore it immediately;
+- delete clears the selected text and removes it from summaries through Room cascade behavior.
 
 ## Testing Plan
 

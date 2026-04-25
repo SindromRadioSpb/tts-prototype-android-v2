@@ -36,18 +36,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.sindromradiospb.ttsprototypev2.core.model.LibraryRow
+import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicGeneratedRowUi
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeUiState
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicModeViewModel
+import com.sindromradiospb.ttsprototypev2.feature.library.LibraryUiState
+import com.sindromradiospb.ttsprototypev2.feature.library.LibraryViewModel
 
 @Composable
-fun AppRoot(classicModeViewModel: ClassicModeViewModel) {
+fun AppRoot(
+    classicModeViewModel: ClassicModeViewModel,
+    libraryViewModel: LibraryViewModel,
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Classic", "IDE")
+    val tabs = listOf("Classic", "Library", "IDE")
     val classicState by classicModeViewModel.uiState.collectAsState()
+    val libraryState by libraryViewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -78,6 +86,16 @@ fun AppRoot(classicModeViewModel: ClassicModeViewModel) {
                 onGenerate = classicModeViewModel::generateTable,
                 onSave = classicModeViewModel::saveCurrent,
                 onDismissMessage = classicModeViewModel::clearMessage,
+                modifier = Modifier.padding(innerPadding),
+            )
+            1 -> LibraryScreen(
+                state = libraryState,
+                onIncludeArchivedChanged = libraryViewModel::setIncludeArchived,
+                onOpenText = libraryViewModel::openText,
+                onArchiveSelected = { libraryViewModel.archiveSelected(archived = true) },
+                onRestoreSelected = { libraryViewModel.archiveSelected(archived = false) },
+                onDeleteSelected = libraryViewModel::deleteSelected,
+                onDismissMessage = libraryViewModel::clearMessage,
                 modifier = Modifier.padding(innerPadding),
             )
             else -> IdeModeScreen(Modifier.padding(innerPadding))
@@ -282,6 +300,151 @@ private fun LibraryActionCard(
             OutlinedButton(onClick = { }, enabled = false) {
                 Text("Export ZIP")
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun LibraryScreen(
+    state: LibraryUiState,
+    onIncludeArchivedChanged: (Boolean) -> Unit,
+    onOpenText: (String) -> Unit,
+    onArchiveSelected: () -> Unit,
+    onRestoreSelected: () -> Unit,
+    onDeleteSelected: () -> Unit,
+    onDismissMessage: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Local library", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Saved texts are stored on this device. Archive hides a text from the default list; delete removes it from Room.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            FilterChip(
+                selected = !state.includeArchived,
+                onClick = { onIncludeArchivedChanged(false) },
+                label = { Text("Active") },
+            )
+            FilterChip(
+                selected = state.includeArchived,
+                onClick = { onIncludeArchivedChanged(true) },
+                label = { Text("Include archived") },
+            )
+            AssistChip(onClick = { }, label = { Text("${state.summaries.size} shown") })
+        }
+
+        state.message?.let {
+            MessageCard(message = it, onDismiss = onDismissMessage)
+        }
+
+        if (state.summaries.isEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("No saved texts", style = MaterialTheme.typography.titleMedium)
+                    Text("Generate and save a Classic Mode result to populate the local library.")
+                }
+            }
+        } else {
+            state.summaries.forEach { summary ->
+                LibrarySummaryCard(
+                    summary = summary,
+                    isSelected = state.selectedText?.id == summary.textId,
+                    onOpen = { onOpenText(summary.textId) },
+                )
+            }
+        }
+
+        state.selectedText?.let { selected ->
+            SelectedLibraryTextCard(
+                text = selected,
+                isLoading = state.isLoading,
+                onArchive = onArchiveSelected,
+                onRestore = onRestoreSelected,
+                onDelete = onDeleteSelected,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibrarySummaryCard(
+    summary: LibraryTextSummary,
+    isSelected: Boolean,
+    onOpen: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Text(summary.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (summary.isArchived) {
+                    AssistChip(onClick = { }, label = { Text("Archived") })
+                }
+            }
+            Text("Updated: ${summary.updatedAt}", style = MaterialTheme.typography.bodySmall)
+            summary.level?.let { Text("Level: $it", style = MaterialTheme.typography.bodySmall) }
+            OutlinedButton(onClick = onOpen) {
+                Text(if (isSelected) "Refresh" else "Open")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SelectedLibraryTextCard(
+    text: LibraryText,
+    isLoading: Boolean,
+    onArchive: () -> Unit,
+    onRestore: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(text.title, style = MaterialTheme.typography.titleLarge)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                AssistChip(onClick = { }, label = { Text("${text.rows.size} rows") })
+                AssistChip(onClick = { }, label = { Text(if (text.isArchived) "Archived" else "Active") })
+                text.lastOpenedAt?.let { AssistChip(onClick = { }, label = { Text("Opened $it") }) }
+            }
+            Text(text.sourceText, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                if (text.isArchived) {
+                    Button(onClick = onRestore, enabled = !isLoading) { Text("Restore") }
+                } else {
+                    OutlinedButton(onClick = onArchive, enabled = !isLoading) { Text("Archive") }
+                }
+                OutlinedButton(onClick = onDelete, enabled = !isLoading) { Text("Delete") }
+                OutlinedButton(onClick = { }, enabled = false) { Text("Export ZIP") }
+            }
+            text.rows.forEach { row ->
+                LibraryRowCard(row)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryRowCard(row: LibraryRow) {
+    Card {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Row ${row.orderIndex + 1}", style = MaterialTheme.typography.labelLarge)
+            Text(row.hebrewPlain, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+            if (row.hebrewNiqqud.isNotBlank()) {
+                Text(row.hebrewNiqqud, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+            }
+            if (row.translit.isNotBlank()) Text("SBL: ${row.translit}")
+            if (row.translitRu.isNotBlank()) Text("Russian phonetic: ${row.translitRu}")
+            if (row.russian.isNotBlank()) Text("Russian: ${row.russian}")
+            row.audioAssetKey?.let { AssistChip(onClick = { }, label = { Text("Audio linked") }) }
         }
     }
 }

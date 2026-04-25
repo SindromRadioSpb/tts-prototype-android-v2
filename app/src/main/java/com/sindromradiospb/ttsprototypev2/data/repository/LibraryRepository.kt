@@ -285,6 +285,13 @@ class RoomLibraryRepository(
         }
     }
 
+    suspend fun deleteText(textId: String) {
+        database.withTransaction {
+            dao.getText(textId) ?: error("Library text not found: $textId")
+            dao.deleteText(textId)
+        }
+    }
+
     suspend fun markOpened(textId: String, openedAt: String) {
         database.withTransaction {
             val current = dao.getText(textId) ?: error("Library text not found: $textId")

@@ -11,6 +11,7 @@ M3 translation provider layer is implemented in commit `bfa8613 feat(provider): 
 M4 TTS/audio provider contracts are implemented in commit `79d5b57 feat(audio): add tts provider contracts`.
 M5 audio storage and playback layer is implemented in commit `c82a734`.
 M6 export ZIP with audio is implemented in commit `4ac57c9`.
+M7 library UI and saved text lifecycle is in progress in patch P009.
 
 Completed:
 
@@ -24,7 +25,7 @@ Completed:
 Current documentation package status:
 
 - Premium documentation control plane was added in docs-only commit `00d1d10 docs(android): add premium migration documentation control plane`.
-- Next implementation milestone after M6 is M7: Library UI and saved text lifecycle.
+- Next implementation milestone after M7 is M8: Editing/reorder/reset behavior.
 
 ## Dependency Graph
 
@@ -56,7 +57,7 @@ M13 -> M14
 | M4 - TTS/audio providers | High | Implement `google_online_tts` and Android TextToSpeech fallback contracts. | Fake TTS tests; platform TTS smoke still pending on emulator/device. | Keep playback disabled with visible unsupported state. | Completed: `79d5b57 feat(audio): add tts provider contracts`. |
 | M5 - Audio storage and playback | High | Store row/text audio files, play them, mark stale/missing states. | Audio repository tests, manual playback evidence. | Retain metadata but hide playback controls if playback fails. | Completed in `c82a734`; manual playback evidence remains a release hardening item. |
 | M6 - Export ZIP with audio | High | Write export ZIP with manifest, library JSON, audio files, missing audio report. | Export snapshot tests and interrupted export tests. | Keep JSON-only export unavailable until ZIP writer is safe. | Completed in `4ac57c9`; SAF/share UI evidence remains future work. |
-| M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, and save/update library texts. | Repository tests and Compose UI tests. | Keep library screen behind navigation item until stable. | `feat(library): add saved text lifecycle ui`. |
+| M7 - Library UI and saved text lifecycle | Medium | Browse, open, archive, delete, and save/update library texts. | Repository tests and Compose UI tests. | Keep library screen behind navigation item until stable. | In progress: `feat(library): add saved text lifecycle ui`. |
 | M8 - Editing/reorder/reset behavior | Medium | Edit row fields, reset, reorder, delete, add rows while preserving metadata. | Regression tests from source behavior and UI evidence. | Disable row mutation actions if persistence invariant breaks. | `feat(library): add row editing workflow`. |
 | M9 - API key/settings/security | High | Add encrypted settings, masked key status, update/delete flows. | Security tests, no-secret export/log tests. | Keep real providers disabled until key storage is correct. | `feat(settings): add secure provider configuration`. |
 | M10 - IDE Mode experimental integration | Medium | Keep IDE Mode separate and experimental with shared models only. | Navigation tests, no Classic dependency regression. | Hide IDE entry if it destabilizes Classic. | `feat(ide): define experimental workspace shell`. |
@@ -244,6 +245,22 @@ Still out of scope for M6:
 - Storage Access Framework UI and share sheet wiring.
 - Android device manual evidence for interrupted SAF writes.
 - Import implementation.
+
+## M7 Implementation Status
+
+Implemented in patch P009:
+
+- `LibraryViewModel` observes active/archived Room summaries, opens selected texts, marks `last_opened_at`, archives/restores, and deletes selected texts.
+- `AppRoot` adds a separate `Library` tab between Classic and IDE.
+- The Library screen lists saved summaries, toggles archived visibility, opens selected text details, previews rows, and exposes archive/restore/delete actions.
+- `RoomLibraryRepository.deleteText` deletes a text through Room with cascade cleanup of rows and link tables.
+- Tests cover open/last-opened, archive/restore/delete lifecycle, and repository hard delete behavior.
+
+Still out of scope for M7:
+
+- Row editing/reorder/reset UI, handled by M8.
+- SAF/share export UI wiring.
+- Compose screenshot/manual device evidence.
 
 ## Blocking Questions
 

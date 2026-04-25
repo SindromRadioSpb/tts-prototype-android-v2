@@ -90,6 +90,11 @@ Current M3 behavior:
 - Duplicate save returns a visible local-library conflict message and does not overwrite silently.
 - Provider missing configuration and mapped provider errors are shown without silent fallback.
 
+M7 behavior:
+
+- A separate Library tab is available for browse/open/archive/restore/delete and row preview.
+- Classic Mode still shows the saved summary count, but detailed lifecycle actions live in the Library tab.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.

@@ -126,6 +126,19 @@ M5 tests do not play real audio on a device. Manual emulator/device playback evi
 
 M6 tests do not cover SAF/share-sheet UI because that UI is not implemented yet.
 
+## Current M7 Coverage
+
+`LibraryViewModelTest` covers:
+
+- opening a saved text from the library and marking `last_opened_at`;
+- keeping the selected archived text open so restore is available;
+- toggling archived summaries;
+- restoring and deleting selected texts.
+
+`RoomLibraryRepositoryTest` covers hard delete removing the text from summaries and load paths.
+
+M7 does not yet include Compose screenshot tests or device manual evidence.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.
