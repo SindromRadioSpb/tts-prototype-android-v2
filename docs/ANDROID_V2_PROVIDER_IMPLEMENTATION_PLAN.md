@@ -20,6 +20,13 @@ M3 implementation status:
 - `ProviderException` carries `ProviderErrorCategory`, provider ID, and user-visible message.
 - Classic Mode consumes `TranslationProvider` through the registry and does not perform hidden fallback.
 
+M4 implementation status:
+
+- `TtsProviderRegistry` rejects TTS providers outside `AndroidV2ProviderPolicy`.
+- `FakeTtsProvider` provides deterministic CI-safe TTS metadata without audio engine or network.
+- `AndroidPlatformTtsProvider` wraps native Android `TextToSpeech` for `system_or_browser_fallback_low_quality`.
+- `google_online_tts` is represented by `MissingConfigurationTtsProvider` until M9 secure credential storage exists.
+
 ## Allowed Translation Providers
 
 | Provider ID | Purpose | Runtime notes | Production risk |
@@ -40,6 +47,11 @@ Current runtime wiring:
 |-------------|---------|---------------|-----------------|
 | `google_online_tts` | Online Google TTS with local audio ownership after response is saved. | Writes returned audio to app storage before recording `audio_assets`. | Credential strategy and network failure UX. |
 | `system_or_browser_fallback_low_quality` | Android platform TextToSpeech fallback. | Label in UI as low quality; no browser dependency in native Android. | Voice availability varies by device. |
+
+Current runtime wiring:
+
+- `google_online_tts`: allowlisted but returns `MissingConfiguration` until M9 secure settings exist.
+- `system_or_browser_fallback_low_quality`: implemented as Android platform `TextToSpeech.synthesizeToFile` adapter writing a temporary WAV under app cache.
 
 ## Disallowed Providers
 
@@ -81,7 +93,7 @@ Persist for every generated row or audio asset:
 ## Fake Providers
 
 - `FakeTranslationProvider` returns deterministic Hebrew/Russian rows for CI and ViewModel tests.
-- Add fake TTS provider returning deterministic test audio metadata without network.
+- `FakeTtsProvider` returns deterministic test audio metadata without network or platform TTS.
 - Contract tests must run in CI without real keys or network.
 
 ## Real Wiring Order
@@ -89,8 +101,8 @@ Persist for every generated row or audio asset:
 1. Fake providers and contract tests. Completed for translation in M3.
 2. `google_translate_free` behind policy allowlist. Completed in M3 as best-effort HTTP adapter.
 3. `gcp_translate` with secure key status checks. Deferred to M9.
-4. `system_or_browser_fallback_low_quality`.
-5. `google_online_tts`.
+4. `system_or_browser_fallback_low_quality`. Completed in M4 as Android platform adapter; device smoke still required.
+5. `google_online_tts`. Deferred to M9/M4 follow-up because secure credential storage is required before network use.
 6. `gemini_legacy` only after key strategy and UI cost warnings are documented.
 
 ## Open Decisions
@@ -99,6 +111,7 @@ Persist for every generated row or audio asset:
 |----------|-----------------|---------------------|
 | GCP key vs service account JSON on device | Prefer restricted API key or brokered OAuth; do not embed raw service account JSON on device. | Resolve in M9 before enabling `gcp_translate`. |
 | Gemini key handling | Same encrypted settings path as GCP; masked status only. | Resolve in M9 before `gemini_legacy`. |
+| Google Online TTS credentials | Do not embed service account JSON in APK. Use M9 secure settings or a safer credential strategy before enabling. | Resolve in M9 before `google_online_tts`. |
 | niqqud provider strategy | Store niqqud as optional/degraded; do not depend on desktop sidecar. | Decide in M3 after Android-safe options review. |
 | Google Free production stability | Treat as best-effort with visible degraded/unofficial label. | Validate with provider tests and UX copy in M3. |
 

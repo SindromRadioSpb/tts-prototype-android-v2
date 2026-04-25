@@ -73,6 +73,8 @@ Providers must map failures to:
 Quota, billing, invalid-key, and unauthorized errors must not silently fallback.
 Missing configuration must not silently fallback either; the UI must ask the user to configure the provider or choose a different provider manually.
 
+For TTS, `google_online_tts` must remain missing-configuration until secure credential storage is implemented. Raw Google service account JSON must not be embedded in the APK, copied into source/resources, logged, stored in Room, or exported.
+
 ## Security Requirements
 
 - No API keys, service account JSON, bearer tokens, or full credential paths in logs.

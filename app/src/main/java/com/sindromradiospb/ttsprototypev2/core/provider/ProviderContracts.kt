@@ -39,6 +39,8 @@ data class TtsResponse(
     val mimeType: String,
     val provenance: ProviderProvenance,
     val fromCache: Boolean = false,
+    val durationMs: Long? = null,
+    val sizeBytes: Long? = null,
 )
 
 data class ProviderProvenance(

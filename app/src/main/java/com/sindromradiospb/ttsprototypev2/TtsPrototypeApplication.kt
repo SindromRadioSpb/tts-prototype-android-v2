@@ -3,6 +3,7 @@ package com.sindromradiospb.ttsprototypev2
 import android.app.Application
 import androidx.room.Room
 import com.sindromradiospb.ttsprototypev2.data.db.AppDatabase
+import com.sindromradiospb.ttsprototypev2.data.provider.tts.createAndroidTtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.data.repository.RoomLibraryRepository
 
 class TtsPrototypeApplication : Application() {
@@ -16,5 +17,9 @@ class TtsPrototypeApplication : Application() {
 
     val libraryRepository: RoomLibraryRepository by lazy {
         RoomLibraryRepository(database)
+    }
+
+    val ttsProviderRegistry by lazy {
+        createAndroidTtsProviderRegistry(this)
     }
 }

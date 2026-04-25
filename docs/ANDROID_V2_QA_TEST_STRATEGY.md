@@ -89,6 +89,18 @@ M2 does not yet include Compose UI tests or emulator evidence. Those become mand
 
 M3 tests do not call real network endpoints and do not require real provider credentials.
 
+## Current M4 Coverage
+
+`TtsProvidersTest` covers:
+
+- deterministic fake TTS metadata;
+- deterministic audio asset key stability;
+- asset key changes when provider or text changes;
+- missing-configuration TTS provider without fallback;
+- registry missing-provider behavior.
+
+M4 unit tests do not instantiate Android platform `TextToSpeech` and do not use Google TTS credentials. A device/emulator smoke test is still required before treating `system_or_browser_fallback_low_quality` as manually verified.
+
 ## CI Expectations
 
 - CI must not require real provider credentials.

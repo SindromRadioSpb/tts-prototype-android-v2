@@ -18,6 +18,8 @@ Date: 2026-04-25
 | RISK-012 | Testing | Robolectric does not currently run unit tests at app target SDK 36. | Low | Medium | Local Room tests fail if default Robolectric SDK follows target SDK. | Pin repository tests to SDK 35 until Robolectric supports SDK 36 in this project. | Revisit during dependency updates. | Mitigated | 2026-04-25 |
 | RISK-013 | Product | Test fake translation output could be exposed as production output. | High | Low | User may trust non-production language output. | Runtime registry uses `google_translate_free` plus missing-configuration providers; fake providers are injected only in tests. | Keep fake providers out of production registry unless explicitly gated. | Mitigated | 2026-04-25 |
 | RISK-014 | Provider | `google_translate_free` uses an unofficial best-effort endpoint that can change without notice. | Medium | High | Translation may fail or parse incorrectly. | Map invalid responses visibly; keep GCP/Gemini as future configured alternatives; add manual smoke evidence before release. | Reassess in M13 and before release. | Active | 2026-04-25 |
+| RISK-015 | Audio | Android platform TTS availability and Hebrew voice quality vary by device. | Medium | High | Fallback audio may be unavailable or poor quality. | Label as low quality, map unsupported language, require emulator/device smoke before release. | Validate in M5/M13 manual QA. | Active | 2026-04-25 |
+| RISK-016 | Security | Google Online TTS service account JSON cannot be safely embedded in an Android APK. | High | High | Credential extraction from APK or Git leak. | Keep provider missing-configuration until M9 secure settings/credential strategy is implemented. | Resolve in M9 before enabling Google Online TTS. | Open | 2026-04-25 |
 
 ## Related Docs
 

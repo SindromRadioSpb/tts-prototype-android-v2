@@ -59,6 +59,13 @@ Stale audio remains playable if file exists, but UI labels it stale and offers r
 - `google_online_tts` output must be written to a temporary app file, validated for non-zero size and expected MIME type, then moved into final app storage.
 - Android TextToSpeech fallback must be labeled `system_or_browser_fallback_low_quality` for compatibility with existing contract naming.
 
+M4 implementation status:
+
+- `FakeTtsProvider` returns deterministic metadata for tests and CI without creating real audio.
+- `google_online_tts` is allowlisted but returns `MissingConfiguration` until M9 secure settings exists.
+- `AndroidPlatformTtsProvider` uses Android `TextToSpeech.synthesizeToFile` and writes temporary WAV output under app cache.
+- M5 must move/record accepted audio files into final app storage and Room `audio_assets`; M4 does not yet persist audio metadata.
+
 ## Metadata
 
 Store:
@@ -72,6 +79,8 @@ Store:
 - content hash when available;
 - generated timestamp;
 - provenance JSON.
+
+M4 `TtsResponse` carries `durationMs` and `sizeBytes` fields when available. Duration is usually unknown for Android platform TTS until playback/metadata inspection is added.
 
 ## Export Inclusion
 
