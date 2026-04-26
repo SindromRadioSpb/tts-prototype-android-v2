@@ -203,6 +203,10 @@ P027 behavior:
 - Gemini requests no longer include Android-only `generationConfig`; the request shape stays closer to the prototype SDK call.
 - Gemini malformed JSON is repaired for common missing-comma row-object output before loose fallback. This preserves niqqud, transliteration, and translation columns instead of rendering partial Hebrew-only rows.
 
+P028 behavior:
+
+- Gemini JSON repair is implemented without regex for adjacent row-object and trailing-comma fixes. This prevents Android runtime `PatternSyntaxException` failures such as `}\s*\{` and keeps literal braces inside cell text intact.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.

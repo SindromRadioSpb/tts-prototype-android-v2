@@ -409,6 +409,37 @@ class TranslationProvidersTest {
     }
 
     @Test
+    fun geminiLegacyJsonRepairDoesNotUseRegexOrCorruptStringBraces() = runTest {
+        val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
+        settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")
+        val provider = GeminiLegacyTranslationProvider(
+            settingsRepository = settings,
+            httpClient = StaticHttpClient(
+                TranslationHttpResponse(
+                    statusCode = 200,
+                    body = geminiCandidateText(
+                        """
+                        {"rows":[
+                          {"index":1,"he":"טקסט } { בתוך שורה","he_niqqud":"טֶקְסְט","translit":"tekst","ru":"Текст со скобками"}
+                          {"index":2,"he":"שורה עם פסיק עודף","he_niqqud":"שׁוּרָה","translit":"shura","ru":"Строка с лишней запятой"},
+                        ]}
+                        """.trimIndent(),
+                    ),
+                ),
+            ),
+        )
+
+        val response = provider.translate(
+            TranslationRequest(sourceText = "טקסט } { בתוך שורה\nשורה עם פסיק עודף", providerId = TranslationProviderId.GeminiLegacy),
+        ).getOrThrow()
+
+        assertEquals(2, response.rows.size)
+        assertEquals("טקסט } { בתוך שורה", response.rows.first().hebrewPlain)
+        assertEquals("tekst", response.rows.first().translit)
+        assertEquals("Строка с лишней запятой", response.rows.last().russian)
+    }
+
+    @Test
     fun geminiLegacyMalformedCandidateJsonReturnsInvalidResponse() = runTest {
         val settings = ProviderSettingsRepository(InMemorySecureKeyValueStore())
         settings.updateCredential(ProviderCredentialId.GeminiLegacy, "gemini-key")

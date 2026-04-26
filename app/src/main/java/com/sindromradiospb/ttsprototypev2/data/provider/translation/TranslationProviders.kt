@@ -488,9 +488,74 @@ class GeminiLegacyTranslationProvider(
 
     private fun repairGeminiJson(jsonText: String): String =
         jsonText
-            .replace(Regex("}\\s*\\{"), "},{")
-            .replace(Regex(",\\s*]"), "]")
-            .replace(Regex(",\\s*}"), "}")
+            .insertMissingCommasBetweenObjects()
+            .removeTrailingCommasBeforeClosers()
+
+    private fun String.insertMissingCommasBetweenObjects(): String {
+        val repaired = StringBuilder(length)
+        var inString = false
+        var escaped = false
+        forEachIndexed { index, char ->
+            repaired.append(char)
+            when {
+                inString && escaped -> escaped = false
+                inString && char == '\\' -> escaped = true
+                inString && char == '"' -> inString = false
+                !inString && char == '"' -> inString = true
+                !inString && char == '}' -> {
+                    val nextNonWhitespace = nextNonWhitespaceIndex(index + 1)
+                    if (nextNonWhitespace != null && this[nextNonWhitespace] == '{') {
+                        repaired.append(',')
+                    }
+                }
+            }
+        }
+        return repaired.toString()
+    }
+
+    private fun String.removeTrailingCommasBeforeClosers(): String {
+        val repaired = StringBuilder(length)
+        var inString = false
+        var escaped = false
+        var index = 0
+        while (index < length) {
+            val char = this[index]
+            when {
+                inString -> {
+                    repaired.append(char)
+                    when {
+                        escaped -> escaped = false
+                        char == '\\' -> escaped = true
+                        char == '"' -> inString = false
+                    }
+                }
+
+                char == '"' -> {
+                    inString = true
+                    repaired.append(char)
+                }
+
+                char == ',' -> {
+                    val nextNonWhitespace = nextNonWhitespaceIndex(index + 1)
+                    if (nextNonWhitespace == null || (this[nextNonWhitespace] != ']' && this[nextNonWhitespace] != '}')) {
+                        repaired.append(char)
+                    }
+                }
+
+                else -> repaired.append(char)
+            }
+            index += 1
+        }
+        return repaired.toString()
+    }
+
+    private fun String.nextNonWhitespaceIndex(start: Int): Int? {
+        var index = start
+        while (index < length && this[index].isWhitespace()) {
+            index += 1
+        }
+        return index.takeIf { it < length }
+    }
 
     private fun rowsFromGeminiPayload(root: JsonElement): List<GeneratedRow> {
         if (root is JsonArray) return rowsFromJsonElements(root, emptyMap())

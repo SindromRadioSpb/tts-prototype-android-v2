@@ -114,6 +114,11 @@ P027 provider error status:
 
 - Gemini parser must try full JSON repair and strict `segments` + `rows` parsing before loose row extraction. Common model mistakes such as adjacent row objects without commas should preserve niqqud/translit/translation data instead of degrading to Hebrew-only rows.
 
+P028 provider error status:
+
+- Gemini JSON repair must not use regex for adjacent object or trailing comma repair. Android runtime must not surface `PatternSyntaxException` from repair logic, and braces inside Hebrew/Russian text fields must remain data, not structural delimiters.
+- Real Gemini endpoint smoke must use user-supplied credentials from local environment/settings only; API keys must not appear in committed files, logs, patch register entries, or command transcripts.
+
 ## Related Docs
 
 - [Provider Policy](ANDROID_V2_PROVIDER_POLICY.md)

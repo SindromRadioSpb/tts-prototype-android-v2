@@ -730,6 +730,10 @@ P027 implementation status:
 - Gemini request bodies avoid Android-only `generationConfig` so the runtime behavior stays closer to the source prototype SDK call.
 - Missing-comma Gemini JSON is repaired and parsed through the full `segments` + `rows` path before loose fallback, preserving full table columns where the data exists.
 
+P028 implementation status:
+
+- Gemini missing-comma and trailing-comma JSON repair is regex-free and string-aware. Android must not surface `PatternSyntaxException` from local repair logic, and braces inside Hebrew/Russian cell content must remain selectable/copyable text data.
+
 ## UI DoD Evidence Checklist
 
 Future implementation patches must collect evidence for:
