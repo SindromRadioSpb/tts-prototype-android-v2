@@ -8,7 +8,10 @@ import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.data.repository.EditableRowFields
 import com.sindromradiospb.ttsprototypev2.data.repository.LegacyWebImportMode
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
+import com.sindromradiospb.ttsprototypev2.data.export.LibraryZipImportRepository
+import com.sindromradiospb.ttsprototypev2.data.export.ZipImportMode
 import com.sindromradiospb.ttsprototypev2.data.repository.RoomLibraryRepository
+import java.io.InputStream
 import com.sindromradiospb.ttsprototypev2.data.repository.RowField
 import com.sindromradiospb.ttsprototypev2.data.repository.TextMetadataUpdate
 import java.time.Instant
@@ -93,6 +96,7 @@ data class LibraryRowDraft(
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(
     private val repository: RoomLibraryRepository,
+    private val zipImportRepository: LibraryZipImportRepository? = null,
     private val clock: () -> String = { Instant.now().toString() },
     private val importDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
@@ -325,6 +329,38 @@ class LibraryViewModel(
         }
     }
 
+    fun importZipBundle(inputStream: InputStream) {
+        val repo = zipImportRepository
+        if (repo == null) {
+            _uiState.update { it.copy(message = "ZIP import not available.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, message = null) }
+            runCatching {
+                withContext(importDispatcher) {
+                    repo.importFromZip(inputStream, ZipImportMode.SKIP)
+                }
+            }.fold(
+                onSuccess = { result ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            message = "ZIP: импортировано ${result.importedCount}; строк: ${result.rowCount}; " +
+                                "аудио: ${result.importedAudio} (связано: ${result.linkedAudio}); " +
+                                "пропущено: ${result.skippedCount}; ошибок: ${result.errorCount}.",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, message = "ZIP импорт ошибка: ${error.message.orEmpty()}")
+                    }
+                },
+            )
+        }
+    }
+
     fun startEditingRow(rowId: String) {
         val row = uiState.value.selectedText?.rows?.firstOrNull { it.id == rowId } ?: return
         _uiState.update {
@@ -477,13 +513,14 @@ class LibraryViewModel(
 
     class Factory(
         private val repository: RoomLibraryRepository,
+        private val zipImportRepository: LibraryZipImportRepository? = null,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(LibraryViewModel::class.java)) {
                 "Unsupported ViewModel class: ${modelClass.name}"
             }
-            return LibraryViewModel(repository) as T
+            return LibraryViewModel(repository, zipImportRepository) as T
         }
     }
 }

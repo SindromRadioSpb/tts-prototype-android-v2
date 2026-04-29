@@ -191,7 +191,29 @@ Current limits:
 
 - Old JSON import does not reconstruct actual audio files; subsequent Android ZIP export reports those links as missing audio.
 - Progress is only partially represented through `last_opened_at`; Android v2 has no dedicated progress table yet.
-- Android ZIP import remains future work.
+- Android ZIP import is implemented separately by P029 for bundle files that contain `library/library.json` and flat `audio/{sha256}.mp3` entries.
+
+## P029 Android ZIP Bundle Import Status
+
+P029 wires Library v3 `Импорт ZIP (с аудио)` to Android SAF and `LibraryZipImportRepository`.
+
+Implemented:
+
+- reads ZIP through `ActivityResultContracts.OpenDocument`;
+- requires `library/library.json`;
+- accepts audio files under flat `audio/{sha256}.mp3` paths;
+- stores imported audio under app-owned `filesDir/audio/{sha256}.mp3`;
+- inserts `audio_assets` records for bundled audio;
+- imports texts and rows into Room in `SKIP` duplicate mode;
+- links row audio through `row_audio` when row `audio_asset_key` is present and bundled;
+- links text-level audio through `text_audio` when `text_audio_asset_key` is present and bundled;
+- accepts older exports where row `translit_ru` is missing by defaulting it to an empty string.
+
+Current limits:
+
+- nested Android export paths such as `audio/rows/{text_id}/{row_id}/{asset_key}.mp3` are not yet consumed by this importer;
+- import result is surfaced as a summary message; detailed per-row import report UI remains future work;
+- manual SAF import smoke with a real ZIP bundle is still required.
 
 ## Android Storage Behavior
 
@@ -205,10 +227,12 @@ Current limits:
 Import support now includes:
 
 - Old web JSON import from `GET /api/library/export` shape with safe duplicate skipping.
+- ZIP bundle import from `library/library.json` + flat `audio/{sha256}.mp3` shape with safe duplicate skipping and row/text audio linking.
 
 Future import still needs:
 
-- Android v2 ZIP import with schema version checks.
+- schema version compatibility checks beyond permissive `ignoreUnknownKeys`;
+- nested Android ZIP audio path support if export and import are expected to round-trip the repository-level M6 layout exactly.
 
 Old web import compatibility:
 

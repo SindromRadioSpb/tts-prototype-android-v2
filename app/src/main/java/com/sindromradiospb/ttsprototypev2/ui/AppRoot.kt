@@ -221,6 +221,7 @@ fun AppRoot(
                 onSaveMetadata = libraryViewModel::saveMetadata,
                 onCancelMetadataEdit = libraryViewModel::cancelMetadataEdit,
                 onImportLibraryJson = libraryViewModel::importLegacyWebLibraryJson,
+                onImportZipBundle = libraryViewModel::importZipBundle,
                 onDismissMessage = libraryViewModel::clearMessage,
             )
         }
@@ -1280,6 +1281,7 @@ private fun LibraryV3Modal(
     onSaveMetadata: () -> Unit,
     onCancelMetadataEdit: () -> Unit,
     onImportLibraryJson: (String) -> Unit,
+    onImportZipBundle: (java.io.InputStream) -> Unit,
     onDismissMessage: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -1314,6 +1316,25 @@ private fun LibraryV3Modal(
                         localNotice = "Не удалось прочитать JSON: ${error.message.orEmpty()}"
                     },
                 )
+            }
+        }
+    }
+
+    val importZipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            importReadScope.launch {
+                runCatching {
+                    val stream = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)
+                    }
+                    if (stream != null) {
+                        onImportZipBundle(stream)
+                    } else {
+                        localNotice = "Не удалось открыть ZIP файл."
+                    }
+                }.onFailure { error ->
+                    localNotice = "Ошибка ZIP импорта: ${error.message.orEmpty()}"
+                }
             }
         }
     }
@@ -1357,8 +1378,12 @@ private fun LibraryV3Modal(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SecondaryActionButton("Экспорт Библиотеки", onClick = { localNotice = "ZIP export UI будет подключён в M6/M7." })
                     SecondaryActionButton(
-                        "Импорт Библиотеки",
+                        "Импорт JSON",
                         onClick = { importJsonPicker.launch(arrayOf("application/json", "text/*")) },
+                    )
+                    SecondaryActionButton(
+                        "Импорт ZIP (с аудио)",
+                        onClick = { importZipPicker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
                     )
                     SecondaryActionButton("Обновить", onClick = { localNotice = "Список синхронизирован с локальной Room Flow." })
                     SecondaryActionButton("Закрыть", onClick = onClose)

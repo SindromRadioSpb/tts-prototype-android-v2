@@ -18,7 +18,6 @@ import com.sindromradiospb.ttsprototypev2.data.audio.AudioPlaybackController
 import com.sindromradiospb.ttsprototypev2.data.audio.AudioPlaybackResult
 import com.sindromradiospb.ttsprototypev2.data.audio.AudioStorageRepository
 import com.sindromradiospb.ttsprototypev2.data.audio.PlayableAudioResult
-import com.sindromradiospb.ttsprototypev2.data.provider.tts.deterministicAudioAssetKey
 import com.sindromradiospb.ttsprototypev2.data.repository.GeneratedLibraryRowInput
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
@@ -655,13 +654,13 @@ class ClassicModeViewModel(
                 libraryTextId = current.savedTextId,
                 libraryRowId = row.rowId,
             )
-            val expectedAssetKey = deterministicAudioAssetKey(ttsRequest)
-            val existingAssetKey = row.audioAssetKey
-                ?.takeIf { it.isNotBlank() }
-                ?.takeIf { it == expectedAssetKey }
+            // Try linked audio first (works for both locally-synthesized and web-imported audio).
+            // We skip the expected-key equality check so web-imported assets (different hash
+            // algorithm) are played from the library cache instead of re-synthesized.
+            val linkedAssetKey = row.audioAssetKey?.takeIf { it.isNotBlank() }
             val storage = audioStorageRepository
-            if (storage != null && existingAssetKey != null) {
-                when (val cached = storage.resolvePlayableAudio(existingAssetKey)) {
+            if (storage != null && linkedAssetKey != null) {
+                when (val cached = storage.resolvePlayableAudio(linkedAssetKey)) {
                     is PlayableAudioResult.Available -> {
                         val playback = playFile(cached.absoluteFile) {
                             onRowPlaybackCompleted(orderIndex, autoAdvance)

@@ -108,7 +108,7 @@ data class ExportLibraryRow(
     val hebrewNiqqud: String,
     val translit: String,
     @SerialName("translit_ru")
-    val translitRu: String,
+    val translitRu: String = "",
     val russian: String,
     @SerialName("edit_meta")
     val editMeta: kotlinx.serialization.json.JsonElement?,

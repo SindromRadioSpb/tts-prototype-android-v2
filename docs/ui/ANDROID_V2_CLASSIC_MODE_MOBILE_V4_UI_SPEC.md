@@ -143,9 +143,10 @@ Visual language:
 ### `Импорт Библиотеки`
 
 - Opens import flow.
-- If import is not implemented, show disabled or explicit `coming later` state.
-- Must not silently fail.
-- Future import order: Android ZIP first, old web JSON compatibility later.
+- `Импорт JSON` opens old/source-prototype JSON import flow.
+- `Импорт ZIP (с аудио)` opens SAF ZIP import flow for bundles with `library/library.json` and bundled audio.
+- Must not silently fail; import errors must surface as a visible message.
+- ZIP import stores bundled audio locally and links row/text audio where asset keys match.
 
 ### `Обновить`
 
@@ -733,6 +734,12 @@ P027 implementation status:
 P028 implementation status:
 
 - Gemini missing-comma and trailing-comma JSON repair is regex-free and string-aware. Android must not surface `PatternSyntaxException` from local repair logic, and braces inside Hebrew/Russian cell content must remain selectable/copyable text data.
+
+P029 implementation status:
+
+- Library v3 now exposes separate `Импорт JSON` and `Импорт ZIP (с аудио)` actions.
+- ZIP import reads `library/library.json`, copies flat bundled `audio/{sha256}.mp3` files into app-owned storage, inserts `audio_assets`, and links row/text audio by asset key.
+- Manual SAF ZIP import evidence and fixture-level round-trip tests remain required before release sign-off.
 
 ## UI DoD Evidence Checklist
 

@@ -23,8 +23,10 @@ class MainActivity : ComponentActivity() {
         )
     }
     private val libraryViewModel: LibraryViewModel by viewModels {
+        val app = application as TtsPrototypeApplication
         LibraryViewModel.Factory(
-            (application as TtsPrototypeApplication).libraryRepository,
+            repository = app.libraryRepository,
+            zipImportRepository = app.libraryZipImportRepository,
         )
     }
     private val settingsViewModel: SettingsViewModel by viewModels {

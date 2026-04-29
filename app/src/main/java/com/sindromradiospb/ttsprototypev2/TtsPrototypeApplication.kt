@@ -6,6 +6,7 @@ import com.sindromradiospb.ttsprototypev2.data.audio.AudioStorageRepository
 import com.sindromradiospb.ttsprototypev2.data.audio.AndroidAudioPlaybackController
 import com.sindromradiospb.ttsprototypev2.data.db.AppDatabase
 import com.sindromradiospb.ttsprototypev2.data.export.LibraryZipExportRepository
+import com.sindromradiospb.ttsprototypev2.data.export.LibraryZipImportRepository
 import com.sindromradiospb.ttsprototypev2.data.provider.translation.createAndroidTranslationProviderRegistry
 import com.sindromradiospb.ttsprototypev2.data.provider.tts.createAndroidTtsProviderRegistry
 import com.sindromradiospb.ttsprototypev2.data.repository.RoomLibraryRepository
@@ -56,6 +57,13 @@ class TtsPrototypeApplication : Application() {
 
     val libraryZipExportRepository: LibraryZipExportRepository by lazy {
         LibraryZipExportRepository(
+            database = database,
+            appFilesDir = filesDir,
+        )
+    }
+
+    val libraryZipImportRepository: LibraryZipImportRepository by lazy {
+        LibraryZipImportRepository(
             database = database,
             appFilesDir = filesDir,
         )
