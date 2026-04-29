@@ -162,6 +162,7 @@ P017 behavior:
 P018 behavior:
 
 - `Результат` now renders generated rows as the source-style table from `docs/ui/v4/9. ТАБЛИЦА ОТОБРАЖЕНИЕ И СЦЕНАРИИ.PNG`, with columns `▶✎`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
+- When rows are loaded from a Library text card, `Результат` must show the card `TITLE` above the table and the card `SOURCE` directly under it. A valid `http`/`https` source opens externally and remains copyable; non-URL source text remains selectable/copyable only.
 - The `🧩 Таблица: отображение и сценарии` block exposes `Колонки` / `Скрыть колонки` instead of the prototype `Сценарии и колонки` label.
 - Preset buttons `Полная`, `Иврит+рус`, `Фонетика`, and `Только иврит` are intentionally omitted; Android uses explicit checkboxes for `Действие`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
 - At least one column must stay visible, and the ViewModel rejects attempts to hide all columns.
@@ -216,6 +217,14 @@ P030 behavior:
 - Bottom left `↔ Альбом` / `↕ Портрет` requests Activity orientation changes without changing Settings or Library ownership.
 - The overlay respects navigation/IME insets and Classic content reserves bottom padding so final result/table actions are not hidden behind quick controls.
 - Manual portrait/landscape screenshot evidence remains pending in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
+
+P031 requirements:
+
+- The Classic result/table metadata header and the Library card `Источник:` value must use the same stored text-card metadata: `TITLE` and `SOURCE`.
+- `TITLE` is displayed above a Library-loaded table as the primary context label.
+- `SOURCE` is displayed under `TITLE` above the table and in the Library card `Источник:` row.
+- In both locations, valid `http`/`https` values are clickable and copyable; non-URL values are copyable but not opened through implicit intents; empty values are hidden or clearly marked empty.
+- Manual UI evidence must cover valid URL, long URL, non-URL source text, and empty source cases.
 
 ## Accessibility and Insets
 

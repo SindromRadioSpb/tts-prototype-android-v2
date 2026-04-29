@@ -103,6 +103,13 @@ The generated table columns are:
 
 Behavior:
 
+- If the table was opened from Library v3, the area immediately above the table block must show text-card metadata:
+  - first line: `TITLE` from the saved text metadata, using the same value edited through `TITLE*`;
+  - second line: `SOURCE` from the saved text metadata, rendered as a clickable/copyable link when it is present.
+- The metadata header belongs to the loaded Library text, not to transient generated rows. It must not appear for an unsaved newly generated table unless metadata was explicitly saved for the current card.
+- `TITLE` must be prominent, max two lines on compact screens, and preserve mixed Hebrew/Russian/Latin directionality.
+- `SOURCE` must open through Android's external browser intent when it is a valid `http` or `https` URL. Non-URL source text remains selectable/copyable but must not be sent to an unsafe implicit intent.
+- If `SOURCE` is empty, the source line is omitted instead of showing `null`, `—`, or an inactive fake link.
 - The `▶✎` action column contains row number, audio cache status, row TTS play action, and row notes action.
 - Tapping a row selects/highlights it and makes it the auto-next start point.
 - `▶` plays cached row audio if present; otherwise it synthesizes with the selected TTS provider. For saved rows, generated audio is adopted into app-owned storage and linked as row cache.
@@ -377,7 +384,7 @@ Each card must include:
 - source/link icon;
 - progress line: `Прогресс: строка № —`;
 - source label: `Источник:`;
-- source URL as clickable/copyable text;
+- source value from text metadata `SOURCE`, rendered as clickable/copyable text;
 - copy button/icon for source;
 - dates:
   - `Последнее открытие: ...`;
@@ -390,6 +397,10 @@ Native Android adaptation:
 - Preserve visual hierarchy and large readable text.
 - Hebrew in title must render correctly.
 - Long URLs must not break card layout; use ellipsis plus copy action.
+- A valid `http` or `https` source opens through Android's external browser intent from the Library card.
+- Non-URL source text remains visible and copyable, but must not be opened as a URL.
+- Empty `SOURCE` hides the source value and copy/open affordance; it may keep the `Источник:` label only if the empty state is visually clear.
+- The Library card source value and the Classic table metadata header must be derived from the same stored `SOURCE` field.
 - Cards must not be clipped.
 - Card content must not slide under action buttons.
 
@@ -769,6 +780,13 @@ P030 implementation status:
 - The overlay uses navigation/IME inset padding and Classic content reserves bottom padding to avoid covering the final table/result actions.
 - Manual portrait/landscape screenshot and physical/emulator orientation-toggle evidence remain required before release sign-off.
 
+P031 requirements status:
+
+- Loaded Library texts must show saved `TITLE` above the generated table and saved `SOURCE` directly under it.
+- `SOURCE` must be clickable/copyable above the table and inside the Library card's `Источник:` area.
+- Both places must read from the same text-card metadata field and keep behavior consistent for valid URLs, non-URL source text, and empty source values.
+- Manual evidence must cover a loaded Library text with a valid URL, a long URL, and an empty source.
+
 ## UI DoD Evidence Checklist
 
 Future implementation patches must collect evidence for:
@@ -776,6 +794,8 @@ Future implementation patches must collect evidence for:
 - Classic Mode `📚 Библиотека` entry visible without advanced-settings scrolling.
 - Classic bottom quick controls visible in portrait and landscape.
 - Orientation toggle changes portrait to landscape and landscape to portrait.
+- Loaded Library text shows `TITLE` and clickable/copyable `SOURCE` above the table.
+- Library card `Источник:` value is clickable/copyable and matches the same `SOURCE` metadata.
 - Library v3 header with all four actions.
 - Search field and four selectors in required order.
 - Level dropdown.
