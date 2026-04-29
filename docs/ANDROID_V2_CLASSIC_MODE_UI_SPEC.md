@@ -164,6 +164,7 @@ P018 behavior:
 - `Таблица` renders generated rows as the source-style table from `docs/ui/v4/9. ТАБЛИЦА ОТОБРАЖЕНИЕ И СЦЕНАРИИ.PNG`, with columns `▶✎`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
 - When rows are loaded from a Library text card, `Таблица` must show the card `TITLE` above the table and the card `SOURCE` directly under it. A valid `http`/`https` source opens externally and remains copyable; non-URL source text remains selectable/copyable only.
 - The `🧩 Таблица: отображение и сценарии` block exposes `Колонки` / `Скрыть колонки` instead of the prototype `Сценарии и колонки` label.
+- Generated table cells must show their full text from beginning to end. Hebrew, niqqud, transliteration, and translation cells must wrap and expand row height instead of using ellipsis, clipping, or hidden overflow. This preserves a closed learning loop for listening, reading, transliteration, and translation.
 - Preset buttons `Полная`, `Иврит+рус`, `Фонетика`, and `Только иврит` are intentionally omitted; Android uses explicit checkboxes for `Действие`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
 - At least one column must stay visible, and the ViewModel rejects attempts to hide all columns.
 - Column widths are adjustable from table headers with touch drag handles and are clamped to readable mobile bounds.

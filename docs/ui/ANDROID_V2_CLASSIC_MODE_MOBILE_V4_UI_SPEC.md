@@ -116,13 +116,14 @@ Behavior:
 - `✎` opens the row notes editor. Notes belong to the saved row and must persist in Room.
 - Column visibility immediately affects the table.
 - Column widths are adjustable from the column headers. On phones this may be implemented as horizontal drag handles plus horizontal scrolling.
-- Long Hebrew/Russian text must stay readable through table scrolling or ellipsis; it must not push action buttons off-screen.
+- Long Hebrew/Russian text must stay fully readable from beginning to end. Generated learning cells must wrap and expand row height; ellipsis, clipping, and hidden overflow are not allowed because they break the listening/reading/transliteration/translation loop.
 
 Implementation status:
 
 - P018 implements `ClassicTableColumn`, `ClassicTableDisplayState`, `Колонки` / `Скрыть колонки`, checkboxes, selected row, adjustable widths, and auto-next state.
 - P018 replaces generated row cards with the table layout required by UI-V4-09.
 - P034 keeps `Результат` focused on status/save and moves `TITLE`, `SOURCE`, display/scenario controls, and the generated rows into a separate collapsible `Таблица` card.
+- P038 removes generated-cell text truncation and lets table rows expand to the tallest cell while keeping columns aligned.
 - Manual screenshot evidence comparing UI-V4-09 with the Android screen remains required before release hardening.
 
 ## Library v3 Screen / Modal Layout

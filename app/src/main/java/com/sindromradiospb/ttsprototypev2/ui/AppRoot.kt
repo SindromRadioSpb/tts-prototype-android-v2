@@ -24,12 +24,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -1077,6 +1079,7 @@ private fun GeneratedRowsTable(
             val playing = state.playingRowIndex == row.orderIndex
             Row(
                 modifier = Modifier
+                    .height(IntrinsicSize.Min)
                     .clickable { onSelectRow(row.orderIndex) }
                     .background(
                         when {
@@ -1158,7 +1161,8 @@ private fun ClassicTableCell(
     Box(
         modifier = Modifier
             .width(widthDp.dp)
-            .height(124.dp)
+            .fillMaxHeight()
+            .heightIn(min = 124.dp)
             .border(1.dp, BorderColor)
             .padding(8.dp),
     ) {
@@ -1194,8 +1198,7 @@ private fun ClassicTableCell(
                         fontWeight = if (column == ClassicTableColumn.Hebrew) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (cellText.isBlank()) MutedText else Color(0xFF1F2933),
                         textAlign = if (isRtlText) TextAlign.End else TextAlign.Start,
-                        modifier = Modifier.fillMaxSize(),
-                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
