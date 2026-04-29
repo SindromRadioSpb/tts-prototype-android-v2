@@ -55,6 +55,26 @@ Rules:
 - The Library entry should sit beside the IDE mode entry only as a mode-level control; Library remains Classic-owned.
 - If Classic Mode has stale result badges, source update warnings, or disabled table actions, the Library entry remains enabled.
 
+## Classic Quick Controls And Orientation
+
+Classic Mode must expose a bottom quick-control layer that remains visible in both portrait and landscape:
+
+- Bottom right: `✎ Редактор` opens the editing/IDE surface from Classic Mode.
+- Bottom left: orientation toggle switches between portrait and landscape.
+- In portrait the orientation button label is `↔ Альбом`.
+- In landscape the orientation button label is `↕ Портрет`.
+- Buttons must float above Classic content, respect navigation bar and keyboard insets, and never be reachable only through vertical scrolling.
+- The controls are hidden while Library v3 is open so they do not compete with modal actions.
+- Main Classic content must keep enough bottom padding so the final result/table controls do not sit under the floating buttons.
+
+Premium UX requirements:
+
+- Both buttons must use minimum 48dp touch targets and compact pill styling.
+- The orientation action must be explicit: it locks the current Activity to the requested orientation through the Android runtime and updates its label after configuration changes.
+- The control must not force a global app orientation policy for Settings or Library flows.
+- The left/right placement must stay stable in portrait and landscape to build muscle memory.
+- Manual release evidence must include portrait screenshot, landscape screenshot, and a rotation/toggle smoke check.
+
 ## Classic Table Display And Scenarios
 
 Reference: [UI-V4-09](v4/9.%20%D0%A2%D0%90%D0%91%D0%9B%D0%98%D0%A6%D0%90%20%D0%9E%D0%A2%D0%9E%D0%91%D0%A0%D0%90%D0%96%D0%95%D0%9D%D0%98%D0%95%20%D0%98%20%D0%A1%D0%A6%D0%95%D0%9D%D0%90%D0%A0%D0%98%D0%98.PNG).
@@ -741,11 +761,21 @@ P029 implementation status:
 - ZIP import reads `library/library.json`, copies flat bundled `audio/{sha256}.mp3` files into app-owned storage, inserts `audio_assets`, and links row/text audio by asset key.
 - Manual SAF ZIP import evidence and fixture-level round-trip tests remain required before release sign-off.
 
+P030 implementation status:
+
+- Classic Mode now overlays bottom quick controls only on the Classic screen, not over Library v3.
+- `✎ Редактор` stays visible in the bottom-right corner in portrait and landscape.
+- The bottom-left orientation toggle requests portrait or landscape orientation and updates label according to the current configuration.
+- The overlay uses navigation/IME inset padding and Classic content reserves bottom padding to avoid covering the final table/result actions.
+- Manual portrait/landscape screenshot and physical/emulator orientation-toggle evidence remain required before release sign-off.
+
 ## UI DoD Evidence Checklist
 
 Future implementation patches must collect evidence for:
 
 - Classic Mode `📚 Библиотека` entry visible without advanced-settings scrolling.
+- Classic bottom quick controls visible in portrait and landscape.
+- Orientation toggle changes portrait to landscape and landscape to portrait.
 - Library v3 header with all four actions.
 - Search field and four selectors in required order.
 - Level dropdown.

@@ -22,6 +22,8 @@ Top to bottom:
 - Source input and generated rows may use two-pane layout when width allows.
 - No row card may shrink below readable Hebrew line height.
 - Keyboard must not hide the generation button or active editing field.
+- The bottom-right `✎ Редактор` quick-control must stay visible in landscape, not only in portrait.
+- The bottom-left orientation quick-control must offer a clear return to portrait.
 
 ## Source Input
 
@@ -206,6 +208,14 @@ P027 behavior:
 P028 behavior:
 
 - Gemini JSON repair is implemented without regex for adjacent row-object and trailing-comma fixes. This prevents Android runtime `PatternSyntaxException` failures such as `}\s*\{` and keeps literal braces inside cell text intact.
+
+P030 behavior:
+
+- Classic Mode has a bottom quick-control overlay that is available in portrait and landscape while the Classic screen is active.
+- Bottom right `✎ Редактор` opens the editing/IDE surface and remains reachable in landscape.
+- Bottom left `↔ Альбом` / `↕ Портрет` requests Activity orientation changes without changing Settings or Library ownership.
+- The overlay respects navigation/IME insets and Classic content reserves bottom padding so final result/table actions are not hidden behind quick controls.
+- Manual portrait/landscape screenshot evidence remains pending in [UI DoD Evidence](ANDROID_V2_UI_DOD_EVIDENCE.md).
 
 ## Accessibility and Insets
 

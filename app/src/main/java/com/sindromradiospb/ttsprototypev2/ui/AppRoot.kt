@@ -1,5 +1,10 @@
 package com.sindromradiospb.ttsprototypev2.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -22,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -67,6 +73,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -123,6 +130,10 @@ fun AppRoot(
     val classicState by classicModeViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
     val settingsState by settingsViewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     Box(Modifier.fillMaxSize().background(AppBackground)) {
         Scaffold(
@@ -225,8 +236,29 @@ fun AppRoot(
                 onDismissMessage = libraryViewModel::clearMessage,
             )
         }
+
+        if (selectedTab == 0 && !isLibraryOpen) {
+            ClassicQuickControlsOverlay(
+                isLandscape = isLandscape,
+                onToggleOrientation = {
+                    activity?.requestedOrientation = if (isLandscape) {
+                        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    } else {
+                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    }
+                },
+                onOpenEditMode = { selectedTab = 2 },
+            )
+        }
     }
 }
+
+private tailrec fun Context.findActivity(): Activity? =
+    when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -272,7 +304,7 @@ fun ClassicModeScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .background(AppBackground)
-            .padding(14.dp),
+            .padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ClassicStatusStrip(state)
@@ -415,6 +447,54 @@ private fun ClassicStatusStrip(state: ClassicModeUiState) {
             style = MaterialTheme.typography.bodySmall,
             color = MutedText,
         )
+    }
+}
+
+@Composable
+private fun ClassicQuickControlsOverlay(
+    isLandscape: Boolean,
+    onToggleOrientation: () -> Unit,
+    onOpenEditMode: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(horizontal = 16.dp, vertical = 18.dp),
+    ) {
+        OutlinedButton(
+            onClick = onToggleOrientation,
+            shape = RoundedCornerShape(999.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = PanelBackground.copy(alpha = 0.96f),
+                contentColor = Color(0xFF1F2D3A),
+            ),
+            border = BorderStroke(1.dp, BorderColor),
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .widthIn(min = 58.dp),
+        ) {
+            Text(
+                text = if (isLandscape) "↕ Портрет" else "↔ Альбом",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Button(
+            onClick = onOpenEditMode,
+            shape = RoundedCornerShape(999.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = ClassicBlue, contentColor = Color.White),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .widthIn(min = 58.dp),
+        ) {
+            Text(
+                text = "✎ Редактор",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
