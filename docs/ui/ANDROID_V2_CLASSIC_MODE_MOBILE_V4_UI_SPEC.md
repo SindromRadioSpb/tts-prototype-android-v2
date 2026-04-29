@@ -801,6 +801,7 @@ P034 implementation status:
 - `Лимиты и квоты` is collapsible with the same `Скрыть` / `Показать` behavior as other Classic cards.
 - `Результат` contains generation status, row count, timestamp, and `Обновить`.
 - `Таблица` is a separate collapsible card containing Library-loaded `TITLE`, clickable/copyable `SOURCE`, `🧩 Таблица: отображение и сценарии`, column controls, auto-next, and the generated table.
+- P037 adds smart one-shot auto-scroll to `🧩 Таблица: отображение и сценарии` after a table is generated or a new generated table state is loaded while `Таблица` is open. This keeps the user anchored at the actionable table controls without repeatedly pulling the screen away from manual scrolling.
 - Manual portrait/landscape screenshots remain required for the split result/table layout.
 
 ## UI DoD Evidence Checklist

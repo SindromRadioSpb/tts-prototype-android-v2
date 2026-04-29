@@ -38,6 +38,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -66,6 +68,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -112,6 +115,7 @@ import com.sindromradiospb.ttsprototypev2.feature.settings.SettingsUiState
 import com.sindromradiospb.ttsprototypev2.feature.settings.SettingsViewModel
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -313,10 +317,20 @@ fun ClassicModeScreen(
     onDismissMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val screenScrollState = rememberScrollState()
+    val tableScenarioRequester = remember { BringIntoViewRequester() }
+
+    LaunchedEffect(state.generatedAt, state.rows.size, state.isGenerating, state.disclosure.tableOpen) {
+        if (state.rows.isNotEmpty() && !state.isGenerating && state.disclosure.tableOpen) {
+            delay(180)
+            tableScenarioRequester.bringIntoView()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(screenScrollState)
             .background(AppBackground)
             .padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -406,6 +420,7 @@ fun ClassicModeScreen(
             state = state,
             isOpen = state.disclosure.tableOpen,
             onToggle = { onToggleDisclosure(ClassicDisclosurePanel.Table) },
+            tableScenarioModifier = Modifier.bringIntoViewRequester(tableScenarioRequester),
             rows = state.rows,
             onPlayRow = onPlayRow,
             onToggleAutoNext = onToggleAutoNext,
@@ -861,6 +876,7 @@ private fun ClassicTableCard(
     state: ClassicModeUiState,
     isOpen: Boolean,
     onToggle: () -> Unit,
+    tableScenarioModifier: Modifier = Modifier,
     rows: List<ClassicGeneratedRowUi>,
     onPlayRow: (Int) -> Unit,
     onToggleAutoNext: () -> Unit,
@@ -900,6 +916,7 @@ private fun ClassicTableCard(
         Spacer(Modifier.height(10.dp))
         TableDisplayScenarioPanel(
             state = state,
+            modifier = tableScenarioModifier,
             onToggleColumnsPanel = onToggleTableColumnsPanel,
             onToggleColumn = onToggleTableColumn,
             onReset = onResetTableDisplay,
@@ -976,6 +993,7 @@ private fun LibraryLoadedTableMetadataHeader(
 @Composable
 private fun TableDisplayScenarioPanel(
     state: ClassicModeUiState,
+    modifier: Modifier = Modifier,
     onToggleColumnsPanel: () -> Unit,
     onToggleColumn: (ClassicTableColumn) -> Unit,
     onReset: () -> Unit,
@@ -985,7 +1003,7 @@ private fun TableDisplayScenarioPanel(
         color = SoftPanelBackground,
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, BorderColor),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("🧩 Таблица: отображение и сценарии", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

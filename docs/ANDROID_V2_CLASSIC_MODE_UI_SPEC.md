@@ -248,6 +248,7 @@ P034 behavior:
 - `Результат` is limited to generation status, row count, generated timestamp, and the `Обновить` save/update action.
 - Generated rows move into a separate collapsible `Таблица` block.
 - `Таблица` owns the loaded card `TITLE`, clickable/copyable `SOURCE`, `🧩 Таблица: отображение и сценарии`, column controls, auto-next control, and the generated table itself.
+- After a successful generation, Classic Mode automatically and smoothly scrolls to `🧩 Таблица: отображение и сценарии` when the `Таблица` block is open. This is a one-shot navigation assist per completed table state change; it must not continuously override manual user scrolling.
 
 P035 requirements:
 
