@@ -234,6 +234,14 @@ P032 behavior:
 - Non-URL source values are not opened through implicit intents.
 - Manual evidence for YouTube deep-link routing to YouTube/browser remains pending because it depends on emulator/device app associations.
 
+P033 behavior:
+
+- The app has a fourth top-level tab `Связь` after `IDE`.
+- The contact tab is intentionally outside Classic Mode so support/social links do not add noise to the study workflow.
+- Primary action is `Написать в WhatsApp`, opening `https://wa.me/972535536175` with a short prefilled support message.
+- Secondary actions are external Facebook and Instagram links.
+- The screen can copy the WhatsApp number and sanitized app support info. It must not include API keys, source texts, library content, row data, audio paths, or credentials.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.

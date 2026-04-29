@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
@@ -91,6 +92,7 @@ import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
 import com.sindromradiospb.ttsprototypev2.core.model.TranslationProviderId
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialId
 import com.sindromradiospb.ttsprototypev2.core.settings.ProviderCredentialStatus
+import com.sindromradiospb.ttsprototypev2.BuildConfig
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicDisclosurePanel
 import com.sindromradiospb.ttsprototypev2.feature.classic.ClassicHebrewTableFont
@@ -122,6 +124,10 @@ private val ClassicBlue = Color(0xFF3498DB)
 private val ClassicGreen = Color(0xFF2ECC71)
 private val ClassicDanger = Color(0xFFE85D75)
 private val MutedText = Color(0xFF68737D)
+private const val DeveloperPhoneDisplay = "+972535536175"
+private const val DeveloperWhatsappUrl = "https://wa.me/972535536175?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%2C%20%D1%83%20%D0%BC%D0%B5%D0%BD%D1%8F%20%D0%B2%D0%BE%D0%BF%D1%80%D0%BE%D1%81%20%D0%BF%D0%BE%20TTS%20Prototype%20Android"
+private const val DeveloperFacebookUrl = "https://www.facebook.com/Like.Egor.Blog"
+private const val DeveloperInstagramUrl = "https://www.instagram.com/like.egor.blog/"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +138,7 @@ fun AppRoot(
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var isLibraryOpen by rememberSaveable { mutableStateOf(false) }
-    val tabs = listOf("Classic", "Settings", "IDE")
+    val tabs = listOf("Classic", "Settings", "IDE", "Связь")
     val classicState by classicModeViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
     val settingsState by settingsViewModel.uiState.collectAsState()
@@ -214,7 +220,9 @@ fun AppRoot(
                     modifier = Modifier.padding(innerPadding),
                 )
 
-                else -> IdeModeScreen(Modifier.padding(innerPadding))
+                2 -> IdeModeScreen(Modifier.padding(innerPadding))
+
+                else -> DeveloperContactScreen(Modifier.padding(innerPadding))
             }
         }
 
@@ -2066,6 +2074,76 @@ fun IdeModeScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun DeveloperContactScreen(modifier: Modifier = Modifier) {
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+    val clipboardManager = remember(context) {
+        context.getSystemService(ClipboardManager::class.java)
+    }
+    val supportInfo = remember { buildSupportInfoText() }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .background(AppBackground)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SurfaceCard {
+            Text("Связь с разработчиком", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                "Основной канал поддержки — WhatsApp. Соцсети доступны как вторичные ссылки и не используются для отправки данных приложения.",
+                color = MutedText,
+            )
+            PrimaryGreenButton(
+                text = "Написать в WhatsApp",
+                onClick = {
+                    runCatching { uriHandler.openUri(DeveloperWhatsappUrl) }
+                        .onFailure {
+                            Toast.makeText(context, "Не удалось открыть WhatsApp или браузер.", Toast.LENGTH_SHORT).show()
+                        }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            SecondaryActionButton(
+                text = "Скопировать номер $DeveloperPhoneDisplay",
+                onClick = {
+                    clipboardManager?.setPrimaryClip(ClipData.newPlainText("WhatsApp", DeveloperPhoneDisplay))
+                    Toast.makeText(context, "Номер скопирован.", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        SurfaceCard {
+            Text("Социальные ссылки", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            SourceValueRow(label = "Facebook:", source = DeveloperFacebookUrl)
+            SourceValueRow(label = "Instagram:", source = DeveloperInstagramUrl)
+        }
+
+        SurfaceCard {
+            Text("Сведения для поддержки", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "Эти сведения не содержат ключи, тексты, библиотеку или аудио. Они помогают описать среду при обращении.",
+                color = MutedText,
+            )
+            SelectionContainer {
+                Text(supportInfo, style = MaterialTheme.typography.bodySmall)
+            }
+            SecondaryActionButton(
+                text = "Скопировать сведения",
+                onClick = {
+                    clipboardManager?.setPrimaryClip(ClipData.newPlainText("App support info", supportInfo))
+                    Toast.makeText(context, "Сведения скопированы.", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
 private fun SurfaceCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = PanelBackground),
@@ -2294,6 +2372,14 @@ private fun String.isHttpUrl(): Boolean =
         val uri = Uri.parse(trim())
         (uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrBlank()
     }.getOrDefault(false)
+
+private fun buildSupportInfoText(): String =
+    listOf(
+        "App: ${BuildConfig.APPLICATION_ID}",
+        "Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        "Android: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}",
+        "Device: ${Build.MANUFACTURER} ${Build.MODEL}",
+    ).joinToString(separator = "\n")
 
 private fun libraryLoadedTimestamp(summaries: List<LibraryTextSummary>): String =
     summaries
