@@ -318,12 +318,16 @@ class ClassicModeViewModelTest {
     fun disclosureToggleCollapsesClassicBlocks() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = viewModel()
 
+        viewModel.toggleDisclosure(ClassicDisclosurePanel.Limits)
         viewModel.toggleDisclosure(ClassicDisclosurePanel.Voice)
         viewModel.toggleDisclosure(ClassicDisclosurePanel.Result)
+        viewModel.toggleDisclosure(ClassicDisclosurePanel.Table)
 
         val state = viewModel.uiState.value
+        assertFalse(state.disclosure.limitsOpen)
         assertFalse(state.disclosure.voiceOpen)
         assertFalse(state.disclosure.resultOpen)
+        assertFalse(state.disclosure.tableOpen)
         assertTrue(state.disclosure.sourceOpen)
         assertTrue(state.disclosure.translationOpen)
     }

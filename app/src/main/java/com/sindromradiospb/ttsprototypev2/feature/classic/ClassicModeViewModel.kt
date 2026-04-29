@@ -100,32 +100,40 @@ data class ClassicTableDisplayState(
 )
 
 enum class ClassicDisclosurePanel {
+    Limits,
     Source,
     Voice,
     Translation,
     Result,
+    Table,
 }
 
 data class ClassicDisclosureState(
+    val limitsOpen: Boolean = true,
     val sourceOpen: Boolean = true,
     val voiceOpen: Boolean = true,
     val translationOpen: Boolean = true,
     val resultOpen: Boolean = true,
+    val tableOpen: Boolean = true,
 ) {
     fun isOpen(panel: ClassicDisclosurePanel): Boolean =
         when (panel) {
+            ClassicDisclosurePanel.Limits -> limitsOpen
             ClassicDisclosurePanel.Source -> sourceOpen
             ClassicDisclosurePanel.Voice -> voiceOpen
             ClassicDisclosurePanel.Translation -> translationOpen
             ClassicDisclosurePanel.Result -> resultOpen
+            ClassicDisclosurePanel.Table -> tableOpen
         }
 
     fun toggled(panel: ClassicDisclosurePanel): ClassicDisclosureState =
         when (panel) {
+            ClassicDisclosurePanel.Limits -> copy(limitsOpen = !limitsOpen)
             ClassicDisclosurePanel.Source -> copy(sourceOpen = !sourceOpen)
             ClassicDisclosurePanel.Voice -> copy(voiceOpen = !voiceOpen)
             ClassicDisclosurePanel.Translation -> copy(translationOpen = !translationOpen)
             ClassicDisclosurePanel.Result -> copy(resultOpen = !resultOpen)
+            ClassicDisclosurePanel.Table -> copy(tableOpen = !tableOpen)
         }
 }
 

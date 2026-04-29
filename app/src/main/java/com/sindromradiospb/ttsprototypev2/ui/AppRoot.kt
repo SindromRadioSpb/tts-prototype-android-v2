@@ -138,7 +138,7 @@ fun AppRoot(
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var isLibraryOpen by rememberSaveable { mutableStateOf(false) }
-    val tabs = listOf("Classic", "Settings", "IDE", "Связь")
+    val tabs = listOf("Classic", "Settings", "IDE", "Связь\nс разработчиком")
     val classicState by classicModeViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
     val settingsState by settingsViewModel.uiState.collectAsState()
@@ -163,7 +163,7 @@ fun AppRoot(
                             Tab(
                                 selected = selectedTab == index,
                                 onClick = { selectedTab = index },
-                                text = { Text(title) },
+                                text = { Text(title, textAlign = TextAlign.Center) },
                             )
                         }
                     }
@@ -321,7 +321,11 @@ fun ClassicModeScreen(
             .padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ClassicStatusStrip(state)
+        ClassicStatusStrip(
+            state = state,
+            isOpen = state.disclosure.limitsOpen,
+            onToggle = { onToggleDisclosure(ClassicDisclosurePanel.Limits) },
+        )
 
         SurfaceCard {
             Row(
@@ -388,7 +392,6 @@ fun ClassicModeScreen(
         }
 
         ClassicResultCard(
-            state = state,
             isOpen = state.disclosure.resultOpen,
             onToggle = { onToggleDisclosure(ClassicDisclosurePanel.Result) },
             rows = state.rows,
@@ -397,7 +400,13 @@ fun ClassicModeScreen(
             onSave = onSave,
             isSaveEnabled = state.rows.isNotEmpty() && !state.isSaving && !state.isGenerating,
             isSaving = state.isSaving,
-            playingRowIndex = state.playingRowIndex,
+        )
+
+        ClassicTableCard(
+            state = state,
+            isOpen = state.disclosure.tableOpen,
+            onToggle = { onToggleDisclosure(ClassicDisclosurePanel.Table) },
+            rows = state.rows,
             onPlayRow = onPlayRow,
             onToggleAutoNext = onToggleAutoNext,
             onOpenRowNote = onOpenRowNote,
@@ -437,10 +446,17 @@ fun ClassicModeScreen(
 }
 
 @Composable
-private fun ClassicStatusStrip(state: ClassicModeUiState) {
-    SurfaceCard {
-        Text("Лимиты и квоты", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(10.dp))
+private fun ClassicStatusStrip(
+    state: ClassicModeUiState,
+    isOpen: Boolean,
+    onToggle: () -> Unit,
+) {
+    DisclosureSurfaceCard(
+        title = "Лимиты и квоты",
+        subtitle = "Локальные счётчики символов, строк и будущих provider quotas.",
+        isOpen = isOpen,
+        onToggle = onToggle,
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             QuotaTile(
                 value = state.sourceText.length.toString(),
@@ -801,7 +817,6 @@ private fun translationProviderLabel(provider: TranslationProviderId): String =
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ClassicResultCard(
-    state: ClassicModeUiState,
     isOpen: Boolean,
     onToggle: () -> Unit,
     rows: List<ClassicGeneratedRowUi>,
@@ -810,7 +825,43 @@ private fun ClassicResultCard(
     onSave: () -> Unit,
     isSaveEnabled: Boolean,
     isSaving: Boolean,
-    playingRowIndex: Int?,
+) {
+    DisclosureSurfaceCard(
+        title = "Результат",
+        subtitle = "Статус формирования, дата генерации и сохранение карточки текста.",
+        isOpen = isOpen,
+        onToggle = onToggle,
+    ) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatusPill(generationLabel)
+            StatusPill("Строк: ${rows.size}")
+            StatusPill("Audio: ${if (rows.isEmpty()) "missing" else "pending"}")
+            if (generatedAt != null) StatusPill("Generated: ${formatDate(generatedAt)}")
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "После формирования таблицы сохраните или обновите карточку текста в библиотеке.",
+                    color = MutedText,
+                )
+            }
+            PrimaryGreenButton(
+                text = if (isSaving) "Сохранение..." else "💾 Обновить",
+                onClick = onSave,
+                enabled = isSaveEnabled,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ClassicTableCard(
+    state: ClassicModeUiState,
+    isOpen: Boolean,
+    onToggle: () -> Unit,
+    rows: List<ClassicGeneratedRowUi>,
     onPlayRow: (Int) -> Unit,
     onToggleAutoNext: () -> Unit,
     onOpenRowNote: (Int) -> Unit,
@@ -821,17 +872,11 @@ private fun ClassicResultCard(
     onAdjustTableColumnWidth: (ClassicTableColumn, Float) -> Unit,
 ) {
     DisclosureSurfaceCard(
-        title = "Результат",
-        subtitle = "Таблица, построчное воспроизведение, заметки и сохранение карточки.",
+        title = "Таблица",
+        subtitle = "Карточка текста, источник, колонки, построчное воспроизведение и заметки.",
         isOpen = isOpen,
         onToggle = onToggle,
     ) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatusPill(generationLabel)
-            StatusPill("Audio: ${if (rows.isEmpty()) "missing" else "pending"}")
-            if (generatedAt != null) StatusPill("Generated: ${formatDate(generatedAt)}")
-        }
-        Spacer(Modifier.height(10.dp))
         LibraryLoadedTableMetadataHeader(
             title = state.loadedTextTitle,
             sourceLabel = state.loadedTextSourceLabel,
@@ -843,11 +888,6 @@ private fun ClassicResultCard(
             Column(Modifier.weight(1f)) {
                 Text("Таблица с колонками как в Classic Mode: действие, иврит, огласовки, транслит и перевод.", color = MutedText)
             }
-            PrimaryGreenButton(
-                text = if (isSaving) "Сохранение..." else "💾 Обновить",
-                onClick = onSave,
-                enabled = isSaveEnabled,
-            )
         }
         Spacer(Modifier.height(10.dp))
         TableDisplayScenarioPanel(

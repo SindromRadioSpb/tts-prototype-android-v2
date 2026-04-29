@@ -121,7 +121,8 @@ Behavior:
 Implementation status:
 
 - P018 implements `ClassicTableColumn`, `ClassicTableDisplayState`, `Колонки` / `Скрыть колонки`, checkboxes, selected row, adjustable widths, and auto-next state.
-- P018 replaces generated row cards in `Результат` with the table layout required by UI-V4-09.
+- P018 replaces generated row cards with the table layout required by UI-V4-09.
+- P034 keeps `Результат` focused on status/save and moves `TITLE`, `SOURCE`, display/scenario controls, and the generated rows into a separate collapsible `Таблица` card.
 - Manual screenshot evidence comparing UI-V4-09 with the Android screen remains required before release hardening.
 
 ## Library v3 Screen / Modal Layout
@@ -790,9 +791,17 @@ P031 requirements status:
 P032 implementation status:
 
 - Classic state now carries loaded Library card `TITLE` and `SOURCE` metadata after open/save.
-- The Classic `Результат` card shows that metadata above the table for Library-backed tables.
+- The Classic table area shows that metadata above the table for Library-backed tables.
 - Library cards and the Classic table header share source rendering behavior: valid `http`/`https` values are clickable and copyable; non-URL values are copyable only; empty values are shown as empty or omitted depending on context.
 - Manual emulator evidence is still required to confirm YouTube links route to the YouTube app when installed, or to the browser/default handler otherwise.
+
+P034 implementation status:
+
+- The fourth top-level contact tab is labeled on two lines: `Связь` / `с разработчиком`.
+- `Лимиты и квоты` is collapsible with the same `Скрыть` / `Показать` behavior as other Classic cards.
+- `Результат` contains generation status, row count, timestamp, and `Обновить`.
+- `Таблица` is a separate collapsible card containing Library-loaded `TITLE`, clickable/copyable `SOURCE`, `🧩 Таблица: отображение и сценарии`, column controls, auto-next, and the generated table.
+- Manual portrait/landscape screenshots remain required for the split result/table layout.
 
 ## UI DoD Evidence Checklist
 

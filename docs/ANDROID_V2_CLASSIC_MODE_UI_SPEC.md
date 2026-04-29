@@ -161,8 +161,8 @@ P017 behavior:
 
 P018 behavior:
 
-- `Результат` now renders generated rows as the source-style table from `docs/ui/v4/9. ТАБЛИЦА ОТОБРАЖЕНИЕ И СЦЕНАРИИ.PNG`, with columns `▶✎`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
-- When rows are loaded from a Library text card, `Результат` must show the card `TITLE` above the table and the card `SOURCE` directly under it. A valid `http`/`https` source opens externally and remains copyable; non-URL source text remains selectable/copyable only.
+- `Таблица` renders generated rows as the source-style table from `docs/ui/v4/9. ТАБЛИЦА ОТОБРАЖЕНИЕ И СЦЕНАРИИ.PNG`, with columns `▶✎`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
+- When rows are loaded from a Library text card, `Таблица` must show the card `TITLE` above the table and the card `SOURCE` directly under it. A valid `http`/`https` source opens externally and remains copyable; non-URL source text remains selectable/copyable only.
 - The `🧩 Таблица: отображение и сценарии` block exposes `Колонки` / `Скрыть колонки` instead of the prototype `Сценарии и колонки` label.
 - Preset buttons `Полная`, `Иврит+рус`, `Фонетика`, and `Только иврит` are intentionally omitted; Android uses explicit checkboxes for `Действие`, `Иврит`, `Огласовки`, `Транслит`, and `Перевод`.
 - At least one column must stay visible, and the ViewModel rejects attempts to hide all columns.
@@ -236,11 +236,18 @@ P032 behavior:
 
 P033 behavior:
 
-- The app has a fourth top-level tab `Связь` after `IDE`.
+- The app has a fourth top-level tab after `IDE` with two-line label `Связь` / `с разработчиком`.
 - The contact tab is intentionally outside Classic Mode so support/social links do not add noise to the study workflow.
 - Primary action is `Написать в WhatsApp`, opening `https://wa.me/972535536175` with a short prefilled support message.
 - Secondary actions are external Facebook and Instagram links.
 - The screen can copy the WhatsApp number and sanitized app support info. It must not include API keys, source texts, library content, row data, audio paths, or credentials.
+
+P034 behavior:
+
+- `Лимиты и квоты` is a collapsible Classic block and uses the same `Скрыть` / `Показать` interaction as the other Classic cards.
+- `Результат` is limited to generation status, row count, generated timestamp, and the `Обновить` save/update action.
+- Generated rows move into a separate collapsible `Таблица` block.
+- `Таблица` owns the loaded card `TITLE`, clickable/copyable `SOURCE`, `🧩 Таблица: отображение и сценарии`, column controls, auto-next control, and the generated table itself.
 
 ## Accessibility and Insets
 
