@@ -16,6 +16,10 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 data class ZipImportResult(
     val importedCount: Int,
@@ -150,6 +154,11 @@ class LibraryZipImportRepository(
                     val textId = idFactory()
                     val createdAt = exportText.createdAt.takeIf { it.isNotBlank() } ?: now
                     val updatedAt = exportText.updatedAt.takeIf { it.isNotBlank() } ?: now
+                    val textTtsProfileJson = inferTextTtsProfileJson(
+                        textAudioAssetKey = exportText.textAudioAssetKey,
+                        rowAudioAssetKeys = exportText.rows.mapNotNull { it.audioAssetKey },
+                        audioAssetsMeta = audioAssetsMeta,
+                    )
 
                     dao.insertText(
                         LibraryTextEntity(
@@ -163,7 +172,7 @@ class LibraryZipImportRepository(
                             sourceText = exportText.sourceText,
                             sourceMetaJson = exportText.sourceMeta?.toString(),
                             tableModelMetaJson = exportText.tableModelMeta?.toString(),
-                            ttsProfileJson = null,
+                            ttsProfileJson = textTtsProfileJson,
                             isArchived = exportText.isArchived,
                             createdAt = createdAt,
                             updatedAt = updatedAt,
@@ -275,4 +284,78 @@ class LibraryZipImportRepository(
         provenanceJson = meta?.provenance?.toString() ?: "{}",
         isMissing = !file.exists(),
     )
+
+    private fun inferTextTtsProfileJson(
+        textAudioAssetKey: String?,
+        rowAudioAssetKeys: List<String>,
+        audioAssetsMeta: Map<String, ExportAudioAsset>,
+    ): String? {
+        val keys = listOfNotNull(textAudioAssetKey?.takeIf { it.isNotBlank() }) +
+            rowAudioAssetKeys.filter { it.isNotBlank() }
+        return keys.asSequence()
+            .mapNotNull { audioAssetsMeta[it] }
+            .mapNotNull { it.toTtsProfileJsonOrNull() }
+            .firstOrNull()
+    }
+
+    private fun ExportAudioAsset.toTtsProfileJsonOrNull(): String? {
+        val provenanceObject = provenance?.asJsonObjectOrNull()
+        val nested = provenanceObject?.jsonObjectOrNull("ttsProfile")
+            ?: provenanceObject?.jsonObjectOrNull("tts_profile")
+        val language = nested?.stringOrNull("language") ?: language
+        val voice = nested?.stringOrNull("voiceName") ?: voiceName
+        val speakingRate = nested?.doubleOrNull("speakingRate") ?: 1.0
+        val pitch = nested?.doubleOrNull("pitch") ?: 0.0
+        val provider = (providerId.takeIf { it != "unknown" }
+            ?: nested?.stringOrNull("providerId")
+            ?: nested?.stringOrNull("provider")
+            ?: inferProviderWireIdFromVoice(voice)
+            ?: return null).toTtsProviderEnumNameOrNull() ?: return null
+        return """{"providerId":${provider.jsonString()},"language":${language.jsonString()},"voiceName":${voice?.jsonString() ?: "null"},"speakingRate":$speakingRate,"pitch":$pitch}"""
+    }
+
+    private fun inferProviderWireIdFromVoice(voiceName: String?): String? =
+        if (voiceName?.contains("-Standard-", ignoreCase = true) == true ||
+            voiceName?.contains("-Wavenet-", ignoreCase = true) == true ||
+            voiceName?.contains("-Neural2-", ignoreCase = true) == true
+        ) {
+            "google_online_tts"
+        } else {
+            null
+        }
+
+    private fun String.toTtsProviderEnumNameOrNull(): String? =
+        when (this) {
+            "GoogleOnlineTts", "google_online_tts" -> "GoogleOnlineTts"
+            "SystemFallbackLowQuality", "system_or_browser_fallback_low_quality" -> "SystemFallbackLowQuality"
+            else -> null
+        }
+
+    private fun kotlinx.serialization.json.JsonElement.asJsonObjectOrNull(): JsonObject? =
+        when (this) {
+            is JsonObject -> this
+            is JsonPrimitive -> contentOrNull?.parseJsonObjectOrNull()
+            else -> null
+        }
+
+    private fun JsonObject.jsonObjectOrNull(name: String): JsonObject? {
+        val element = this[name] ?: return null
+        return when {
+            element is JsonObject -> element
+            element is JsonPrimitive && element.isString -> element.contentOrNull?.parseJsonObjectOrNull()
+            else -> null
+        }
+    }
+
+    private fun JsonObject.stringOrNull(name: String): String? =
+        this[name]?.jsonPrimitive?.contentOrNull
+
+    private fun JsonObject.doubleOrNull(name: String): Double? =
+        this[name]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+
+    private fun String.parseJsonObjectOrNull(): JsonObject? =
+        runCatching { json.decodeFromString<JsonObject>(this) }.getOrNull()
+
+    private fun String.jsonString(): String =
+        json.encodeToString(this)
 }

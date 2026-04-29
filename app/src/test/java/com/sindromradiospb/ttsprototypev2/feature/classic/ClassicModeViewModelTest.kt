@@ -193,7 +193,8 @@ class ClassicModeViewModelTest {
         assertEquals("Saved YouTube title", state.loadedTextTitle)
         assertEquals("https://www.youtube.com/watch?v=demo", state.loadedTextSourceLabel)
         assertEquals("Library: Saved YouTube title", state.generationLabel)
-        assertTrue(state.message.orEmpty().contains("Progress metadata is not available yet"))
+        assertTrue(state.message.orEmpty().contains("Локальное аудио карточки используется"))
+        assertEquals("Таблица: Google Translate · model=m3_fake_translation_provider", state.loadedTextTranslationLabel)
     }
 
     @Test

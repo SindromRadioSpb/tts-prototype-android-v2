@@ -880,8 +880,16 @@ private fun ClassicTableCard(
         LibraryLoadedTableMetadataHeader(
             title = state.loadedTextTitle,
             sourceLabel = state.loadedTextSourceLabel,
+            ttsProfileLabel = state.loadedTextTtsProfileLabel,
+            translationLabel = state.loadedTextTranslationLabel,
+            audioStatusLabel = state.loadedTextAudioStatusLabel,
         )
-        if (state.loadedTextTitle != null || !state.loadedTextSourceLabel.isNullOrBlank()) {
+        if (state.loadedTextTitle != null ||
+            !state.loadedTextSourceLabel.isNullOrBlank() ||
+            !state.loadedTextTtsProfileLabel.isNullOrBlank() ||
+            !state.loadedTextTranslationLabel.isNullOrBlank() ||
+            !state.loadedTextAudioStatusLabel.isNullOrBlank()
+        ) {
             Spacer(Modifier.height(10.dp))
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -916,10 +924,16 @@ private fun ClassicTableCard(
 private fun LibraryLoadedTableMetadataHeader(
     title: String?,
     sourceLabel: String?,
+    ttsProfileLabel: String?,
+    translationLabel: String?,
+    audioStatusLabel: String?,
 ) {
     val cleanTitle = title?.trim().orEmpty()
     val cleanSource = sourceLabel?.trim().orEmpty()
-    if (cleanTitle.isBlank() && cleanSource.isBlank()) return
+    val cleanTts = ttsProfileLabel?.trim().orEmpty()
+    val cleanTranslation = translationLabel?.trim().orEmpty()
+    val cleanAudio = audioStatusLabel?.trim().orEmpty()
+    if (cleanTitle.isBlank() && cleanSource.isBlank() && cleanTts.isBlank() && cleanTranslation.isBlank() && cleanAudio.isBlank()) return
 
     Surface(
         color = Color(0xFFFFFFFF),
@@ -942,6 +956,18 @@ private fun LibraryLoadedTableMetadataHeader(
                 source = cleanSource,
                 showEmptyValue = false,
             )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (cleanAudio.isNotBlank()) StatusPill(cleanAudio)
+                if (cleanTts.isNotBlank()) StatusPill(cleanTts)
+                if (cleanTranslation.isNotBlank()) StatusPill(cleanTranslation)
+            }
+            if (cleanTts.isNotBlank()) {
+                Text(
+                    "Настройки озвучки экрана синхронизированы с профилем карточки. Импортированное локальное аудио воспроизводится без повторного синтеза; пересинтез нужен только после явного изменения настроек.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                )
+            }
         }
     }
 }
@@ -1817,6 +1843,7 @@ private fun LibraryV3TextCard(
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 summary.level?.let { StatusPill("Уровень: $it") }
+                StatusPill(summary.libraryAudioStatusLabel())
                 summary.tags.take(8).forEach { tag ->
                     val selected = tag in selectedTags
                     Box(
@@ -2406,6 +2433,15 @@ private fun formatDate(value: String?): String =
         ?.removeSuffix("Z")
         ?.substringBefore(".")
         ?: "—"
+
+private fun LibraryTextSummary.libraryAudioStatusLabel(): String =
+    when {
+        hasTextAudio && rowCount == 0 -> "Аудио: полный текст локально"
+        rowCount > 0 && linkedAudioCount >= rowCount -> "Аудио: локально $linkedAudioCount/$rowCount"
+        rowCount > 0 && linkedAudioCount > 0 -> "Аудио: частично $linkedAudioCount/$rowCount"
+        hasTextAudio -> "Аудио: текст локально"
+        else -> "Аудио: нет"
+    }
 
 private fun String.isHttpUrl(): Boolean =
     runCatching {

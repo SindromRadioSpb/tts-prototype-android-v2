@@ -20,6 +20,9 @@ data class LibraryTextSummaryRow(
     val updatedAt: String,
     val lastOpenedAt: String?,
     val isArchived: Boolean,
+    val rowCount: Int,
+    val linkedAudioCount: Int,
+    val hasTextAudio: Boolean,
 )
 
 @Dao
@@ -29,7 +32,21 @@ interface LibraryDao {
         SELECT text_id AS textId, text_key AS textKey, title, level,
                tags_json AS tagsJson, source_label AS sourceLabel, topic,
                created_at AS createdAt, updated_at AS updatedAt,
-               last_opened_at AS lastOpenedAt, is_archived AS isArchived
+               last_opened_at AS lastOpenedAt, is_archived AS isArchived,
+               (SELECT COUNT(*) FROM library_rows WHERE library_rows.text_id = library_texts.text_id) AS rowCount,
+               (
+                   SELECT COUNT(*)
+                   FROM library_rows
+                   INNER JOIN row_audio ON row_audio.row_id = library_rows.row_id AND row_audio.is_default = 1
+                   INNER JOIN audio_assets ON audio_assets.asset_key = row_audio.asset_key AND audio_assets.is_missing = 0
+                   WHERE library_rows.text_id = library_texts.text_id
+               ) AS linkedAudioCount,
+               EXISTS(
+                   SELECT 1
+                   FROM text_audio
+                   INNER JOIN audio_assets ON audio_assets.asset_key = text_audio.asset_key AND audio_assets.is_missing = 0
+                   WHERE text_audio.text_id = library_texts.text_id AND text_audio.is_default = 1
+               ) AS hasTextAudio
         FROM library_texts
         WHERE (:includeArchived = 1 OR is_archived = 0)
         ORDER BY COALESCE(last_opened_at, updated_at) DESC, updated_at DESC, title COLLATE NOCASE ASC
@@ -115,8 +132,33 @@ interface LibraryDao {
     @Query("SELECT * FROM row_audio WHERE row_id = :rowId AND is_default = 1")
     suspend fun getDefaultRowAudio(rowId: String): RowAudioEntity?
 
+    @Query(
+        """
+        SELECT audio_assets.*
+        FROM audio_assets
+        INNER JOIN row_audio ON row_audio.asset_key = audio_assets.asset_key
+        WHERE row_audio.row_id = :rowId AND row_audio.is_default = 1
+        LIMIT 1
+        """,
+    )
+    suspend fun getDefaultRowAudioAsset(rowId: String): AudioAssetEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTextAudio(textAudio: TextAudioEntity)
+
+    @Query("SELECT * FROM text_audio WHERE text_id = :textId AND is_default = 1")
+    suspend fun getDefaultTextAudio(textId: String): TextAudioEntity?
+
+    @Query(
+        """
+        SELECT audio_assets.*
+        FROM audio_assets
+        INNER JOIN text_audio ON text_audio.asset_key = audio_assets.asset_key
+        WHERE text_audio.text_id = :textId AND text_audio.is_default = 1
+        LIMIT 1
+        """,
+    )
+    suspend fun getDefaultTextAudioAsset(textId: String): AudioAssetEntity?
 
     @Query("SELECT * FROM library_texts ORDER BY updated_at DESC, text_id ASC")
     suspend fun getTextsForExport(): List<LibraryTextEntity>

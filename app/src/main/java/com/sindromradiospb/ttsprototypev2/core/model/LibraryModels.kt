@@ -15,6 +15,7 @@ data class LibraryText(
     val sourceMeta: SourceMeta? = null,
     val ttsProfile: TtsProfile? = null,
     val tableModelMeta: TableModelMeta? = null,
+    val tableModelMetaLabel: String? = null,
     val rows: List<LibraryRow>,
     val audioAssetKey: String? = null,
     val audioTtsProfile: TtsProfile? = null,

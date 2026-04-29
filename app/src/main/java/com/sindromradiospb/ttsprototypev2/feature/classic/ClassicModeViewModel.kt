@@ -19,6 +19,7 @@ import com.sindromradiospb.ttsprototypev2.data.audio.AudioPlaybackResult
 import com.sindromradiospb.ttsprototypev2.data.audio.AudioStorageRepository
 import com.sindromradiospb.ttsprototypev2.data.audio.PlayableAudioResult
 import com.sindromradiospb.ttsprototypev2.data.repository.GeneratedLibraryRowInput
+import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryTextSummary
 import com.sindromradiospb.ttsprototypev2.data.repository.LibraryRepository
 import com.sindromradiospb.ttsprototypev2.data.repository.SaveGeneratedTextRequest
@@ -158,6 +159,9 @@ data class ClassicModeUiState(
     val savedTextId: String? = null,
     val loadedTextTitle: String? = null,
     val loadedTextSourceLabel: String? = null,
+    val loadedTextTtsProfileLabel: String? = null,
+    val loadedTextTranslationLabel: String? = null,
+    val loadedTextAudioStatusLabel: String? = null,
     val saveMetadataDraft: ClassicSaveMetadataDraft? = null,
     val noteEditor: ClassicNoteEditorState? = null,
     val generatedAt: String? = null,
@@ -192,6 +196,9 @@ class ClassicModeViewModel(
                 savedTextId = null,
                 loadedTextTitle = null,
                 loadedTextSourceLabel = null,
+                loadedTextTtsProfileLabel = null,
+                loadedTextTranslationLabel = null,
+                loadedTextAudioStatusLabel = null,
                 message = null,
             )
         }
@@ -210,6 +217,9 @@ class ClassicModeViewModel(
                 savedTextId = null,
                 loadedTextTitle = null,
                 loadedTextSourceLabel = null,
+                loadedTextTtsProfileLabel = null,
+                loadedTextTranslationLabel = null,
+                loadedTextAudioStatusLabel = null,
                 saveMetadataDraft = null,
                 message = if (shouldRegenerate) "Переводчик изменён. Пересобираю таблицу..." else null,
             )
@@ -230,25 +240,28 @@ class ClassicModeViewModel(
                 savedTextId = null,
                 loadedTextTitle = null,
                 loadedTextSourceLabel = null,
+                loadedTextTtsProfileLabel = null,
+                loadedTextTranslationLabel = null,
+                loadedTextAudioStatusLabel = null,
                 message = null,
             )
         }
     }
 
     fun onSourceLanguageChanged(language: ClassicSourceLanguage) {
-        _uiState.update { it.copy(sourceLanguage = language, savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, message = null) }
+        _uiState.update { it.copy(sourceLanguage = language, savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, loadedTextTtsProfileLabel = null, loadedTextTranslationLabel = null, loadedTextAudioStatusLabel = null, message = null) }
     }
 
     fun onTtsVoiceNameChanged(voiceName: String?) {
-        _uiState.update { it.copy(ttsVoiceName = voiceName?.takeIf { value -> value.isNotBlank() }, savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, message = null) }
+        _uiState.update { it.copy(ttsVoiceName = voiceName?.takeIf { value -> value.isNotBlank() }, savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, loadedTextTtsProfileLabel = null, loadedTextTranslationLabel = null, loadedTextAudioStatusLabel = null, message = null) }
     }
 
     fun onSpeakingRateChanged(value: Double) {
-        _uiState.update { it.copy(speakingRate = value.coerceIn(0.5, 2.0), savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, message = null) }
+        _uiState.update { it.copy(speakingRate = value.coerceIn(0.5, 2.0), savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, loadedTextTtsProfileLabel = null, loadedTextTranslationLabel = null, loadedTextAudioStatusLabel = null, message = null) }
     }
 
     fun onPitchChanged(value: Double) {
-        _uiState.update { it.copy(pitch = value.coerceIn(-5.0, 5.0), savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, message = null) }
+        _uiState.update { it.copy(pitch = value.coerceIn(-5.0, 5.0), savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, loadedTextTtsProfileLabel = null, loadedTextTranslationLabel = null, loadedTextAudioStatusLabel = null, message = null) }
     }
 
     fun onTranslitProfileChanged(profile: ClassicTranslitProfile) {
@@ -357,6 +370,9 @@ class ClassicModeViewModel(
                             savedTextId = null,
                             loadedTextTitle = null,
                             loadedTextSourceLabel = null,
+                            loadedTextTtsProfileLabel = null,
+                            loadedTextTranslationLabel = null,
+                            loadedTextAudioStatusLabel = null,
                             playingRowIndex = null,
                             tableDisplay = it.tableDisplay.copy(
                                 selectedRowIndex = null,
@@ -461,6 +477,9 @@ class ClassicModeViewModel(
                             savedTextId = saved.id,
                             loadedTextTitle = saved.title,
                             loadedTextSourceLabel = saved.sourceLabel,
+                            loadedTextTtsProfileLabel = saved.audioTtsProfile?.toUiLabel() ?: saved.ttsProfile?.toUiLabel(),
+                            loadedTextTranslationLabel = saved.translationUiLabel(),
+                            loadedTextAudioStatusLabel = saved.audioStatusLabel(),
                             saveMetadataDraft = null,
                             message = "Карточка текста сохранена в Library.",
                         )
@@ -473,6 +492,9 @@ class ClassicModeViewModel(
                             savedTextId = result.existingTextId,
                             loadedTextTitle = null,
                             loadedTextSourceLabel = null,
+                            loadedTextTtsProfileLabel = null,
+                            loadedTextTranslationLabel = null,
+                            loadedTextAudioStatusLabel = null,
                             saveMetadataDraft = null,
                             message = "Такая карточка уже есть в локальной библиотеке.",
                         )
@@ -492,16 +514,19 @@ class ClassicModeViewModel(
             }.fold(
                 onSuccess = { text ->
                     val provider = text.tableModelMeta?.provider ?: _uiState.value.translationProvider
+                    val importedTtsProfile = text.audioTtsProfile
+                        ?: text.ttsProfile
+                        ?: text.rows.firstNotNullOfOrNull { row -> row.audioTtsProfile }
                     _uiState.update {
                         it.copy(
                             sourceText = text.sourceText,
                             translationProvider = provider,
-                            ttsProvider = text.ttsProfile?.providerId ?: it.ttsProvider,
-                            sourceLanguage = ClassicSourceLanguage.entries.firstOrNull { lang -> lang.code == text.ttsProfile?.language }
+                            ttsProvider = importedTtsProfile?.providerId ?: it.ttsProvider,
+                            sourceLanguage = ClassicSourceLanguage.entries.firstOrNull { lang -> lang.code == importedTtsProfile?.language }
                                 ?: it.sourceLanguage,
-                            ttsVoiceName = text.ttsProfile?.voiceName,
-                            speakingRate = text.ttsProfile?.speakingRate ?: it.speakingRate,
-                            pitch = text.ttsProfile?.pitch ?: it.pitch,
+                            ttsVoiceName = importedTtsProfile?.voiceName,
+                            speakingRate = importedTtsProfile?.speakingRate ?: it.speakingRate,
+                            pitch = importedTtsProfile?.pitch ?: it.pitch,
                             rows = text.rows.sortedBy { row -> row.orderIndex }.map { row ->
                                 ClassicGeneratedRowUi(
                                     rowId = row.id,
@@ -519,13 +544,16 @@ class ClassicModeViewModel(
                             savedTextId = text.id,
                             loadedTextTitle = text.title,
                             loadedTextSourceLabel = text.sourceLabel,
+                            loadedTextTtsProfileLabel = importedTtsProfile?.toUiLabel(),
+                            loadedTextTranslationLabel = text.translationUiLabel(),
+                            loadedTextAudioStatusLabel = text.audioStatusLabel(),
                             generatedAt = text.tableModelMeta?.generatedAt ?: text.updatedAt,
                             generationLabel = "Library: ${text.title}",
                             provenance = null,
                             message = if (resume) {
-                                "Opened ${text.title}. Progress metadata is not available yet; resumed at the loaded table."
+                                "Opened ${text.title}. Локальное аудио карточки используется без повторного синтеза, если файл доступен."
                             } else {
-                                "Opened ${text.title} from local library."
+                                "Opened ${text.title} from local library. ${text.audioStatusLabel()}"
                             },
                         )
                     }
@@ -695,7 +723,7 @@ class ClassicModeViewModel(
                                 tableDisplay = it.tableDisplay.copy(
                                     isAutoNextActive = it.tableDisplay.isAutoNextActive && playback == AudioPlaybackResult.Started,
                                 ),
-                                message = "Row audio from cache: ${playback.toUserMessage()}",
+                                message = "Импортированное локальное аудио строки: ${playback.toUserMessage()}. Повторный синтез не выполнялся.",
                             )
                         }
                         return@launch
@@ -943,6 +971,46 @@ class ClassicModeViewModel(
             speakingRate = speakingRate,
             pitch = pitch,
         )
+
+    private fun LibraryText.translationUiLabel(): String =
+        tableModelMeta?.let { meta ->
+            val provider = meta.actualProvider ?: meta.provider
+            buildString {
+                append("Таблица: ")
+                append(provider.toUiLabel())
+                meta.model?.takeIf { it.isNotBlank() }?.let { append(" · model=$it") }
+                if (meta.fromCache) append(" · cache")
+            }
+        }
+            ?: tableModelMetaLabel
+            ?: "Таблица: legacy/unknown provider"
+
+    private fun LibraryText.audioStatusLabel(): String {
+        val linkedRows = rows.count { !it.audioAssetKey.isNullOrBlank() }
+        val totalRows = rows.size
+        return when {
+            totalRows == 0 -> "Аудио: нет строк"
+            linkedRows == totalRows -> "Аудио: локально, $linkedRows/$totalRows строк"
+            linkedRows > 0 -> "Аудио: частично локально, $linkedRows/$totalRows строк"
+            else -> "Аудио: не связано"
+        }
+    }
+
+    private fun TtsProfile.toUiLabel(): String =
+        "TTS: ${providerId.toUiLabel()} · ${voiceName ?: "auto"} · ${String.format(java.util.Locale.US, "%.2fx", speakingRate)} · pitch ${String.format(java.util.Locale.US, "%+.1f", pitch)}"
+
+    private fun TtsProviderId.toUiLabel(): String =
+        when (this) {
+            TtsProviderId.GoogleOnlineTts -> "Online TTS"
+            TtsProviderId.SystemFallbackLowQuality -> "System fallback"
+        }
+
+    private fun TranslationProviderId.toUiLabel(): String =
+        when (this) {
+            TranslationProviderId.GoogleTranslateFree -> "Google Translate"
+            TranslationProviderId.GcpTranslate -> "GCP Translate"
+            TranslationProviderId.GeminiLegacy -> "Gemini"
+        }
 
     private fun playFile(file: File, onCompletion: (() -> Unit)? = null): AudioPlaybackResult =
         audioPlaybackController?.play(file, onCompletion)

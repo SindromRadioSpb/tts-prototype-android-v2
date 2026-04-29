@@ -7,6 +7,7 @@ import com.sindromradiospb.ttsprototypev2.core.model.LibraryText
 import com.sindromradiospb.ttsprototypev2.core.model.SourceMeta
 import com.sindromradiospb.ttsprototypev2.core.model.TableModelMeta
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProfile
+import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
 import com.sindromradiospb.ttsprototypev2.data.db.AppDatabase
 import com.sindromradiospb.ttsprototypev2.data.db.AudioAssetEntity
 import com.sindromradiospb.ttsprototypev2.data.db.LibraryRowEntity
@@ -20,6 +21,7 @@ import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -27,7 +29,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -45,6 +46,9 @@ data class LibraryTextSummary(
     val updatedAt: String,
     val lastOpenedAt: String?,
     val isArchived: Boolean,
+    val rowCount: Int = 0,
+    val linkedAudioCount: Int = 0,
+    val hasTextAudio: Boolean = false,
 )
 
 data class SaveGeneratedTextRequest(
@@ -160,6 +164,9 @@ class RoomLibraryRepository(
                     updatedAt = it.updatedAt,
                     lastOpenedAt = it.lastOpenedAt,
                     isArchived = it.isArchived,
+                    rowCount = it.rowCount,
+                    linkedAudioCount = it.linkedAudioCount,
+                    hasTextAudio = it.hasTextAudio,
                 )
             }
         }
@@ -604,12 +611,20 @@ class RoomLibraryRepository(
         val rows = dao.getRows(textId)
         val notes = dao.getNotesForText(textId).associateBy { it.sentenceId }
         val rowDomains = rows.map { row ->
+            val rowAudioAsset = dao.getDefaultRowAudioAsset(row.rowId)
             row.toDomain(
-                defaultAudioAssetKey = dao.getDefaultRowAudio(row.rowId)?.assetKey,
+                defaultAudioAssetKey = rowAudioAsset?.assetKey,
+                defaultAudioTtsProfile = rowAudioAsset?.toTtsProfileOrNull(),
                 note = notes[row.rowId]?.note,
             )
         }
-        return text.toDomain(rowDomains)
+        val textAudioAsset = dao.getDefaultTextAudioAsset(textId)
+        val fallbackRowAudioProfile = rowDomains.firstNotNullOfOrNull { it.audioTtsProfile }
+        return text.toDomain(
+            rows = rowDomains,
+            defaultTextAudioAssetKey = textAudioAsset?.assetKey,
+            defaultTextAudioProfile = textAudioAsset?.toTtsProfileOrNull() ?: fallbackRowAudioProfile,
+        )
     }
 
     private suspend fun requireRow(textId: String, rowId: String): LibraryRowEntity =
@@ -670,7 +685,11 @@ class RoomLibraryRepository(
             )
         }
 
-    private fun LibraryTextEntity.toDomain(rows: List<LibraryRow>): LibraryText =
+    private fun LibraryTextEntity.toDomain(
+        rows: List<LibraryRow>,
+        defaultTextAudioAssetKey: String? = null,
+        defaultTextAudioProfile: TtsProfile? = null,
+    ): LibraryText =
         LibraryText(
             id = textId,
             textKey = textKey,
@@ -683,7 +702,10 @@ class RoomLibraryRepository(
             sourceMeta = sourceMetaJson?.decodeOrNull(),
             ttsProfile = ttsProfileJson?.decodeOrNull(),
             tableModelMeta = tableModelMetaJson?.decodeOrNull(),
+            tableModelMetaLabel = tableModelMetaJson?.toTableModelMetaLabel(),
             rows = rows,
+            audioAssetKey = defaultTextAudioAssetKey,
+            audioTtsProfile = defaultTextAudioProfile,
             isArchived = isArchived,
             createdAt = createdAt,
             updatedAt = updatedAt,
@@ -691,7 +713,11 @@ class RoomLibraryRepository(
             schemaVersion = schemaVersion,
         )
 
-    private fun LibraryRowEntity.toDomain(defaultAudioAssetKey: String?, note: String? = null): LibraryRow =
+    private fun LibraryRowEntity.toDomain(
+        defaultAudioAssetKey: String?,
+        defaultAudioTtsProfile: TtsProfile? = null,
+        note: String? = null,
+    ): LibraryRow =
         LibraryRow(
             id = rowId,
             textId = textId,
@@ -704,6 +730,7 @@ class RoomLibraryRepository(
             rowHash = rowHash,
             editMeta = decodeEditMeta(editMetaJson),
             audioAssetKey = defaultAudioAssetKey,
+            audioTtsProfile = defaultAudioTtsProfile,
             note = note,
         )
 
@@ -817,6 +844,68 @@ class RoomLibraryRepository(
             }
         }
         return null
+    }
+
+    private fun AudioAssetEntity.toTtsProfileOrNull(): TtsProfile? {
+        val provenance = provenanceJson.parseJsonObjectOrNull()
+        val nested = provenance?.jsonObjectOrNull("ttsProfile")
+            ?: provenance?.jsonObjectOrNull("tts_profile")
+            ?: provenance
+        val provider = providerId.toTtsProviderIdOrNull()
+            ?: nested?.stringOrNull("providerId")?.toTtsProviderIdOrNull()
+            ?: nested?.stringOrNull("provider")?.toTtsProviderIdOrNull()
+            ?: inferTtsProviderFromVoice(voiceName ?: nested?.stringOrNull("voiceName"))
+            ?: return null
+        return TtsProfile(
+            providerId = provider,
+            language = nested?.stringOrNull("language") ?: language,
+            voiceName = nested?.stringOrNull("voiceName") ?: voiceName,
+            speakingRate = nested?.doubleOrNull("speakingRate") ?: 1.0,
+            pitch = nested?.doubleOrNull("pitch") ?: 0.0,
+        )
+    }
+
+    private fun JsonObject.jsonObjectOrNull(name: String): JsonObject? {
+        val element = this[name] ?: return null
+        return when {
+            element is JsonObject -> element
+            element is JsonPrimitive && element.isString -> element.contentOrNull?.parseJsonObjectOrNull()
+            else -> null
+        }
+    }
+
+    private fun JsonObject.doubleOrNull(name: String): Double? =
+        this[name]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+
+    private fun String.toTtsProviderIdOrNull(): TtsProviderId? =
+        TtsProviderId.entries.firstOrNull { it.wireId == this || it.name == this }
+
+    private fun inferTtsProviderFromVoice(voiceName: String?): TtsProviderId? =
+        if (voiceName?.contains("-Standard-", ignoreCase = true) == true ||
+            voiceName?.contains("-Wavenet-", ignoreCase = true) == true ||
+            voiceName?.contains("-Neural2-", ignoreCase = true) == true
+        ) {
+            TtsProviderId.GoogleOnlineTts
+        } else {
+            null
+        }
+
+    private fun String.toTableModelMetaLabel(): String? {
+        val root = parseJsonObjectOrNull() ?: return null
+        val provider = root.stringOrNull("provider")
+            ?: root.stringOrNull("actualProvider")
+            ?: root.stringOrNull("requestedProvider")
+            ?: root.stringOrNull("provider_id")
+        val model = root.stringOrNull("model")
+        val promptId = root.stringOrNull("promptId")
+        val cache = root.stringOrNull("fromCache")
+        val parts = buildList {
+            if (!provider.isNullOrBlank()) add("provider=$provider")
+            if (!model.isNullOrBlank()) add("model=$model")
+            if (!promptId.isNullOrBlank()) add("prompt=$promptId")
+            if (!cache.isNullOrBlank()) add("cache=$cache")
+        }
+        return if (parts.isEmpty()) "Translation metadata: legacy/unknown" else "Translation metadata: ${parts.joinToString(" · ")}"
     }
 
     private fun JsonObject.tagsFromLegacy(): List<String> {
