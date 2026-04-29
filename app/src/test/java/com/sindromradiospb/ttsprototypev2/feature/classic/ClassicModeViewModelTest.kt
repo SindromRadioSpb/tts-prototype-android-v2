@@ -174,6 +174,13 @@ class ClassicModeViewModelTest {
         viewModel.generateTable()
         advanceUntilIdle()
         viewModel.saveCurrent()
+        viewModel.updateSaveMetadataDraft(
+            ClassicSaveMetadataDraft(
+                title = "Saved YouTube title",
+                source = "https://www.youtube.com/watch?v=demo",
+                tagsCsv = "classic-mode",
+            ),
+        )
         viewModel.commitSaveMetadata()
         advanceUntilIdle()
         viewModel.onSourceTextChanged("אחר")
@@ -183,7 +190,9 @@ class ClassicModeViewModelTest {
         val state = viewModel.uiState.value
         assertEquals("שלום עולם", state.sourceText)
         assertEquals("saved-1", state.savedTextId)
-        assertEquals("Library: שלום עולם", state.generationLabel)
+        assertEquals("Saved YouTube title", state.loadedTextTitle)
+        assertEquals("https://www.youtube.com/watch?v=demo", state.loadedTextSourceLabel)
+        assertEquals("Library: Saved YouTube title", state.generationLabel)
         assertTrue(state.message.orEmpty().contains("Progress metadata is not available yet"))
     }
 
@@ -360,7 +369,10 @@ private class FakeLibraryRepository : LibraryRepository {
             id = "saved-1",
             textKey = "fake-key",
             title = input.title,
+            sourceLabel = input.sourceLabel,
+            level = input.level,
             tags = input.tags,
+            topic = input.topic,
             sourceText = input.sourceText,
             sourceMeta = input.sourceMeta,
             ttsProfile = input.ttsProfile,
@@ -403,7 +415,10 @@ private class FakeLibraryRepository : LibraryRepository {
         val current = requireNotNull(lastSavedText?.takeIf { it.id == textId }) { "Library text not found: $textId" }
         val updated = current.copy(
             title = input.title,
+            sourceLabel = input.sourceLabel,
+            level = input.level,
             tags = input.tags,
+            topic = input.topic,
             sourceText = input.sourceText,
             sourceMeta = input.sourceMeta,
             ttsProfile = input.ttsProfile,

@@ -1,8 +1,12 @@
 package com.sindromradiospb.ttsprototypev2.ui
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.ContextWrapper
+import android.net.Uri
+import android.widget.Toast
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -76,9 +80,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sindromradiospb.ttsprototypev2.core.model.TtsProviderId
@@ -818,6 +824,13 @@ private fun ClassicResultCard(
             if (generatedAt != null) StatusPill("Generated: ${formatDate(generatedAt)}")
         }
         Spacer(Modifier.height(10.dp))
+        LibraryLoadedTableMetadataHeader(
+            title = state.loadedTextTitle,
+            sourceLabel = state.loadedTextSourceLabel,
+        )
+        if (state.loadedTextTitle != null || !state.loadedTextSourceLabel.isNullOrBlank()) {
+            Spacer(Modifier.height(10.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
                 Text("Таблица с колонками как в Classic Mode: действие, иврит, огласовки, транслит и перевод.", color = MutedText)
@@ -846,6 +859,40 @@ private fun ClassicResultCard(
                 onOpenRowNote = onOpenRowNote,
                 onSelectRow = onSelectRow,
                 onAdjustColumnWidth = onAdjustTableColumnWidth,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibraryLoadedTableMetadataHeader(
+    title: String?,
+    sourceLabel: String?,
+) {
+    val cleanTitle = title?.trim().orEmpty()
+    val cleanSource = sourceLabel?.trim().orEmpty()
+    if (cleanTitle.isBlank() && cleanSource.isBlank()) return
+
+    Surface(
+        color = Color(0xFFFFFFFF),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, BorderColor),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (cleanTitle.isNotBlank()) {
+                Text(
+                    cleanTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            SourceValueRow(
+                label = "SOURCE:",
+                source = cleanSource,
+                showEmptyValue = false,
             )
         }
     }
@@ -1577,9 +1624,6 @@ private fun LibraryV3Modal(
                                 onEdit = { onStartMetadataEdit(summary.textId) },
                                 onArchive = { onArchiveText(summary.textId, true) },
                                 onDelete = { onRequestDeleteText(summary.textId) },
-                                onCopySource = {
-                                    localNotice = "Copy source action требует ClipboardManager wiring в следующем UI-hardening patch."
-                                },
                             )
                         }
                     }
@@ -1630,6 +1674,60 @@ private fun TagCloud(
     }
 }
 
+@Composable
+private fun SourceValueRow(
+    label: String,
+    source: String,
+    showEmptyValue: Boolean = true,
+) {
+    val cleanSource = source.trim()
+    if (cleanSource.isBlank() && !showEmptyValue) return
+
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+    val clipboardManager = remember(context) {
+        context.getSystemService(ClipboardManager::class.java)
+    }
+    val canOpen = cleanSource.isHttpUrl()
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MutedText)
+        if (cleanSource.isBlank()) {
+            Text("—", style = MaterialTheme.typography.bodySmall, color = MutedText, modifier = Modifier.weight(1f))
+        } else {
+            SelectionContainer(modifier = Modifier.weight(1f)) {
+                Text(
+                    cleanSource,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = if (canOpen) ClassicBlue else Color(0xFF1F2D3A),
+                        textDecoration = if (canOpen) TextDecoration.Underline else TextDecoration.None,
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable(enabled = canOpen) {
+                        runCatching { uriHandler.openUri(cleanSource) }
+                            .onFailure {
+                                Toast.makeText(context, "Не удалось открыть источник.", Toast.LENGTH_SHORT).show()
+                            }
+                    },
+                )
+            }
+            TextButton(
+                onClick = {
+                    clipboardManager?.setPrimaryClip(ClipData.newPlainText("SOURCE", cleanSource))
+                    Toast.makeText(context, "Источник скопирован.", Toast.LENGTH_SHORT).show()
+                },
+            ) {
+                Text("⧉")
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LibraryV3TextCard(
@@ -1641,7 +1739,6 @@ private fun LibraryV3TextCard(
     onEdit: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
-    onCopySource: () -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = if (summary.isArchived) Color(0xFFF5F5F5) else SoftPanelBackground),
@@ -1662,19 +1759,7 @@ private fun LibraryV3TextCard(
                         summary.topic?.let { TopicBadge(it) }
                     }
                     Text("Прогресс: строка № —", style = MaterialTheme.typography.bodySmall, color = MutedText)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Источник: ", style = MaterialTheme.typography.bodySmall, color = MutedText)
-                        Text(
-                            summary.sourceLabel ?: "—",
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = onCopySource, enabled = !summary.sourceLabel.isNullOrBlank()) {
-                            Text("⧉")
-                        }
-                    }
+                    SourceValueRow(label = "Источник:", source = summary.sourceLabel.orEmpty())
                     Text(
                         "Последнее открытие: ${formatDate(summary.lastOpenedAt)} · Создан: ${formatDate(summary.createdAt)}",
                         style = MaterialTheme.typography.bodySmall,
@@ -2203,6 +2288,12 @@ private fun formatDate(value: String?): String =
         ?.removeSuffix("Z")
         ?.substringBefore(".")
         ?: "—"
+
+private fun String.isHttpUrl(): Boolean =
+    runCatching {
+        val uri = Uri.parse(trim())
+        (uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrBlank()
+    }.getOrDefault(false)
 
 private fun libraryLoadedTimestamp(summaries: List<LibraryTextSummary>): String =
     summaries

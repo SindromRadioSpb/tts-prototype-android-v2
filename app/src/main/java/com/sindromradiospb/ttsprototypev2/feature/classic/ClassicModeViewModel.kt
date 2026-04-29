@@ -148,6 +148,8 @@ data class ClassicModeUiState(
     val tableDisplay: ClassicTableDisplayState = ClassicTableDisplayState(),
     val disclosure: ClassicDisclosureState = ClassicDisclosureState(),
     val savedTextId: String? = null,
+    val loadedTextTitle: String? = null,
+    val loadedTextSourceLabel: String? = null,
     val saveMetadataDraft: ClassicSaveMetadataDraft? = null,
     val noteEditor: ClassicNoteEditorState? = null,
     val generatedAt: String? = null,
@@ -180,6 +182,8 @@ class ClassicModeViewModel(
             it.copy(
                 sourceText = value,
                 savedTextId = null,
+                loadedTextTitle = null,
+                loadedTextSourceLabel = null,
                 message = null,
             )
         }
@@ -196,6 +200,8 @@ class ClassicModeViewModel(
             it.copy(
                 translationProvider = providerId,
                 savedTextId = null,
+                loadedTextTitle = null,
+                loadedTextSourceLabel = null,
                 saveMetadataDraft = null,
                 message = if (shouldRegenerate) "Переводчик изменён. Пересобираю таблицу..." else null,
             )
@@ -214,25 +220,27 @@ class ClassicModeViewModel(
                 speakingRate = if (isSystemFallback) 1.0 else it.speakingRate,
                 pitch = if (isSystemFallback) 0.0 else it.pitch,
                 savedTextId = null,
+                loadedTextTitle = null,
+                loadedTextSourceLabel = null,
                 message = null,
             )
         }
     }
 
     fun onSourceLanguageChanged(language: ClassicSourceLanguage) {
-        _uiState.update { it.copy(sourceLanguage = language, savedTextId = null, message = null) }
+        _uiState.update { it.copy(sourceLanguage = language, savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, message = null) }
     }
 
     fun onTtsVoiceNameChanged(voiceName: String?) {
-        _uiState.update { it.copy(ttsVoiceName = voiceName?.takeIf { value -> value.isNotBlank() }, savedTextId = null, message = null) }
+        _uiState.update { it.copy(ttsVoiceName = voiceName?.takeIf { value -> value.isNotBlank() }, savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, message = null) }
     }
 
     fun onSpeakingRateChanged(value: Double) {
-        _uiState.update { it.copy(speakingRate = value.coerceIn(0.5, 2.0), savedTextId = null, message = null) }
+        _uiState.update { it.copy(speakingRate = value.coerceIn(0.5, 2.0), savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, message = null) }
     }
 
     fun onPitchChanged(value: Double) {
-        _uiState.update { it.copy(pitch = value.coerceIn(-5.0, 5.0), savedTextId = null, message = null) }
+        _uiState.update { it.copy(pitch = value.coerceIn(-5.0, 5.0), savedTextId = null, loadedTextTitle = null, loadedTextSourceLabel = null, message = null) }
     }
 
     fun onTranslitProfileChanged(profile: ClassicTranslitProfile) {
@@ -339,6 +347,8 @@ class ClassicModeViewModel(
                             rows = rows,
                             isGenerating = false,
                             savedTextId = null,
+                            loadedTextTitle = null,
+                            loadedTextSourceLabel = null,
                             playingRowIndex = null,
                             tableDisplay = it.tableDisplay.copy(
                                 selectedRowIndex = null,
@@ -441,6 +451,8 @@ class ClassicModeViewModel(
                                 )
                             },
                             savedTextId = saved.id,
+                            loadedTextTitle = saved.title,
+                            loadedTextSourceLabel = saved.sourceLabel,
                             saveMetadataDraft = null,
                             message = "Карточка текста сохранена в Library.",
                         )
@@ -451,6 +463,8 @@ class ClassicModeViewModel(
                         it.copy(
                             isSaving = false,
                             savedTextId = result.existingTextId,
+                            loadedTextTitle = null,
+                            loadedTextSourceLabel = null,
                             saveMetadataDraft = null,
                             message = "Такая карточка уже есть в локальной библиотеке.",
                         )
@@ -495,6 +509,8 @@ class ClassicModeViewModel(
                             },
                             isGenerating = false,
                             savedTextId = text.id,
+                            loadedTextTitle = text.title,
+                            loadedTextSourceLabel = text.sourceLabel,
                             generatedAt = text.tableModelMeta?.generatedAt ?: text.updatedAt,
                             generationLabel = "Library: ${text.title}",
                             provenance = null,

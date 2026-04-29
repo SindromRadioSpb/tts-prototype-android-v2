@@ -787,6 +787,13 @@ P031 requirements status:
 - Both places must read from the same text-card metadata field and keep behavior consistent for valid URLs, non-URL source text, and empty source values.
 - Manual evidence must cover a loaded Library text with a valid URL, a long URL, and an empty source.
 
+P032 implementation status:
+
+- Classic state now carries loaded Library card `TITLE` and `SOURCE` metadata after open/save.
+- The Classic `Результат` card shows that metadata above the table for Library-backed tables.
+- Library cards and the Classic table header share source rendering behavior: valid `http`/`https` values are clickable and copyable; non-URL values are copyable only; empty values are shown as empty or omitted depending on context.
+- Manual emulator evidence is still required to confirm YouTube links route to the YouTube app when installed, or to the browser/default handler otherwise.
+
 ## UI DoD Evidence Checklist
 
 Future implementation patches must collect evidence for:

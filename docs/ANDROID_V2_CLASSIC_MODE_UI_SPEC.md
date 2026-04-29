@@ -226,6 +226,14 @@ P031 requirements:
 - In both locations, valid `http`/`https` values are clickable and copyable; non-URL values are copyable but not opened through implicit intents; empty values are hidden or clearly marked empty.
 - Manual UI evidence must cover valid URL, long URL, non-URL source text, and empty source cases.
 
+P032 behavior:
+
+- Classic ViewModel keeps `loadedTextTitle` and `loadedTextSourceLabel` after opening or saving a Library card.
+- `Результат` renders the loaded card `TITLE` above the generated table and `SOURCE` under it.
+- Library cards and Classic result use the shared source row component: valid `http`/`https` source values are underlined and open via Android URI handling, while all non-empty values can be copied to clipboard.
+- Non-URL source values are not opened through implicit intents.
+- Manual evidence for YouTube deep-link routing to YouTube/browser remains pending because it depends on emulator/device app associations.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.
