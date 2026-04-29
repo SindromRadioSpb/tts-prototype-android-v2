@@ -171,6 +171,13 @@ M5 writes row audio through existing audio tables. P014 moves Room to schema ver
 
 Text-level audio remains planned and uses the existing `text_audio` table later.
 
+P035 imported provenance requirement:
+
+- Android must preserve imported web ZIP audio provenance even when it does not exactly match strict Android `TtsProfile`.
+- Repository/domain models must expose default row audio metadata, not only `audioAssetKey`, so Classic UI can show provider, voice, language, rate, pitch, imported/local status, and missing/stale state.
+- Legacy table metadata must have a tolerant representation. Missing `provider` in source-prototype `table_model_meta` must not be decoded as the current Android provider.
+- No schema migration is required until proven otherwise: current `audio_assets.provenance_json`, `audio_assets.provider_id`, `voice_name`, `language`, `table_model_meta_json`, `row_audio.is_stale`, and `stale_reason` can carry the required data if repository/domain mapping is expanded.
+
 ## Transaction Boundaries
 
 - Save new generated text: insert `library_texts` and all `library_rows` in one transaction.

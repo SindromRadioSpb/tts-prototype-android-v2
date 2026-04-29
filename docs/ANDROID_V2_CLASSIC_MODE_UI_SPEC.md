@@ -249,6 +249,18 @@ P034 behavior:
 - Generated rows move into a separate collapsible `Таблица` block.
 - `Таблица` owns the loaded card `TITLE`, clickable/copyable `SOURCE`, `🧩 Таблица: отображение и сценарии`, column controls, auto-next control, and the generated table itself.
 
+P035 requirements:
+
+- Library-loaded `Таблица` must show saved translation provenance separately from active provider settings.
+- Library-loaded `Таблица` must show saved/imported TTS cache provenance separately from active TTS settings.
+- If a ZIP bundle includes row audio, row play uses bundled local audio by default and labels it as imported/local cache.
+- If active voice/rate/pitch/provider differs from the imported audio profile, Android shows a clear mismatch notice and does not silently re-synthesize.
+- User choices must be explicit:
+  - `Слушать импортированное аудио`;
+  - `Применить профиль карточки` when the profile is complete and supported;
+  - `Пересинтезировать с текущими настройками`.
+- Unknown or legacy provider metadata must be displayed as unknown/legacy, not replaced with current app settings.
+
 ## Accessibility and Insets
 
 - Touch targets at least 48dp.

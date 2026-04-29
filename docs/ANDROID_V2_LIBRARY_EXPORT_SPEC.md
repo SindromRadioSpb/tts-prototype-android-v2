@@ -215,6 +215,65 @@ Current limits:
 - import result is surfaced as a summary message; detailed per-row import report UI remains future work;
 - manual SAF import smoke with a real ZIP bundle is still required.
 
+## P035 Imported Audio/Profile Provenance Requirements
+
+Reference source bundle: `C:\Users\lletp\Downloads\library-bundle-top100maco-150verb-150pril.zip`.
+
+Observed source-prototype bundle facts:
+
+- ZIP layout is the flat web-compatible shape: `manifest.json`, `library/library.json`, `metadata/missing_audio.json`, and `audio/{sha256}.mp3`.
+- `library/library.json.audio_assets[]` carries `voice_name`, `language`, `duration_ms`, `size_bytes`, `content_hash`, and `provenance.ttsProfile`.
+- The observed bundle has one TTS profile across audio assets: `language=he-IL`, `voiceName=he-IL-Standard-A`, `speakingRate=0.9`, `pitch=2.5`.
+- Some source-prototype `audio_assets[].provider_id` values may be `unknown`; Android must recover a user-facing profile from `provenance.ttsProfile` when possible instead of showing no profile.
+- Some `texts[].table_model_meta` objects are missing Android-required `provider`; some contain legacy fields such as `promptId`, `model`, `cacheKey`, `fromCache`, and `generatedAt`.
+- Some texts may have `table_model_meta=null`. Android must display this as unknown/legacy translation provenance, not as the currently selected translation provider.
+
+Required Android behavior:
+
+1. ZIP import must preserve audio provenance deeply enough to answer:
+   - whether bundled row audio exists locally;
+   - which TTS voice/profile produced it when the bundle exposes that data;
+   - whether the active Classic TTS settings match or differ from the imported audio profile.
+2. ZIP import must preserve table generation provenance deeply enough to answer:
+   - requested/actual translation provider when present;
+   - model/prompt/cache metadata when provider is absent;
+   - explicit `Unknown / legacy bundle` state when provider cannot be recovered.
+3. Opening a Library text must not silently overwrite imported provenance with current app settings.
+4. Row playback must prefer bundled linked audio when it exists and is valid. It must not re-synthesize only because current settings differ.
+5. If the user intentionally wants current settings, the UI must expose an explicit action such as `Пересинтезировать с текущими настройками`.
+6. If the user wants to align the screen with the imported bundle, the UI should expose `Применить профиль карточки` when a complete compatible TTS profile is available.
+7. Export after import must preserve linked audio files and provenance so a web -> Android -> web or Android round-trip does not erase the user's locally owned TTS cache.
+
+Premium UI requirements:
+
+- Library import result should report texts, rows, audio files imported, row audio linked, text audio linked, missing audio, and metadata warnings.
+- Library card should show compact badges:
+  - `Аудио: локально` / `Аудио: частично` / `Аудио: нет`;
+  - `TTS: Online TTS · he-IL-Standard-A · 0.90x · pitch +2.5` when recoverable;
+  - `Перевод: Google Translate`, `Gemini`, or `Перевод: неизвестно (legacy)` depending on real metadata.
+- Classic `Таблица` header for a Library-loaded text should show:
+  - saved `TITLE`;
+  - clickable/copyable `SOURCE`;
+  - `Перевод карточки`;
+  - `Озвучка карточки`;
+  - cache coverage, for example `2440/2440 строк озвучены локально`.
+- Classic voice settings should distinguish two concepts:
+  - `Текущие настройки озвучки` for future synthesis;
+  - `Озвучка карточки` for already imported cached audio.
+- If these differ, show a non-destructive notice: `Импортированная озвучка отличается от текущих настроек. Воспроизведение использует локальное аудио, пересинтезировать можно вручную.`
+
+Implementation requirements:
+
+- Add a tolerant legacy table-provenance domain model instead of decoding only strict `TableModelMeta`.
+- Add a tolerant audio-profile parser that reads Android `TtsProfile`, web `provenance.ttsProfile`, and legacy `audio_tts_profile_json`.
+- Expose default row audio metadata through repository/domain rows, not only `audioAssetKey`.
+- Add an import fixture test using a web-compatible ZIP containing `audio_assets[].provenance.ttsProfile`.
+- Add ViewModel tests for:
+  - opening imported text shows recovered card TTS profile;
+  - active settings mismatch does not block linked cache playback;
+  - missing provider in legacy `table_model_meta` renders as unknown/legacy instead of current provider.
+- Add manual evidence with `library-bundle-top100maco-150verb-150pril.zip`.
+
 ## Android Storage Behavior
 
 - Use Android Storage Access Framework for user-selected destination.
